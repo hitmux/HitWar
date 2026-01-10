@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.idea/
+.claude/
+CLAUDE.md
+Plan.md
+.serena/
+.cursor/
+toWebFile.sh
+.cursorignore
+doc/

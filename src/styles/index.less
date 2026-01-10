@@ -1,0 +1,1360 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Loading Screen Styles */
+#loadingScreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  transition: opacity 0.5s ease-out;
+
+  &.fadeOut {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.loadingContent {
+  text-align: center;
+  color: #f1f3f4;
+  max-width: 600px;
+  padding: 40px;
+}
+
+.loadingTitle {
+  font-size: 72px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  background: linear-gradient(45deg, #4a9eff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 4px 10px rgba(74, 158, 255, 0.3);
+  font-family: myFont, "Times New Roman", serif;
+  animation: titlePulse 2s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.loadingSubtitle {
+  font-size: 24px;
+  color: #aaa;
+  margin-bottom: 15px;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+
+.loadingLink {
+  display: inline-block;
+  color: #4a9eff;
+  text-decoration: none;
+  font-size: 18px;
+  margin-bottom: 40px;
+  padding: 8px 16px;
+  border: 2px solid #4a9eff;
+  border-radius: 5px;
+  transition: all 0.3s;
+
+  &:hover {
+    background-color: #4a9eff;
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(74, 158, 255, 0.5);
+  }
+}
+
+.progressBarContainer {
+  width: 100%;
+  height: 30px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.progressBar {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9eff, #00d4ff);
+  width: 0%;
+  transition: width 0.3s ease;
+  border-radius: 15px;
+  box-shadow: 0 0 10px rgba(74, 158, 255, 0.7);
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.loadingText {
+  font-size: 16px;
+  color: #999;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+
+@font-face {
+  font-family: myFont;
+  src: url("/fonts/庞门正道标题体.ttf");
+}
+
+body {
+  overflow: hidden;
+
+  .gameApp {
+    width: 100%;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    //outline: solid 1px;
+    position: absolute;
+
+    .fonts() {
+      font-family: myFont, "Times New Roman", serif;
+      //font-family: "Times New Roman", serif;
+    }
+
+
+    .header() {
+      // 界面标题样式
+      width: 100%;
+      top: 15%;
+      position: absolute;
+      text-align: center;
+      font-weight: lighter;
+      .fonts();
+      text-shadow: white 0 0 10px;
+    }
+
+    .interface {
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      left: 0;
+      top: 0;
+      //background-color: skyblue;
+      background-image: url("/imgs/background (3).jpg");
+      background-size: cover;
+
+      h1 {
+        .header();
+        font-size: 60px;
+      }
+
+      h2 {
+        .header();
+        top: 25%;
+        font-size: 40px;
+      }
+
+      .leftTopArea {
+        //outline: solid 1px;
+        width: 100px;
+        height: 100px;
+        padding: 30px;
+
+        button {
+          .interfaceBtn();
+          margin: 0;
+        }
+      }
+
+      .btnList {
+        width: 300px;
+        position: absolute;
+        left: 50%;
+        top: 40%;
+        //outline: solid 1px;
+        transform: translateX(-150px);
+
+        button {
+          .interfaceBtn();
+          font-size: 30px;
+          padding: 25px 50px 25px 50px;
+          .fonts();
+        }
+      }
+    }
+
+    // 模式选择界面
+    .modeChoice-interface {
+      //border: solid 1px red;
+      //height: auto;
+      overflow-y: scroll;
+
+      .note {
+        background-color: black;
+        color: orangered;
+      }
+
+      h1, h2 {
+        //top: 20px;
+        position: static;
+        margin-top: 60px;
+      }
+
+      .leftTopArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        //background-color: pink;
+      }
+
+      .btnList {
+        position: absolute;
+        //display: block;
+        outline: solid 1px white;
+        left: 50%;
+        top: 30%;
+        @W: 800px;
+        width: @W;
+        height: 520px;
+
+        overflow-y: scroll;
+        transform: translateX(-(@W/2));
+        text-align: center;
+        padding-top: 50px;
+
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+
+        .btnArea {
+          outline: solid 1px white;
+
+
+          button {
+            margin: 15px auto;
+            font-size: 20px;
+            width: 250px;
+            padding: 10px;
+          }
+
+          p {
+            margin: 10px;
+            //outline: solid 1px;
+            text-align: center;
+          }
+        }
+
+        .importSaveBtn {
+          .interfaceBtn();
+          margin: 15px auto;
+          font-size: 20px;
+          width: 250px;
+          padding: 10px;
+        }
+      }
+    }
+
+    .war-interface {
+      background-image: url("/imgs/background (2).jpg");
+
+      .rightTopArea {
+        width: 100px;
+        //height: 100px;
+        position: absolute;
+        //outline: solid 1px;
+
+        right: 12%;
+        top: 0;
+
+        .backPage, .pause, .exportSaveBtn {
+          .interfaceBtn();
+          width: 100px;
+        }
+      }
+    }
+
+    .help-interface {
+      overflow-y: scroll;
+
+      .leftTopArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+      }
+
+      .content {
+
+        width: 80%;
+        margin: 0 auto;
+        padding-top: 50px;
+        padding-bottom: 100px;
+        text-align: center;
+        background-color: rgba(255, 255, 255, 0.5);
+
+        h2.helpTitle {
+          text-align: center;
+          position: static;
+          line-height: 2em;
+        }
+      }
+    }
+
+    .main-interface {
+      .btnList {
+        width: 600px;
+        //outline: solid 1px;
+        position: absolute;
+        left: 50%;
+        top: 40%;
+        transform: translateX(-300px);
+      }
+
+      .version-info {
+        position: absolute;
+        left: 50%;
+        top: 33%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 18px;
+        .fonts();
+      }
+
+      .openSourceInfo {
+        position: absolute;
+        left: 50%;
+        bottom: 30px;
+        transform: translateX(-50%);
+        color: #e20303;
+        font-size: 25px;
+        text-align: center;
+        border: 2px solid rgb(7, 31, 245);
+        padding: 10px 20px;
+        border-radius: 5px;
+        .fonts();
+        
+        a {
+          color: #4a9eff;
+          text-decoration: underline;
+          transition: all 0.2s;
+          
+          &:hover {
+            color: #00d4ff;
+            text-shadow: 0 0 8px rgba(74, 158, 255, 0.6);
+          }
+        }
+      }
+    }
+
+    .cannon-interface, .monsters-interface {
+      overflow-y: scroll;
+
+      h1, h2 {
+        position: static;
+      }
+
+      .content {
+        width: 90%;
+        margin: 0 auto;
+        //background-color: gray;
+        overflow: hidden;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+
+        .tower, .monster {
+          //outline: solid 1px;
+          float: left;
+          width: 200px;
+          //height: 300px;
+          height: 400px;
+          padding: 10px;
+          margin: 5px;
+          background-color: rgba(255, 255, 255, 0.5);
+          //border-radius: 30px;
+          transition: all 0.2s;
+
+          &:hover {
+            background-color: rgba(255, 255, 255, 0.8);
+          }
+
+          h3 {
+            text-align: center;
+            line-height: 2em;
+            .fonts();
+            font-weight: lighter;
+          }
+
+          .tower-shape, .monster-shape {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto;
+            border-radius: 50%;
+            outline: solid 1px red;
+          }
+
+          p {
+            font-size: 10px;
+          }
+        }
+      }
+
+      .leftTopArea {
+        position: absolute;
+        right: 10%;
+        top: 0;
+
+        .backPage {
+          width: 100px;
+        }
+      }
+    }
+
+    #mainCanvas {
+      left: 0;
+      top: 0;
+      outline: solid 1px;
+    }
+
+    .interfaceBtn() {
+      background-color: #1e1e1e;
+      color: rgb(241, 243, 244);
+      width: 400px;
+      display: block;
+      margin: 30px auto;
+      padding: 10px;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+      border-radius: 100px;
+
+      &:hover {
+        transform: scale(1.1);
+      }
+    }
+  }
+
+
+  .choiceBtn {
+    width: 200px;
+    height: 100vh;
+    position: absolute;
+    //float: left;
+    right: 0;
+    top: 0;
+    //outline: solid 1px;
+    overflow-y: scroll;
+    //background-color: pink;
+
+    .Battery {
+      color: rgb(156, 220, 254);
+    }
+
+    .Building {
+      color: gold;
+    }
+
+    button {
+      width: 100px;
+      display: block;
+      margin: 5px auto;
+      padding: 3px;
+      font-size: 14px;
+      background-color: rgb(30, 30, 30);
+      text-shadow: rgb(136, 132, 75);
+      transition: all 0.2s;
+
+      &:disabled {
+        opacity: 0.5;
+      }
+
+      &:hover {
+        color: white;
+        transform: scale(1.1);
+      }
+
+      &:active {
+        transform: scale(0.9);
+      }
+    }
+  }
+}
+
+// 小升级窗口
+#smallLevelUpPanel {
+  position: absolute;
+  width: 400px;
+  height: 150px;
+  right: 20%;
+  bottom: 5%;
+  padding: 5px;
+  //outline: solid 1px;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.5);
+
+  .btnItem() {
+    float: left;
+    width: 60px;
+    //height: 60px;
+    margin: 2px;
+    //outline: solid 1px;
+    transition: all 0.2s;
+    cursor: pointer;
+    user-select: none;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 5px;
+    font-size: 12px;
+    padding: 3px;
+
+    &:hover {
+      transform: scale(1.1);
+    }
+  }
+
+  .levelUpItems {
+
+    .levelUpItem {
+      .btnItem();
+
+      .name {
+        height: 35px;
+        font-size: 10px;
+      }
+
+      .icon {
+        margin: 0 auto;
+      }
+
+      .price {
+        text-align: center;
+        font-size: 12px;
+        font-weight: bold;
+      }
+    }
+  }
+
+  .otherItems {
+    .item {
+      .btnItem()
+    }
+
+    .levelDown, .sell {
+      .icon {
+        width: 50px;
+        height: 50px;
+        margin: 0 auto;
+        background-image: url("/icon/down.png");
+        background-size: 50px 50px;
+      }
+
+      .inner-text {
+        text-align: center;
+        font-weight: bolder;
+      }
+    }
+
+    .sell {
+      .icon {
+        background-image: url("/icon/sell.png");
+      }
+    }
+
+  }
+
+
+}
+
+button {
+  color: white;
+}
+
+// ==================== 游戏控制面板样式 ====================
+#speedControlPanel {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  min-width: 280px;
+  min-height: 100px;
+  max-width: 90vw;
+  max-height: 90vh;
+  background-color: rgba(30, 30, 30, 0.6);
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  user-select: none;
+  overflow: auto;
+  resize: both;
+
+  &:hover {
+    background-color: rgba(30, 30, 30, 0.75);
+  }
+
+  &.dragging {
+    opacity: 0.85;
+    cursor: grabbing;
+  }
+
+  .dragHandle {
+    color: #f1f3f4;
+    font-size: 13px;
+    text-align: center;
+    padding: 4px 8px;
+    margin-bottom: 6px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  .speedButtons {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+  }
+
+  .speedBtn {
+    background-color: rgba(42, 42, 42, 0.8);
+    color: #f1f3f4;
+    border: 2px solid rgba(68, 68, 68, 0.6);
+    padding: 5px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: all 0.2s;
+    width: 38px;
+
+    &:hover {
+      background-color: rgba(58, 58, 58, 0.9);
+      transform: scale(1.08);
+      border-color: rgba(100, 100, 100, 0.8);
+    }
+
+    &.active {
+      background-color: rgba(74, 158, 255, 0.9);
+      border-color: rgba(32, 128, 255, 0.8);
+      font-weight: bold;
+      box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
+    }
+  }
+
+  .panelSection {
+    margin: 8px 0;
+    padding: 6px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+
+    &:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
+  }
+
+  .sectionTitle {
+    color: #aaa;
+    font-size: 11px;
+    text-align: center;
+    margin-bottom: 4px;
+    font-weight: bold;
+  }
+
+  // 视图控制按钮
+  .viewButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .zoomButtons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    #zoomLevel {
+      color: #f1f3f4;
+      font-size: 12px;
+      min-width: 45px;
+      text-align: center;
+    }
+  }
+
+  .zoomBtn {
+    background-color: rgba(42, 42, 42, 0.8);
+    color: #f1f3f4;
+    border: 2px solid rgba(68, 68, 68, 0.6);
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: rgba(58, 58, 58, 0.9);
+      transform: scale(1.08);
+      border-color: rgba(100, 100, 100, 0.8);
+    }
+  }
+
+  .homeBtn {
+    background-color: rgba(42, 42, 42, 0.8);
+    color: #f1f3f4;
+    border: 2px solid rgba(68, 68, 68, 0.6);
+    padding: 5px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 11px;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: rgba(58, 58, 58, 0.9);
+      transform: scale(1.05);
+      border-color: rgba(100, 100, 100, 0.8);
+    }
+  }
+}
+
+// 切换作弊按钮
+.toggleCheatBtn {
+  width: 100%;
+  background-color: rgba(255, 100, 0, 0.7);
+  color: #fff;
+  border: 2px solid rgba(255, 100, 0, 0.9);
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: rgba(255, 100, 0, 0.9);
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(255, 100, 0, 0.6);
+  }
+
+  &.active {
+    background-color: rgba(255, 0, 0, 0.8);
+    border-color: rgba(255, 0, 0, 1);
+  }
+}
+
+// 作弊按钮
+.cheatButtons {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+
+  &.multiline {
+    max-width: 200px;
+    margin: 0 auto;
+  }
+}
+
+.cheatBtn {
+  background-color: rgba(42, 42, 42, 0.8);
+  color: #f1f3f4;
+  border: 2px solid rgba(68, 68, 68, 0.6);
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 11px;
+  transition: all 0.2s;
+  min-width: 40px;
+
+  &:hover {
+    background-color: rgba(58, 58, 58, 0.9);
+    transform: scale(1.05);
+    border-color: rgba(100, 100, 100, 0.8);
+  }
+
+  &.active {
+    background-color: rgba(255, 165, 0, 0.8);
+    border-color: rgba(255, 140, 0, 0.9);
+    font-weight: bold;
+  }
+}
+
+// 开关选项
+.toggleOption {
+  text-align: center;
+  padding: 4px;
+
+  label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #f1f3f4;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+}
+
+// 自定义对话框样式
+.customDialog,
+.confirmDialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(3px);
+
+  .dialogContent {
+    background-color: rgba(30, 30, 30, 0.95);
+    padding: 24px;
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    min-width: 320px;
+    text-align: center;
+  }
+
+  h3 {
+    color: #f1f3f4;
+    margin-bottom: 16px;
+    font-size: 20px;
+  }
+}
+
+.confirmDialog {
+  p {
+    color: #ddd;
+    margin-bottom: 12px;
+    font-size: 16px;
+
+    &.warning {
+      color: #ff6b6b;
+      font-weight: bold;
+      font-size: 14px;
+    }
+  }
+}
+
+.customDialog {
+  input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 16px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    color: #f1f3f4;
+    font-size: 16px;
+    text-align: center;
+
+    &:focus {
+      outline: none;
+      border-color: #4a9eff;
+    }
+  }
+}
+
+.dialogButtons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.dialogBtn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: #4a9eff;
+  color: white;
+
+  &:hover {
+    background-color: #3080df;
+    transform: scale(1.05);
+  }
+
+  &.cancel {
+    background-color: #666;
+
+    &:hover {
+      background-color: #555;
+    }
+  }
+}
+
+// 作弊模式指示器
+#cheatModeIndicator {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  background-color: red;
+  color: black;
+  padding: 8px 16px;
+  font-size: 16px;
+  font-weight: bold;
+  z-index: 9998;
+  border-top-right-radius: 8px;
+  box-shadow: 0 -2px 10px rgba(255, 0, 0, 0.5);
+  animation: cheatPulse 2s ease-in-out infinite;
+}
+
+@keyframes cheatPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+// 加速指示器（长按空格时显示）
+.speedBoostIndicator {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.9), rgba(0, 100, 200, 0.9));
+  padding: 12px 24px;
+  border-radius: 30px;
+  z-index: 9999;
+  box-shadow: 0 4px 20px rgba(0, 150, 255, 0.5);
+  animation: speedBoostAppear 0.2s ease-out;
+
+  .speedBoostContent {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+  }
+
+  .speedBoostIcon {
+    font-size: 20px;
+    animation: speedBoostIconPulse 0.5s ease-in-out infinite;
+  }
+
+  .speedBoostText {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .speedBoostBar {
+    margin-top: 8px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .speedBoostProgress {
+    height: 100%;
+    background: white;
+    border-radius: 2px;
+    animation: speedBoostProgressAnim 1s linear infinite;
+  }
+}
+
+@keyframes speedBoostAppear {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes speedBoostIconPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+@keyframes speedBoostProgressAnim {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+// ==================== 公告系统样式 ====================
+// 主界面右上角公告按钮
+.main-interface {
+  .rightTopArea {
+    position: absolute;
+    right: 30px;
+    top: 30px;
+
+    .noteBtn {
+      position: relative;
+      background-color: #1e1e1e;
+      color: #f1f3f4;
+      border: none;
+      border-radius: 100px;
+      padding: 10px 25px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        transform: scale(1.1);
+        box-shadow: 0 0 15px rgba(74, 158, 255, 0.5);
+      }
+
+      .noteBtnBadge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background-color: #ff4444;
+        color: white;
+        font-size: 12px;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+      }
+    }
+  }
+}
+
+// 公告面板
+.notePanel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  z-index: 10000;
+  backdrop-filter: blur(3px);
+
+  .notePanelContent {
+    position: relative;
+    background-color: rgba(30, 30, 30, 0.95);
+    width: 50vw;
+    height: 100vh;
+    border-radius: 0;
+    border: none;
+    border-left: 2px solid rgba(255, 255, 255, 0.3);
+    border-right: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 32px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    // 屏幕过窄时占满宽度
+    @media (max-width: 800px) {
+      width: 100vw;
+      border: none;
+    }
+  }
+
+  .noteCloseBtn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 1;
+    transition: all 0.2s;
+
+    &:hover {
+      color: #fff;
+      transform: scale(1.2);
+    }
+  }
+
+  .notePanelTitle {
+    color: #f1f3f4;
+    text-align: center;
+    padding: 20px;
+    margin: 0;
+    font-size: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  // 公告列表视图
+  .noteListView {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .noteListContainer {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 20px;
+  }
+
+  .noteListItem {
+    padding: 15px;
+    margin: 8px 0;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.15);
+      transform: translateX(5px);
+    }
+
+    &.unread {
+      border-left: 3px solid #ff4444;
+    }
+
+    .noteTitle {
+      color: #f1f3f4;
+      font-size: 16px;
+    }
+
+    .unreadBadge {
+      color: #ff4444;
+      font-size: 14px;
+      font-weight: bold;
+    }
+  }
+
+  .noteListBtns,
+  .noteContentBtns {
+    display: flex;
+    gap: 10px;
+    margin: 15px 20px;
+    justify-content: center;
+  }
+
+  .noteIgnoreAllBtn,
+  .noteUnreadAllBtn {
+    flex: 1;
+    padding: 12px 24px;
+    background-color: #666;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: #555;
+      transform: scale(1.02);
+    }
+  }
+
+  .noteUnreadAllBtn {
+    background-color: #555;
+
+    &:hover {
+      background-color: #444;
+    }
+  }
+
+  // 公告内容视图
+  .noteContentView {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .noteBackBtn {
+    align-self: flex-start;
+    margin: 15px 20px 0;
+    padding: 8px 16px;
+    background-color: transparent;
+    color: #4a9eff;
+    border: 1px solid #4a9eff;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: rgba(74, 158, 255, 0.1);
+    }
+  }
+
+  .noteContentTitle {
+    color: #f1f3f4;
+    text-align: center;
+    padding: 15px 20px;
+    margin: 0;
+    font-size: 22px;
+  }
+
+  .noteContentBody {
+    flex: 1;
+    min-height: 0;
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
+    padding: 0 25px 20px;
+    color: #ddd;
+    line-height: 1.8;
+
+    h1, h2, h3 {
+      color: #f1f3f4;
+      margin: 15px 0 10px;
+    }
+
+    h1 { font-size: 20px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 16px; }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul {
+      padding-left: 20px;
+      margin: 10px 0;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    code {
+      background-color: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+
+    strong {
+      color: #fff;
+    }
+
+    a {
+      color: #4a9eff;
+      text-decoration: none;
+      transition: color 0.2s;
+
+      &:hover {
+        color: #6bb3ff;
+        text-decoration: underline;
+      }
+    }
+  }
+
+  // Navigation buttons for prev/next
+  .noteNavBtns {
+    display: flex;
+    gap: 10px;
+    margin: 15px 20px 0;
+    justify-content: space-between;
+  }
+
+  .noteNavBtn {
+    flex: 1;
+    padding: 10px 20px;
+    background-color: #444;
+    color: #ddd;
+    border: 1px solid #555;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover:not(:disabled) {
+      background-color: #555;
+      border-color: #666;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  .noteReadBtn,
+  .noteUnreadBtn {
+    flex: 1;
+    padding: 12px 24px;
+    background-color: #4a9eff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: #3080df;
+      transform: scale(1.02);
+    }
+  }
+
+  .noteUnreadBtn {
+    background-color: #666;
+    font-weight: normal;
+
+    &:hover {
+      background-color: #555;
+    }
+  }
+}

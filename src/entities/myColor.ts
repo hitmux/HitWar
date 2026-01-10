@@ -1,0 +1,146 @@
+/**
+ * Color utility class
+ * by littlefean
+ */
+export class MyColor {
+    r: number;
+    g: number;
+    b: number;
+    a: number;
+    private _rgbCache: string | null;
+    private _rgbaCache: string | null;
+
+    constructor(r: number, g: number, b: number, a: number) {
+        this.r = this.limit0_255(r);
+        this.g = this.limit0_255(g);
+        this.b = this.limit0_255(b);
+        this.a = this.limit0_1(a);
+        this._rgbCache = null;
+        this._rgbaCache = null;
+    }
+
+    toStringRGBA(): string {
+        if (!this._rgbaCache) {
+            this._rgbaCache = `rgba(${this.r}, ${this.g}, ${this.b}, ${this.a})`;
+        }
+        return this._rgbaCache;
+    }
+
+    setRGB(r: number, g: number, b: number): void {
+        const newR = this.limit0_255(r);
+        const newG = this.limit0_255(g);
+        const newB = this.limit0_255(b);
+        
+        // 仅在值真正改变时清空缓存
+        if (this.r !== newR || this.g !== newG || this.b !== newB) {
+            this.r = newR;
+            this.g = newG;
+            this.b = newB;
+            this._rgbCache = null;
+            this._rgbaCache = null;
+        }
+    }
+
+    setRGBA(r: number, g: number, b: number, a: number): void {
+        const newR = this.limit0_255(r);
+        const newG = this.limit0_255(g);
+        const newB = this.limit0_255(b);
+        const newA = this.limit0_1(a);
+        
+        // 仅在值真正改变时清空缓存
+        if (this.r !== newR || this.g !== newG || this.b !== newB || this.a !== newA) {
+            this.r = newR;
+            this.g = newG;
+            this.b = newB;
+            this.a = newA;
+            this._rgbCache = null;
+            this._rgbaCache = null;
+        }
+    }
+
+    /**
+     * Change color values
+     * @param dr delta red
+     * @param dg delta green
+     * @param db delta blue
+     * @param da delta alpha
+     */
+    change(dr: number, dg: number, db: number, da: number): void {
+        const newR = this.limit0_255(this.r + dr);
+        const newG = this.limit0_255(this.g + dg);
+        const newB = this.limit0_255(this.b + db);
+        const newA = this.limit0_1(this.a + da);
+        
+        // 仅在值真正改变时清空缓存
+        if (this.r !== newR || this.g !== newG || this.b !== newB || this.a !== newA) {
+            this.r = newR;
+            this.g = newG;
+            this.b = newB;
+            this.a = newA;
+            this._rgbCache = null;
+            this._rgbaCache = null;
+        }
+    }
+
+    changeAlpha(newAlpha: number): void {
+        const newA = this.limit0_1(newAlpha);
+        if (this.a !== newA) {
+            this.a = newA;
+            this._rgbaCache = null;
+        }
+    }
+
+    toArr(): [number, number, number, number] {
+        return [this.r, this.g, this.b, this.a];
+    }
+
+    // 静态常量对象，避免频繁创建
+    static readonly BLACK_INSTANCE = new MyColor(0, 0, 0, 1);
+    static readonly GRAY_INSTANCE = new MyColor(60, 63, 65, 1);
+    static readonly TRANSPARENT_INSTANCE = new MyColor(0, 0, 0, 0);
+
+    static BLACK(): MyColor {
+        return MyColor.BLACK_INSTANCE;
+    }
+
+    static GRAY(): MyColor {
+        return MyColor.GRAY_INSTANCE;
+    }
+
+    static Transparent(): MyColor {
+        return MyColor.TRANSPARENT_INSTANCE;
+    }
+
+    static arrTo(arr: [number, number, number, number]): MyColor {
+        return new MyColor(...arr);
+    }
+
+    toStringRGB(): string {
+        if (!this._rgbCache) {
+            this._rgbCache = `rgb(${this.r}, ${this.g}, ${this.b})`;
+        }
+        return this._rgbCache;
+    }
+
+    limit0_255(n: number): number {
+        let res = n;
+        if (n > 255) {
+            res = 255;
+        }
+        if (n < 0) {
+            res = 0;
+        }
+        return res;
+    }
+
+    limit0_1(n: number): number {
+        let res = n;
+        if (n > 1) {
+            res = 1;
+        }
+        if (n < 0) {
+            res = 0;
+        }
+        return res;
+    }
+}

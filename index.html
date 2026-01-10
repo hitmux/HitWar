@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>HitWar</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+
+<body>
+<!-- Loading Screen -->
+<div id="loadingScreen">
+    <div class="loadingContent">
+        <h1 class="loadingTitle">HitWar</h1>
+        <p class="loadingSubtitle">by Hitmux Game</p>
+        <a href="https://game.hitmux.org" target="_blank" class="loadingLink">https://game.hitmux.org</a>
+        <div class="progressBarContainer">
+            <div class="progressBar" id="progressBar"></div>
+        </div>
+        <p class="loadingText" id="loadingText">Loading resources...</p>
+    </div>
+</div>
+
+<div class="gameApp" style="display: none;">
+    <div class="sounds">
+        <!--Sound elements for audio playback-->
+        <audio src="/sound/高三碎片.mp3" preload="auto" id="warBgm"></audio>
+        <audio src="/sound/号角.mp3" id="bigPika" preload="auto"></audio>
+        <audio src="/sound/large_gun_fire1.ogg" id="ArtilleryLunch" preload="auto"></audio>
+        <audio src="/sound/large_gun_fire2.ogg" id="ArtilleryBomb" preload="auto"></audio>
+        <audio src="/sound/missile_fire.ogg" id="MissileLunch" preload="auto"></audio>
+        <audio src="/sound/missile_hit.ogg" id="MissileBomb" preload="auto"></audio>
+        <audio src="/sound/zappyshot_01.mp3" id="zap" preload="auto"></audio>
+    </div>
+    <div class="main-interface interface">
+        <h1>HitWar</h1>
+        <h2>炮塔战争</h2>
+        <div class="version-info" id="versionInfo"></div>
+        <div class="btnList">
+            <button class="startGame">开始游戏</button>
+            <button class="help">帮助说明</button>
+            <button class="wiki">游戏图鉴</button>
+        </div>
+
+        <div class="openSourceInfo">
+            欢迎来到HitWar 2！本项目现已开源！开源链接：<a href="https://github.com/hitmux/HitWar" target="_blank">HitWar</a>
+        </div>
+
+        <div class="leftTopArea">
+            <button class="soundSet">
+                <audio src="/sound/炮塔与战争.mp3" id="bgm" controls="controls" autoplay loop>
+                    你的浏览器不支持播放
+                </audio>
+            </button>
+        </div>
+        <div class="rightTopArea">
+            <button id="noteBtn" class="noteBtn">
+                公告
+                <span id="noteBtnBadge" class="noteBtnBadge" style="display: none;">0</span>
+            </button>
+        </div>
+    </div>
+    <div class="help-interface interface" style="display: none">
+
+        <div class="content">
+            <h2 class="helpTitle">帮助说明</h2>
+            <p>点击右侧按钮，再点击画布就可以放置新建筑了。</p>
+            <p>取消放置新建筑可以按右键</p>
+            <p>点击敌人可以查看信息</p>
+            <p>点击舞台上的建筑可以对其进行升级，尤其是建筑显示绿色剪头的时候，就表示可以升级了</p>
+        </div>
+
+
+        <div class="leftTopArea">
+            <button class="backPage">返回</button>
+        </div>
+    </div>
+
+    <div class="modeChoice-interface interface" style="display: none">
+        <h1>Mode Choice</h1>
+        <h2>模式选择</h2>
+        <div class="btnList">
+            <div class="btnArea">
+                <button class="endlessMode-easy">无尽波数-简单</button>
+                <p>敌人种类比较少，不会有强力的敌人</p>
+            </div>
+            <div class="btnArea">
+                <button class="endlessMode-normal">无尽波数-普通</button>
+                <p>敌人种类全面，敌人血量上限提高，血量上限随着波数的增加速度提高</p>
+            </div>
+            <div class="btnArea">
+                <button class="endlessMode-hard">无尽波数-困难</button>
+                <p>敌人种类全面，每波数量更多，每波种类更多，BOSS关更加困难，资金更少</p>
+            </div>
+            <!--            其他-->
+            <div class="btnArea">
+                <button class="infiniteTimeMode-easy">无尽时间-简单</button>
+                <p>敌人种类比较少，不会有强力的敌人</p>
+            </div>
+            <div class="btnArea">
+                <button class="infiniteTimeMode-hard">无尽时间-困难</button>
+                <p>。。。。</p>
+            </div>
+        </div>
+        <div class="leftTopArea">
+            <button class="backPage">返回</button>
+        </div>
+    </div>
+
+    <div class="wiki-interface interface" style="display: none">
+        <h1>HitWar wiki</h1>
+        <h2>炮塔战争图鉴</h2>
+        <div class="btnList">
+            <button class="cannonList">Cannon</button>
+            <button class="monsterList">Monster</button>
+        </div>
+        <div class="leftTopArea">
+            <button class="backPage">返回</button>
+        </div>
+    </div>
+
+    <div class="cannon-interface interface" style="display: none">
+        <h1>Cannons</h1>
+        <h2>炮塔大全</h2>
+        <div class="content">
+
+        </div>
+        <div class="leftTopArea">
+            <button class="backPage">返回</button>
+        </div>
+    </div>
+
+    <div class="monsters-interface interface" style="display: none">
+        <h1>Monsters</h1>
+        <h2>敌人大全</h2>
+        <div class="content">
+
+        </div>
+        <div class="leftTopArea">
+            <button class="backPage">返回</button>
+        </div>
+    </div>
+
+    <!--    游戏战斗界面  -->
+    <div class="interface war-interface" style="display: none">
+        <canvas width="1200" height="780" id="mainCanvas"></canvas>
+        <div class="rightTopArea">
+            <button class="backPage">返回</button>
+            <button class="pause">暂停</button>
+        </div>
+        <!--独立的速度控制窗口-->
+        <div id="speedControlPanel" class="speedControl">
+            <div class="dragHandle">游戏控制</div>
+
+            <!-- View Controls -->
+            <div class="panelSection">
+                <div class="sectionTitle">视图控制</div>
+                <div class="viewButtons">
+                    <div class="zoomButtons">
+                        <button id="zoomOutBtn" class="zoomBtn">-</button>
+                        <span id="zoomLevel">100%</span>
+                        <button id="zoomInBtn" class="zoomBtn">+</button>
+                    </div>
+                    <button id="homeBtn" class="homeBtn">回到大本营</button>
+                </div>
+            </div>
+
+            <!-- Speed Controls -->
+            <div class="panelSection">
+                <div class="sectionTitle">游戏速度</div>
+                <div class="speedButtons">
+                    <button class="speedBtn active" data-speed="1">x1</button>
+                    <button class="speedBtn" data-speed="2">x2</button>
+                    <button class="speedBtn" data-speed="3">x3</button>
+                    <button class="speedBtn" data-speed="5">x5</button>
+                    <button class="speedBtn" data-speed="10">x10</button>
+                    <button class="speedBtn" data-speed="20">x20</button>
+                </div>
+            </div>
+
+            <!-- Cheat Menu Toggle -->
+            <div class="panelSection">
+                <button id="toggleCheatBtn" class="toggleCheatBtn">作弊模式</button>
+            </div>
+
+            <!-- Cheat Menu (hidden by default) -->
+            <div id="cheatMenu" style="display: none;">
+                <!-- Money Cheats -->
+                <div class="panelSection">
+                    <div class="sectionTitle">增加金币</div>
+                    <div class="cheatButtons">
+                        <button class="cheatBtn" data-action="money" data-value="100">+100</button>
+                        <button class="cheatBtn" data-action="money" data-value="1000">+1000</button>
+                        <button class="cheatBtn" data-action="money" data-value="10000">+10000</button>
+                        <button class="cheatBtn" data-action="money" data-value="100000">+100000</button>
+                        <button class="cheatBtn" id="customMoneyBtn">自定义</button>
+                    </div>
+                </div>
+
+                <!-- Price Multiplier -->
+                <div class="panelSection">
+                    <div class="sectionTitle">炮台价格递增倍率</div>
+                    <div class="cheatButtons multiline">
+                        <button class="cheatBtn priceMultBtn" data-mult="0">x0</button>
+                        <button class="cheatBtn priceMultBtn" data-mult="0.1">x0.1</button>
+                        <button class="cheatBtn priceMultBtn" data-mult="0.25">x0.25</button>
+                        <button class="cheatBtn priceMultBtn" data-mult="0.5">x0.5</button>
+                        <button class="cheatBtn priceMultBtn" data-mult="0.75">x0.75</button>
+                        <button class="cheatBtn priceMultBtn" data-mult="0.9">x0.9</button>
+                        <button class="cheatBtn priceMultBtn active" data-mult="1">x1</button>
+                    </div>
+                </div>
+
+                <!-- Infinite HP -->
+                <div class="panelSection">
+                    <div class="toggleOption">
+                        <label>
+                            <input type="checkbox" id="infiniteHpCheckbox">
+                            <span>无限血量（炮台不扣血）</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Disable Energy -->
+                <div class="panelSection">
+                    <div class="toggleOption">
+                        <label>
+                            <input type="checkbox" id="disableEnergyCheckbox">
+                            <span>禁用能源系统</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Debug Options -->
+                <div class="panelSection">
+                    <div class="sectionTitle">调试选项</div>
+                    <div class="cheatButtons">
+                        <button class="cheatBtn" id="toggleFogBtn">隐藏迷雾</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Money Input Dialog -->
+        <div id="customMoneyDialog" class="customDialog" style="display: none;">
+            <div class="dialogContent">
+                <h3>自定义金币数量</h3>
+                <input type="number" id="customMoneyInput" placeholder="输入金币数量" min="1">
+                <div class="dialogButtons">
+                    <button id="confirmCustomMoney" class="dialogBtn">确定</button>
+                    <button id="cancelCustomMoney" class="dialogBtn cancel">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cheat Mode Confirmation Dialog -->
+        <div id="cheatConfirmDialog" class="confirmDialog" style="display: none;">
+            <div class="dialogContent">
+                <h3>⚠️ 警告</h3>
+                <p>你正在开启作弊模式，确定吗？</p>
+                <p class="warning">一旦开启，本次游戏期间将不能关闭</p>
+                <div class="dialogButtons">
+                    <button id="confirmCheat" class="dialogBtn">确定</button>
+                    <button id="cancelCheat" class="dialogBtn cancel">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cheat Mode Indicator -->
+        <div id="cheatModeIndicator" style="display: none;">作弊模式</div>
+
+        <!-- Speed Boost Indicator (shown when holding space) -->
+        <div id="speedBoostIndicator" class="speedBoostIndicator" style="display: none;">
+            <div class="speedBoostContent">
+                <span class="speedBoostIcon">▶▶</span>
+                <span class="speedBoostText">x3 加速中</span>
+            </div>
+            <div class="speedBoostBar">
+                <div class="speedBoostProgress"></div>
+            </div>
+        </div>
+        <!--一个小升级窗口-->
+        <div id="smallLevelUpPanel" style="display: none">
+            <p><span class="name"></span>可以升级为：</p>
+            <div class="levelUpItems">
+                <!--这个盒子里的内容会不断清空更新-->
+            </div>
+            <div class="otherItems">
+                <!--  这个盒子里的内容也会不断清空-->
+                <!--  <div class="item">降级</div>-->
+                <!--  <div class="item">卖钱</div>-->
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Note Panel -->
+<div id="notePanel" class="notePanel" style="display: none;">
+    <div class="notePanelContent">
+        <button id="noteCloseBtn" class="noteCloseBtn">&times;</button>
+
+        <!-- Note List View -->
+        <div id="noteList" class="noteListView">
+            <h2 class="notePanelTitle">公告列表</h2>
+            <div id="noteListContainer" class="noteListContainer"></div>
+            <div class="noteListBtns">
+                <button id="noteIgnoreAllBtn" class="noteIgnoreAllBtn">全部已读</button>
+                <button id="noteUnreadAllBtn" class="noteUnreadAllBtn">全部未读</button>
+            </div>
+        </div>
+
+        <!-- Note Content View -->
+        <div id="noteContent" class="noteContentView" style="display: none;">
+            <button id="noteBackBtn" class="noteBackBtn">← 返回列表</button>
+            <h2 id="noteContentTitle" class="noteContentTitle"></h2>
+            <div id="noteContentBody" class="noteContentBody"></div>
+            <div class="noteNavBtns">
+                <button id="notePrevBtn" class="noteNavBtn">← 上一条</button>
+                <button id="noteNextBtn" class="noteNavBtn">下一条 →</button>
+            </div>
+            <div class="noteContentBtns">
+                <button id="noteReadBtn" class="noteReadBtn">标为已读</button>
+                <button id="noteUnreadBtn" class="noteUnreadBtn">标为未读</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="choiceBtn" style="display: none">
+
+    <div class="initPanel"></div>
+
+    <div class="choicePanel" style="display: none">
+        <div class="monsterData">
+            <p>名字：<span class="monsterName"></span></p>
+            <p>细节描述：<span class="monsterComment"></span></p>
+        </div>
+    </div>
+
+</div>
+
+<!-- ES Module Entry Point -->
+<script type="module" src="/src/app.ts"></script>
+</body>
+
+</html>
