@@ -26,10 +26,22 @@ export class PanelDragManager {
     resizeObserver: ResizeObserver | null = null;
     resizeTimeout: ReturnType<typeof setTimeout> | null = null;
 
+    // Bound event handlers for proper cleanup
+    private boundDragMove: (e: MouseEvent | TouchEvent) => void;
+    private boundDragEnd: () => void;
+    private boundHandleMouseDown: (e: MouseEvent) => void;
+    private boundHandleTouchStart: (e: TouchEvent) => void;
+
     constructor(panelId: string, handleSelector: string, storageKey: string = 'panelState') {
         this.panel = document.getElementById(panelId)!;
         this.handle = this.panel.querySelector(handleSelector)!;
         this.storageKey = storageKey;
+
+        // Bind handlers once for proper cleanup
+        this.boundDragMove = (e: MouseEvent | TouchEvent) => this.onDragMove(e);
+        this.boundDragEnd = () => this.onDragEnd();
+        this.boundHandleMouseDown = (e: MouseEvent) => this.onDragStart(e);
+        this.boundHandleTouchStart = (e: TouchEvent) => this.onDragStart(e);
 
         this.init();
     }
@@ -113,14 +125,14 @@ export class PanelDragManager {
 
     bindDragEvents(): void {
         // Mouse events
-        this.handle.addEventListener('mousedown', (e) => this.onDragStart(e));
-        document.addEventListener('mousemove', (e) => this.onDragMove(e));
-        document.addEventListener('mouseup', () => this.onDragEnd());
+        this.handle.addEventListener('mousedown', this.boundHandleMouseDown);
+        document.addEventListener('mousemove', this.boundDragMove);
+        document.addEventListener('mouseup', this.boundDragEnd);
 
         // Touch events
-        this.handle.addEventListener('touchstart', (e) => this.onDragStart(e), { passive: false });
-        document.addEventListener('touchmove', (e) => this.onDragMove(e), { passive: false });
-        document.addEventListener('touchend', () => this.onDragEnd());
+        this.handle.addEventListener('touchstart', this.boundHandleTouchStart, { passive: false });
+        document.addEventListener('touchmove', this.boundDragMove as EventListener, { passive: false });
+        document.addEventListener('touchend', this.boundDragEnd);
     }
 
     onDragStart(e: MouseEvent | TouchEvent): void {
@@ -200,6 +212,16 @@ export class PanelDragManager {
 
     // Clean up resources
     destroy(): void {
+        // Remove document event listeners
+        document.removeEventListener('mousemove', this.boundDragMove);
+        document.removeEventListener('mouseup', this.boundDragEnd);
+        document.removeEventListener('touchmove', this.boundDragMove as EventListener);
+        document.removeEventListener('touchend', this.boundDragEnd);
+
+        // Remove handle event listeners
+        this.handle.removeEventListener('mousedown', this.boundHandleMouseDown);
+        this.handle.removeEventListener('touchstart', this.boundHandleTouchStart);
+
         if (this.resizeObserver) {
             this.resizeObserver.disconnect();
             this.resizeObserver = null;

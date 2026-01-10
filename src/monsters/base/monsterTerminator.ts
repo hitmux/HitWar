@@ -4,11 +4,15 @@
  */
 import { Vector } from '../../core/math/vector';
 import { Line } from '../../core/math/line';
+import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
 
 interface CircleLike {
+    x: number;
+    y: number;
+    r: number;
     impact(other: CircleLike): boolean;
 }
 
@@ -89,8 +93,10 @@ export class MonsterTerminator extends Monster {
 
     clash(): void {
         this.meeleAttacking = false;
+        const myCircle = this.getBodyCircle();
         for (let b of this.world.getAllBuildingArr()) {
-            if (this.getBodyCircle().impact(b.getBodyCircle() as any)) {
+            const bc = b.getBodyCircle();
+            if (Circle.collides(myCircle.x, myCircle.y, myCircle.r, bc.x, bc.y, bc.r)) {
                 this.bombSelf();
                 this.meeleAttacking = true;
                 b.hpChange(-this.colishDamage);

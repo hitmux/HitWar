@@ -28,6 +28,10 @@ export class FogRenderer {
     private _lastRadarAreas: RadarSweepArea[] = [];
     private _lastRadarCount: number = 0;
 
+    // Pre-rendered vision hole mask (avoid creating RadialGradient every time)
+    private _holeMaskCanvas: HTMLCanvasElement | null = null;
+    private _holeMaskSize: number = 0;
+
     constructor(fog: FogOfWar) {
         this._fog = fog;
     }
@@ -127,7 +131,45 @@ export class FogRenderer {
         this._compositeCanvas.width = width * pr;
         this._compositeCanvas.height = height * pr;
 
+        // Initialize pre-rendered hole mask
+        this._initHoleMask();
+
         this._staticCacheValid = false;
+    }
+
+
+    /**
+     * Initialize pre-rendered vision hole mask
+     * Creates a standard-size radial gradient mask that can be scaled when drawing
+     */
+    private _initHoleMask(): void {
+        const { edgeGradientSize } = VISION_CONFIG;
+        // Use a fixed size for the mask (edge gradient size determines effective radius)
+        const maskRadius = edgeGradientSize * 4;
+        const size = maskRadius * 2;
+
+        if (!this._holeMaskCanvas || this._holeMaskSize !== size) {
+            this._holeMaskCanvas = document.createElement('canvas');
+            this._holeMaskCanvas.width = size;
+            this._holeMaskCanvas.height = size;
+            this._holeMaskSize = size;
+
+            const ctx = this._holeMaskCanvas.getContext('2d')!;
+            const center = maskRadius;
+
+            // Create radial gradient: center fully opaque (carve), edge transparent (keep fog)
+            const gradient = ctx.createRadialGradient(
+                center, center, maskRadius - edgeGradientSize,
+                center, center, maskRadius
+            );
+            gradient.addColorStop(0, 'rgba(0,0,0,1)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+            ctx.beginPath();
+            ctx.arc(center, center, maskRadius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+        }
     }
 
     /**
@@ -251,13 +293,29 @@ export class FogRenderer {
     private _drawVisionHole(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
         const { edgeGradientSize } = VISION_CONFIG;
 
-        // Create radial gradient: center fully transparent (carved), edge gradually opaque (keep fog)
+        // Use pre-rendered mask if available
+        if (this._holeMaskCanvas && this._holeMaskSize > 0) {
+            const maskRadius = edgeGradientSize * 4;
+            const scale = radius / maskRadius;
+            const drawSize = this._holeMaskSize * scale;
+
+            ctx.drawImage(
+                this._holeMaskCanvas,
+                x - drawSize / 2,
+                y - drawSize / 2,
+                drawSize,
+                drawSize
+            );
+            return;
+        }
+
+        // Fallback: create gradient directly (only if mask not initialized)
         const gradient = ctx.createRadialGradient(
             x, y, Math.max(0, radius - edgeGradientSize),
             x, y, radius
         );
-        gradient.addColorStop(0, 'rgba(0,0,0,1)');  // Fully carve
-        gradient.addColorStop(1, 'rgba(0,0,0,0)');  // Don't carve (keep fog edge)
+        gradient.addColorStop(0, 'rgba(0,0,0,1)');
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);

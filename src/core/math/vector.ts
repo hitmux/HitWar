@@ -49,6 +49,44 @@ export class Vector {
         return new Vector(this.x * n, this.y * n);
     }
 
+
+    /**
+     * Subtract another vector in place (modifies this vector)
+     */
+    subInPlace(otherVector: Vector): this {
+        this.x -= otherVector.x;
+        this.y -= otherVector.y;
+        return this;
+    }
+
+    /**
+     * Multiply by scalar in place (modifies this vector)
+     */
+    mulInPlace(n: number): this {
+        this.x *= n;
+        this.y *= n;
+        return this;
+    }
+
+    /**
+     * Normalize to unit vector in place (modifies this vector)
+     */
+    normalizeInPlace(): this {
+        const a = Math.sqrt(this.x * this.x + this.y * this.y);
+        this.x /= a;
+        this.y /= a;
+        return this;
+    }
+
+    /**
+     * Add another vector and return new vector
+     */
+    plusInPlace(otherVector: Vector): this {
+        this.x += otherVector.x;
+        this.y += otherVector.y;
+        return this;
+    }
+
     /**
      * Get distance between two position vectors
      */
@@ -84,14 +122,16 @@ export class Vector {
     /**
      * Convert to angle in radians
      */
+    /**
+     * Convert to angle in radians (y-axis positive = 0°)
+     */
     toTheta(): number {
-        let alpha = Math.atan(this.x / this.y);
-        if (this.y < 0) {
-            alpha *= -1;
-        }
-        return alpha;
+        return Math.atan2(this.x, this.y);
     }
 
+    /**
+     * Rotate vector and return new rotated vector
+     */
     /**
      * Rotate vector and return new rotated vector
      */
@@ -99,10 +139,12 @@ export class Vector {
         if (a === 0) {
             return this;
         }
-        let alpha = this.toTheta();
-        alpha += a;
-        const res = new Vector(Math.sin(alpha), Math.cos(alpha)).mul(this.abs());
-        return res;
+        const cos = Math.cos(a);
+        const sin = Math.sin(a);
+        return new Vector(
+            this.x * cos - this.y * sin,
+            this.x * sin + this.y * cos
+        );
     }
 
     /**

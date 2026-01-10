@@ -79,6 +79,19 @@ interface BuildingData {
     _territoryPenaltyApplied: boolean;
 }
 
+// Bullet data for MonsterShooter
+interface MonsterBulletData {
+    x: number;
+    y: number;
+    speedX: number;
+    speedY: number;
+    originalX: number;
+    originalY: number;
+    slideRate: number;
+    r?: number;
+    isSliptedBully?: boolean;
+}
+
 interface MonsterData {
     type: string;
     creatorFunc: string | null;
@@ -95,6 +108,7 @@ interface MonsterData {
     laserDefendNum?: number;
     summonCount?: number;
     liveTime?: number;
+    bullys?: MonsterBulletData[];  // MonsterShooter bullets
 }
 
 interface MineData {
@@ -378,6 +392,21 @@ export class SaveManager {
 
             if (MonsterShooter && monster instanceof MonsterShooter) {
                 monsterData.liveTime = m.liveTime;
+
+                // Serialize bullets
+                if (m.bullys && m.bullys.size > 0) {
+                    monsterData.bullys = Array.from(m.bullys).map((b: any) => ({
+                        x: b.pos.x,
+                        y: b.pos.y,
+                        speedX: b.speed.x,
+                        speedY: b.speed.y,
+                        originalX: b.originalPos.x,
+                        originalY: b.originalPos.y,
+                        slideRate: b.slideRate,
+                        r: b.r,
+                        isSliptedBully: b.isSliptedBully || false,
+                    }));
+                }
             }
 
             saveData.monsters.push(monsterData);
@@ -540,6 +569,7 @@ export class SaveManager {
             }
 
             // Restore monsters
+            const MonsterShooter = MonsterRegistry.getClassType('MonsterShooter') as any;
             for (const monsterData of saveData.monsters) {
                 const creator = MonsterRegistry.getCreator(monsterData.creatorFunc || '');
                 if (!creator) {
@@ -568,6 +598,26 @@ export class SaveManager {
 
                 if (monsterData.liveTime !== undefined) {
                     monster.liveTime = monsterData.liveTime;
+                }
+
+                // Restore MonsterShooter bullets
+                if (monsterData.bullys && MonsterShooter && monster instanceof MonsterShooter) {
+                    for (const bulletData of monsterData.bullys) {
+                        const bullet = monster.getRunningBully();
+                        if (bullet) {
+                            bullet.pos = new Vector(bulletData.x, bulletData.y);
+                            bullet.speed = new Vector(bulletData.speedX, bulletData.speedY);
+                            bullet.originalPos = new Vector(bulletData.originalX, bulletData.originalY);
+                            bullet.slideRate = bulletData.slideRate;
+                            if (bulletData.r !== undefined) {
+                                bullet.r = bulletData.r;
+                            }
+                            if (bulletData.isSliptedBully !== undefined) {
+                                bullet.isSliptedBully = bulletData.isSliptedBully;
+                            }
+                            monster.bullys.add(bullet);
+                        }
+                    }
                 }
 
                 world.monsters.add(monster);
@@ -702,6 +752,93 @@ export class SaveManager {
     }
 
     /**
+     * Check if value is a valid finite number
+     */
+    private static isValidNumber(v: unknown): v is number {
+        return typeof v === 'number' && !isNaN(v) && isFinite(v);
+    }
+
+    /**
+     * Check if value is a valid non-negative number
+     */
+    private static isValidPositiveNumber(v: unknown): v is number {
+        return this.isValidNumber(v) && v >= 0;
+    }
+
+    /**
+     * Validate tower data
+     */
+    private static validateTowerData(data: unknown): string | null {
+        if (!data || typeof data !== 'object') return '塔数据格式无效';
+        const t = data as Record<string, unknown>;
+
+        if (!this.isValidNumber(t.x) || !this.isValidNumber(t.y)) {
+            return '塔坐标无效';
+        }
+        if (!this.isValidPositiveNumber(t.hp) || !this.isValidPositiveNumber(t.maxHp)) {
+            return '塔HP无效';
+        }
+        if (t.creatorFunc !== null && typeof t.creatorFunc === 'string' && !TowerRegistry.has(t.creatorFunc)) {
+            return `未知的塔类型: ${t.creatorFunc}`;
+        }
+        return null;
+    }
+
+    /**
+     * Validate monster data
+     */
+    private static validateMonsterData(data: unknown): string | null {
+        if (!data || typeof data !== 'object') return '怪物数据格式无效';
+        const m = data as Record<string, unknown>;
+
+        if (!this.isValidNumber(m.x) || !this.isValidNumber(m.y)) {
+            return '怪物坐标无效';
+        }
+        if (!this.isValidPositiveNumber(m.hp) || !this.isValidPositiveNumber(m.maxHp)) {
+            return '怪物HP无效';
+        }
+        if (m.creatorFunc !== null && typeof m.creatorFunc === 'string' && !MonsterRegistry.has(m.creatorFunc)) {
+            return `未知的怪物类型: ${m.creatorFunc}`;
+        }
+        return null;
+    }
+
+    /**
+     * Validate building data
+     */
+    private static validateBuildingData(data: unknown): string | null {
+        if (!data || typeof data !== 'object') return '建筑数据格式无效';
+        const b = data as Record<string, unknown>;
+
+        if (!this.isValidNumber(b.x) || !this.isValidNumber(b.y)) {
+            return '建筑坐标无效';
+        }
+        if (!this.isValidPositiveNumber(b.hp) || !this.isValidPositiveNumber(b.maxHp)) {
+            return '建筑HP无效';
+        }
+        if (typeof b.creatorFunc === 'string' && !BuildingRegistry.has(b.creatorFunc)) {
+            return `未知的建筑类型: ${b.creatorFunc}`;
+        }
+        return null;
+    }
+
+    /**
+     * Validate mine data
+     */
+    private static validateMineData(data: unknown): string | null {
+        if (!data || typeof data !== 'object') return '矿点数据格式无效';
+        const m = data as Record<string, unknown>;
+
+        if (!this.isValidNumber(m.x) || !this.isValidNumber(m.y)) {
+            return '矿点坐标无效';
+        }
+        if (!this.isValidPositiveNumber(m.hp) || !this.isValidPositiveNumber(m.maxHp)) {
+            return '矿点HP无效';
+        }
+        return null;
+    }
+
+    /**
      * Validate save data
      */
     static validateSave(data: SaveData): ValidationResult {
@@ -717,6 +854,52 @@ export class SaveManager {
         if (!data.mode || !data.world || !data.rootBuilding) {
             return { valid: false, reason: "存档数据不完整" };
         }
+
+        // Validate world data
+        if (!this.isValidNumber(data.world.time) || !this.isValidNumber(data.world.money)) {
+            return { valid: false, reason: "世界数据无效" };
+        }
+
+        // Validate towers
+        if (Array.isArray(data.towers)) {
+            for (let i = 0; i < data.towers.length; i++) {
+                const error = this.validateTowerData(data.towers[i]);
+                if (error) {
+                    return { valid: false, reason: `塔[${i}]: ${error}` };
+                }
+            }
+        }
+
+        // Validate monsters
+        if (Array.isArray(data.monsters)) {
+            for (let i = 0; i < data.monsters.length; i++) {
+                const error = this.validateMonsterData(data.monsters[i]);
+                if (error) {
+                    return { valid: false, reason: `怪物[${i}]: ${error}` };
+                }
+            }
+        }
+
+        // Validate buildings
+        if (Array.isArray(data.buildings)) {
+            for (let i = 0; i < data.buildings.length; i++) {
+                const error = this.validateBuildingData(data.buildings[i]);
+                if (error) {
+                    return { valid: false, reason: `建筑[${i}]: ${error}` };
+                }
+            }
+        }
+
+        // Validate mines
+        if (Array.isArray(data.mines)) {
+            for (let i = 0; i < data.mines.length; i++) {
+                const error = this.validateMineData(data.mines[i]);
+                if (error) {
+                    return { valid: false, reason: `矿点[${i}]: ${error}` };
+                }
+            }
+        }
+
         return { valid: true, data };
     }
 

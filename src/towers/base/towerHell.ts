@@ -4,6 +4,7 @@
  * Deals increasing damage the longer it focuses on a single target.
  */
 import { MyColor } from '../../entities/myColor';
+import { Circle } from '../../core/math/circle';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
 
@@ -18,6 +19,9 @@ interface VectorLike {
 }
 
 interface CircleLike {
+    x: number;
+    y: number;
+    r: number;
     impact(other: CircleLike): boolean;
 }
 
@@ -82,7 +86,8 @@ export class TowerHell extends Tower {
                 if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
                     continue;
                 }
-                if (viewCircle.impact(m.getBodyCircle() as any)) {
+                const mc = m.getBodyCircle();
+                if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                     this.target = m;
                     return;
                 }

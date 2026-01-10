@@ -15,6 +15,9 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
     private cols: number;
     private cells: Map<number, Set<T>> = new Map();
 
+    // Set object pool to reduce GC pressure
+    private _setPool: Set<number>[] = [];
+
     constructor(width: number, height: number, cellSize: number = 64) {
         this.cellSize = cellSize;
         this.invCellSize = 1 / cellSize;
@@ -23,10 +26,26 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
     }
 
     /**
+     * Acquire a Set from pool or create new one
+     */
+    private _acquireSet(): Set<number> {
+        return this._setPool.pop() || new Set<number>();
+    }
+
+    /**
+     * Release a Set back to pool
+     */
+    private _releaseSet(set: Set<number>): void {
+        set.clear();
+        this._setPool.push(set);
+    }
+
+    /**
      * Insert object (call when first adding)
      */
     insert(obj: T): void {
-        const cells = this._computeCells(obj);
+        const cells = this._acquireSet();
+        this._fillCells(obj, cells);
         obj._gridCells = cells;
         for (const cell of cells) {
             this._getBucket(cell).add(obj);
@@ -41,6 +60,7 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
             for (const cell of obj._gridCells) {
                 this.cells.get(cell)?.delete(obj);
             }
+            this._releaseSet(obj._gridCells);
             obj._gridCells = undefined;
         }
     }
@@ -49,7 +69,9 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
      * Update object position (call each frame)
      */
     update(obj: T): void {
-        const newCells = this._computeCells(obj);
+        const newCells = this._acquireSet();
+        this._fillCells(obj, newCells);
+
         const oldCells = obj._gridCells;
 
         if (!oldCells) {
@@ -72,6 +94,8 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
                 this._getBucket(cell).add(obj);
             }
         }
+
+        this._releaseSet(oldCells);
         obj._gridCells = newCells;
     }
 
@@ -121,10 +145,9 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
     }
 
     /**
-     * Compute which cells an object occupies
+     * Fill cells that an object occupies into the provided Set
      */
-    private _computeCells(obj: T): Set<number> {
-        const result = new Set<number>();
+    private _fillCells(obj: T, result: Set<number>): void {
         const minCX = Math.floor((obj.pos.x - obj.r) * this.invCellSize);
         const maxCX = Math.floor((obj.pos.x + obj.r) * this.invCellSize);
         const minCY = Math.floor((obj.pos.y - obj.r) * this.invCellSize);
@@ -135,7 +158,6 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
                 result.add(cy * this.cols + cx);
             }
         }
-        return result;
     }
 
     /**

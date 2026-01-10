@@ -5,6 +5,7 @@
  */
 import { Vector } from '../../core/math/vector';
 import { Line } from '../../core/math/line';
+import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { CircleObject } from '../../entities/base/circleObject';
 import { Tower } from './tower';
@@ -17,6 +18,9 @@ interface VectorLike {
 }
 
 interface CircleLike {
+    x: number;
+    y: number;
+    r: number;
     impact(other: CircleLike): boolean;
 }
 
@@ -83,7 +87,8 @@ export class TowerHammer extends Tower {
             if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
                 continue;
             }
-            if (itemCircle.impact(m.getBodyCircle() as any)) {
+            const mc = m.getBodyCircle();
+            if (Circle.collides(itemCircle.x, itemCircle.y, itemCircle.r, mc.x, mc.y, mc.r)) {
                 m.hpChange(-actualDamage);
             }
         }

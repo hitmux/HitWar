@@ -16,6 +16,9 @@ interface VectorLike {
 }
 
 interface CircleLike {
+    x: number;
+    y: number;
+    r: number;
     impact(other: CircleLike): boolean;
 }
 
@@ -29,6 +32,7 @@ interface BulletLike {
     slideRate: number;
     goStep(): void;
     render(ctx: CanvasRenderingContext2D): void;
+    remove(): void;
 }
 
 interface BuildingLike {
@@ -109,8 +113,10 @@ export class MonsterShooter extends Monster {
     }
 
     getTarget(): void {
+        const viewCircle = this.getViewCircle();
         for (let building of this.world.getAllBuildingArr()) {
-            if (this.getViewCircle().impact(building.getBodyCircle() as any)) {
+            const bc = building.getBodyCircle();
+            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, bc.x, bc.y, bc.r)) {
                 this.target = building;
                 return;
             }
@@ -166,6 +172,14 @@ export class MonsterShooter extends Monster {
 
     getViewCircle(): Circle {
         return new Circle(this.pos.x, this.pos.y, this.rangeR);
+    }
+
+    remove(): void {
+        for (const b of this.bullys) {
+            b.remove();
+        }
+        this.bullys.clear();
+        super.remove();
     }
 }
 

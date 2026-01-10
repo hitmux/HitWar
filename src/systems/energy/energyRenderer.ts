@@ -32,16 +32,16 @@ export class EnergyRenderer {
 
         const w = this.world.viewWidth;
         const h = this.world.viewHeight;
-        const borderWidth = 50;
+        const bw = 50;
 
         ctx.save();
         ctx.fillStyle = `rgba(255, 0, 0, ${this.flashAlpha})`;
 
-        // Four edges
-        ctx.fillRect(0, 0, w, borderWidth);                    // Top
-        ctx.fillRect(0, h - borderWidth, w, borderWidth);      // Bottom
-        ctx.fillRect(0, 0, borderWidth, h);                    // Left
-        ctx.fillRect(w - borderWidth, 0, borderWidth, h);      // Right
+        // Non-overlapping edges (avoid double-drawing corners)
+        ctx.fillRect(bw, 0, w - 2 * bw, bw);           // Top (middle only)
+        ctx.fillRect(bw, h - bw, w - 2 * bw, bw);      // Bottom (middle only)
+        ctx.fillRect(0, 0, bw, h);                      // Left (full height)
+        ctx.fillRect(w - bw, 0, bw, h);                 // Right (full height)
 
         ctx.restore();
     }

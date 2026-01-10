@@ -40,6 +40,22 @@ export class Circle {
         return distSq <= radiusSum * radiusSum;
     }
 
+
+    /**
+     * Static collision check between two circles (no object allocation)
+     * More efficient than creating Circle objects just for collision detection
+     */
+    static collides(
+        x1: number, y1: number, r1: number,
+        x2: number, y2: number, r2: number
+    ): boolean {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const distSq = dx * dx + dy * dy;
+        const radiusSum = r1 + r2;
+        return distSq <= radiusSum * radiusSum;
+    }
+
     setStrokeWidth(n: number): void {
         this.strokeWidth = n;
         this._styleKeyCache = null;  // 使缓存失效
@@ -77,7 +93,6 @@ export class Circle {
      * Optimized: directly uses Canvas API to avoid state pollution and object creation
      */
     renderView(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = 'transparent';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 0.1;
         ctx.beginPath();

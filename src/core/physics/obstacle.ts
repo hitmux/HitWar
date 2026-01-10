@@ -58,8 +58,9 @@ export class Obstacle {
     intersectsCircle(circle: Circle): boolean {
         const dx = circle.x - this.pos.x;
         const dy = circle.y - this.pos.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < this.radius + circle.r;
+        const distSq = dx * dx + dy * dy;
+        const radiusSum = this.radius + circle.r;
+        return distSq < radiusSum * radiusSum;
     }
 
     /**

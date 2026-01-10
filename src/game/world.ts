@@ -491,12 +491,13 @@ export class World {
      * Check if position overlaps with existing buildings/towers/mines
      */
     isPositionOnBuilding(pos: Vector, radius: number): boolean {
-        let testCircle = new Circle(pos.x, pos.y, radius);
         for (let t of this.batterys) {
-            if (testCircle.impact((t as any).getBodyCircle())) return true;
+            const tc = (t as any).getBodyCircle();
+            if (Circle.collides(pos.x, pos.y, radius, tc.x, tc.y, tc.r)) return true;
         }
         for (let b of this.buildings) {
-            if (testCircle.impact(b.getBodyCircle())) return true;
+            const bc = b.getBodyCircle();
+            if (Circle.collides(pos.x, pos.y, radius, bc.x, bc.y, bc.r)) return true;
         }
         for (let m of this.mines) {
             const combinedR = radius + m.r;
@@ -702,7 +703,8 @@ export class World {
         this.rebuildQuadTrees();
         // Territory recalculation is handled via markDirty() + requestIdleCallback
         // No need to call recalculate() directly here
-        // Clear standalone bullets
+        
+        // Clear standalone bullets (in-place filter)
         let writeIdx = 0;
         for (let i = 0; i < this.othersBullys.length; i++) {
             const p = this.othersBullys[i];
@@ -713,12 +715,14 @@ export class World {
             }
         }
         this.othersBullys.length = writeIdx;
-        // Clear towers
-        let tArr: TowerLike[] = [];
+        
+        // Clear towers (in-place filter)
         let towerRemoved = false;
-        for (let t of this.batterys) {
+        writeIdx = 0;
+        for (let i = 0; i < this.batterys.length; i++) {
+            const t = this.batterys[i];
             if (!t.isDead()) {
-                tArr.push(t);
+                this.batterys[writeIdx++] = t;
             } else {
                 towerRemoved = true;
                 let e = EffectCircle.acquire(t.pos);
@@ -726,13 +730,15 @@ export class World {
                 this.addEffect(e as unknown as EffectLike);
             }
         }
-        this.batterys = tArr;
-        // Clear buildings
-        let bArr: BuildingLike[] = [];
+        this.batterys.length = writeIdx;
+        
+        // Clear buildings (in-place filter)
         let buildingRemoved = false;
-        for (let b of this.buildings) {
+        writeIdx = 0;
+        for (let i = 0; i < this.buildings.length; i++) {
+            const b = this.buildings[i];
             if (!b.isDead()) {
-                bArr.push(b);
+                this.buildings[writeIdx++] = b;
             } else {
                 buildingRemoved = true;
                 if (b.gameType === "Mine" && b.destroy) {
@@ -740,7 +746,8 @@ export class World {
                 }
             }
         }
-        this.buildings = bArr;
+        this.buildings.length = writeIdx;
+        
         // Mark dirty if tower or building removed
         if (towerRemoved || buildingRemoved) {
             this._buildingQuadTreeDirty = true;

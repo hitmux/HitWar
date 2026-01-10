@@ -99,6 +99,9 @@ export class Tower extends CircleObject {
     // Cached vector for upgrade icon
     protected _upIconOffset: Vector | null;
 
+    // Cached view circle for collision detection
+    private _viewCircle: Circle | null = null;
+
     // 静态变量：缓存的网格尺寸（避免每帧重复计算）
     private static _gridWidth: number = 0;
     private static _gridHeight: number = 0;
@@ -225,12 +228,14 @@ export class Tower extends CircleObject {
         }
 
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.rangeR + 50);
+        const viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
             // Check fog first (fast rejection), then check view range
             if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
                 continue;
             }
-            if (this.getViewCircle().impact(m.getBodyCircle())) {
+            const mc = m.getBodyCircle();
+            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 this.dirction = m.pos.sub(this.pos).to1();
                 for (let i = 0; i < this.attackBullyNum; i++) {
                     this.fire();
@@ -249,12 +254,14 @@ export class Tower extends CircleObject {
         }
 
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.rangeR + 50);
+        const viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
             // Check fog first (fast rejection), then check view range
             if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
                 continue;
             }
-            if (this.getViewCircle().impact(m.getBodyCircle())) {
+            const mc = m.getBodyCircle();
+            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 let targetDir = m.pos.sub(this.pos).to1();
                 for (let i = 0; i < this.attackBullyNum; i++) {
                     this.dirction = Vector.rotatePoint(Vector.zero(), targetDir,
@@ -364,7 +371,15 @@ export class Tower extends CircleObject {
     }
 
     getViewCircle(): Circle {
-        return new Circle(this.pos.x, this.pos.y, this.getEffectiveRangeR());
+        const r = this.getEffectiveRangeR();
+        if (!this._viewCircle) {
+            this._viewCircle = new Circle(this.pos.x, this.pos.y, r);
+        } else {
+            this._viewCircle.x = this.pos.x;
+            this._viewCircle.y = this.pos.y;
+            this._viewCircle.r = r;
+        }
+        return this._viewCircle;
     }
 
     getDamageMultiplier(): number {

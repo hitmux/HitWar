@@ -20,8 +20,6 @@ export class QuadTree {
     nodes: QuadTree[];
 
     private static _nodePool: QuadTree[] = [];
-    // Static buffer for getIndices to avoid array allocations
-    private static _indicesBuffer: number[] = [];
 
     /**
      * Create a QuadTree node
@@ -82,9 +80,8 @@ export class QuadTree {
      * Get indices of child nodes that the object belongs to
      */
     getIndices(obj: QuadTreeObject): number[] {
-        // Reuse static array to avoid allocations
-        const indices = QuadTree._indicesBuffer;
-        indices.length = 0; // Clear previous results
+        // Create new array each call to avoid recursive corruption
+        const indices: number[] = [];
         
         const midX = this.x + this.w / 2;
         const midY = this.y + this.h / 2;

@@ -126,6 +126,10 @@ export class TowerLaser extends Tower {
     }
 
     goStep(): void {
+        // Clear dead target reference to allow GC
+        if (this.target && this.target.isDead()) {
+            this.target = null;
+        }
         super.goStep();
         this.attackFunc();
         this.laserFreezeChange(1);
@@ -193,8 +197,8 @@ export class TowerLaser extends Tower {
 
                     if (distSq <= searchRadiusSq) {
                         // Check collision with circle
-                        const cc = new Circle(node.pos.x, node.pos.y, searchRadius);
-                        if (cc.impact(m.getBodyCircle() as Circle)) {
+                        const mc = m.getBodyCircle() as Circle;
+                        if (Circle.collides(node.pos.x, node.pos.y, searchRadius, mc.x, mc.y, mc.r)) {
                             found = true;
                             m.hpChange(-currentDamage);
                             monsterSet.add(m);
@@ -248,7 +252,8 @@ export class TowerLaser extends Tower {
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
         let viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
-            if (viewCircle.impact(m.getBodyCircle() as Circle)) {
+            const mc = m.getBodyCircle() as Circle;
+            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 if (this.laserFreezeNow === this.laserFreezeMax) {
                     let d = this.laserBaseDamage + this.laserDamageAdd;
                     d = d * this.getDamageMultiplier();
@@ -288,7 +293,8 @@ export class TowerLaser extends Tower {
             if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
                 continue;
             }
-            if (viewCircle.impact(m.getBodyCircle() as Circle)) {
+            const mc = m.getBodyCircle() as Circle;
+            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 this.target = m;
                 return;
             }

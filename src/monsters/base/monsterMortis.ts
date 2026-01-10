@@ -20,6 +20,9 @@ interface VectorLike {
 }
 
 interface CircleLike {
+    x: number;
+    y: number;
+    r: number;
     impact(other: CircleLike): boolean;
     pointIn?(x: number, y: number): boolean;
 }
@@ -133,8 +136,10 @@ export class MonsterMortis extends Monster {
     }
 
     clash(): void {
+        const myCircle = this.getBodyCircle();
         for (let b of this.world.getAllBuildingArr()) {
-            if (this.getBodyCircle().impact(b.getBodyCircle() as any)) {
+            const bc = b.getBodyCircle();
+            if (Circle.collides(myCircle.x, myCircle.y, myCircle.r, bc.x, bc.y, bc.r)) {
                 this.bombSelf();
                 b.hpChange(-this.bumpDamage);
                 if (!this.throwAble) {

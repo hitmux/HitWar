@@ -306,7 +306,6 @@ export class Bully extends CircleObject {
      * Bullet collision detection with monsters
      */
     collide(world: WorldLike): void {
-        const c = new Circle(this.pos.x, this.pos.y, this.r);
         let arr: EntityLike[];
         if (this.targetTower) {
             // Use quadtree for building collision detection
@@ -316,7 +315,8 @@ export class Bully extends CircleObject {
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.r + 50);
         }
         for (const m of arr) {
-            if (c.impact(m.getBodyCircle() as any)) {
+            const mc = m.getBodyCircle();
+            if (Circle.collides(this.pos.x, this.pos.y, this.r, mc.x, mc.y, mc.r)) {
                 // If target has teleport ability
                 if (m.teleportingAble && m.teleporting) {
                     m.teleporting();

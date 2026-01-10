@@ -5,6 +5,7 @@
  */
 import { Vector } from '../../core/math/vector';
 import { Line } from '../../core/math/line';
+import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { LineObject } from '../../entities/base/lineObject';
 import { Tower } from './tower';
@@ -21,6 +22,9 @@ interface VectorLike {
 }
 
 interface CircleLike {
+    x: number;
+    y: number;
+    r: number;
     impact(other: CircleLike): boolean;
 }
 
@@ -124,7 +128,8 @@ export class TowerRay extends Tower {
             if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
                 continue;
             }
-            if (viewCircle.impact(m.getBodyCircle() as any)) {
+            const mc = m.getBodyCircle();
+            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 this.target = m;
                 this.dirction = this.target.pos.sub(this.pos).to1();
                 return;
@@ -198,7 +203,8 @@ export class TowerRay extends Tower {
         // Since refreshTarget() already found the target, we can directly use it
         // But we still need to check view circle for consistency
         for (let m of nearbyMonsters) {
-            if (m === this.target && viewCircle.impact(m.getBodyCircle() as any)) {
+            const mc = m.getBodyCircle();
+            if (m === this.target && Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 this.dirction = this.target.pos.sub(this.pos).to1();
 
                 if (this.liveTime % this.rayClock === 0) {
@@ -228,7 +234,8 @@ export class TowerRay extends Tower {
         // Since refreshTarget() already found the target, we can directly use it
         // But we still need to check view circle for consistency
         for (let m of nearbyMonsters) {
-            if (m === this.target && viewCircle.impact(m.getBodyCircle() as any)) {
+            const mc = m.getBodyCircle();
+            if (m === this.target && Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 this.dirction = this.target.pos.sub(this.pos).to1();
                 if (this.liveTime % this.rayClock === 0) {
                     for (let i = 0; i < this.rayNum; i++) {

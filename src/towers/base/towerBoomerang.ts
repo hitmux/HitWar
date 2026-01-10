@@ -5,6 +5,7 @@
  */
 import { Vector } from '../../core/math/vector';
 import { Line } from '../../core/math/line';
+import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
@@ -15,6 +16,9 @@ interface VectorLike {
 }
 
 interface CircleLike {
+    x: number;
+    y: number;
+    r: number;
     impact(other: CircleLike): boolean;
 }
 
@@ -96,7 +100,8 @@ export class TowerBoomerang extends Tower {
             if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
                 continue;
             }
-            if (viewCircle.impact(m.getBodyCircle() as any)) {
+            const mc = m.getBodyCircle();
+            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 this.dirction = m.pos.sub(this.pos).to1();
             }
         }

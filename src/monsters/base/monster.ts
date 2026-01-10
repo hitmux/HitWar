@@ -35,6 +35,9 @@ interface VectorLike {
 }
 
 interface CircleLike {
+    x: number;
+    y: number;
+    r: number;
     impact(other: CircleLike): boolean;
     pointIn?(x: number, y: number): boolean;
 }
@@ -588,8 +591,10 @@ export class Monster extends CircleObject {
 
     clash(): void {
         let nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 50);
+        const myCircle = this.getBodyCircle();
         for (let b of nearbyBuildings) {
-            if (this.getBodyCircle().impact(b.getBodyCircle() as any)) {
+            const bc = b.getBodyCircle();
+            if (Circle.collides(myCircle.x, myCircle.y, myCircle.r, bc.x, bc.y, bc.r)) {
                 this.bombSelf();
                 b.hpChange(-this.colishDamage);
                 if (!this.throwAble) {
