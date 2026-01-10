@@ -141,6 +141,20 @@ export class FogOfWar {
     }
 
     /**
+     * Check if a circle (entity with radius) is visible
+     * Returns true if any part of the circle is in vision range
+     */
+    isCircleVisible(x: number, y: number, radius: number): boolean {
+        if (!this.enabled) return true;
+
+        // 1. Check static vision (expand detection range by entity radius)
+        if (this._isCircleInStaticVision(x, y, radius)) return true;
+
+        // 2. Check radar sweep areas
+        return this._isCircleInRadarSweep(x, y, radius);
+    }
+
+    /**
      * Check if position is in static vision (using grid cache optimization)
      */
     private _isInStaticVision(x: number, y: number): boolean {
@@ -166,6 +180,22 @@ export class FogOfWar {
         this._visibilityGrid[gy][gx] = visible;
 
         return visible;
+    }
+
+    /**
+     * Check if a circle intersects with static vision sources
+     */
+    private _isCircleInStaticVision(x: number, y: number, radius: number): boolean {
+        const sources = this.getStaticVisionSources();
+        for (const src of sources) {
+            const dx = x - src.x;
+            const dy = y - src.y;
+            const combinedRadius = src.radius + radius;
+            if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -196,6 +226,39 @@ export class FogOfWar {
             }
         }
         return false;
+    }
+
+    /**
+     * Check if a circle intersects with radar sweep areas
+     */
+    private _isCircleInRadarSweep(x: number, y: number, radius: number): boolean {
+        const { areas, count } = this._cachedRadarAreas;
+        for (let i = 0; i < count; i++) {
+            if (this._isCircleInSweepArea(x, y, radius, areas[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if a circle intersects with a single radar sweep area
+     */
+    private _isCircleInSweepArea(x: number, y: number, radius: number, area: RadarSweepArea): boolean {
+        const dx = x - area.x;
+        const dy = y - area.y;
+        const distSq = dx * dx + dy * dy;
+        const combinedRadius = area.radius + radius;
+
+        // Check distance first (expanded by entity radius)
+        if (distSq > combinedRadius * combinedRadius) return false;
+
+        // Check angle
+        const angle = Math.atan2(dy, dx);
+        const normalizedAngle = FogOfWar._normalizeAngle(angle - area.startAngle);
+        const sweepRange = FogOfWar._normalizeAngle(area.endAngle - area.startAngle);
+
+        return normalizedAngle <= sweepRange;
     }
 
     // Pre-computed constant to avoid repeated calculation

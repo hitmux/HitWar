@@ -183,7 +183,7 @@ export class Building extends CircleObject {
         if (this.otherHpAddAble) {
             if (!this._hpAddRangeCircle) {
                 this._hpAddRangeCircle = new Circle(this.pos.x, this.pos.y, this.otherHpAddRadius);
-                this._hpAddRangeCircle.fillColor = MyColor.Transparent();
+                this._hpAddRangeCircle.fillColor.setRGBA(0, 0, 0, 0);
                 this._hpAddRangeCircle.strokeColor.setRGBA(81, 139, 60, 1);
                 this._hpAddRangeCircle.setStrokeWidth(0.5);
             } else {

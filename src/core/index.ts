@@ -19,3 +19,6 @@ export { Functions } from './functions';
 
 // Static initialization and canvas utilities
 export { PR, standardize, drawLine, drawRectStroke, drawRectFill, writeFont } from './staticInitData';
+
+// Registry base class
+export { BaseRegistry, type Creator, type ClassGetter } from './registry/index';

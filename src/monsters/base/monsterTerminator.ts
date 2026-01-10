@@ -93,8 +93,9 @@ export class MonsterTerminator extends Monster {
 
     clash(): void {
         this.meeleAttacking = false;
+        const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 50);
         const myCircle = this.getBodyCircle();
-        for (let b of this.world.getAllBuildingArr()) {
+        for (let b of nearbyBuildings) {
             const bc = b.getBodyCircle();
             if (Circle.collides(myCircle.x, myCircle.y, myCircle.r, bc.x, bc.y, bc.r)) {
                 this.bombSelf();

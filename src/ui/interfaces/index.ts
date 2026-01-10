@@ -8,4 +8,4 @@ export { choiceInterface } from './choiceInterface';
 export { wikiInterface } from './wikiInterface';
 export { cannonInterface } from './cannonInterface';
 export { monstersInterface } from './monstersInterface';
-export { endlessMode } from './endlessMode';
+export { endlessMode, startBattleMode } from './endlessMode';

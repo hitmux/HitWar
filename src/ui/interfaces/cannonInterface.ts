@@ -2,8 +2,10 @@
  * Cannon wiki interface
  */
 
-import { gotoPage } from '../navigation/router';
 import { TowerRegistry, TOWER_IMG_PRE_WIDTH, TOWER_IMG_PRE_HEIGHT } from '../../towers/index';
+import { setupBackButton } from '../components/backButton';
+import { withInitGuard } from '../utils/initGuard';
+import { createEntityCard, getAssetUrl } from '../components/entityCard';
 
 interface TowerLike {
     name: string;
@@ -19,31 +21,24 @@ interface TowerLike {
 
 type TowerCreator = (world: unknown) => TowerLike;
 
-// Flag to prevent multiple event bindings
-let isInitialized = false;
-
 /**
  * Cannon interface logic
  */
 export function cannonInterface(): void {
-    let thisInterface = document.querySelector(".cannon-interface") as HTMLElement;
+    const thisInterface = document.querySelector(".cannon-interface") as HTMLElement;
 
-    // Only add event listener once
-    if (!isInitialized) {
-        thisInterface.querySelector(".backPage")!.addEventListener("click", () => {
-            gotoPage("wiki-interface");
-        });
-        isInitialized = true;
-    }
+    withInitGuard('cannon-interface', () => {
+        setupBackButton(thisInterface, "wiki-interface");
+    });
 
-    let contentEle = thisInterface.querySelector(".content") as HTMLElement;
+    const contentEle = thisInterface.querySelector(".content") as HTMLElement;
 
     if (contentEle.children.length === 0) {
         try {
-            let allTowerArr: TowerLike[] = [];
+            const allTowerArr: TowerLike[] = [];
 
             // Get BasicCannon creator from registry
-            let towerFunc = TowerRegistry.getCreator('BasicCannon') as TowerCreator | undefined;
+            const towerFunc = TowerRegistry.getCreator('BasicCannon') as TowerCreator | undefined;
             if (!towerFunc) {
                 console.error('BasicCannon not found in registry');
                 contentEle.innerHTML = '<p style="color: red;">Failed to load tower data</p>';
@@ -70,15 +65,14 @@ export function cannonInterface(): void {
                 removeBully: () => {}
             };
 
-            let dfs = (tf: TowerCreator) => {
+            const dfs = (tf: TowerCreator) => {
                 try {
-                    let t = tf(mockWorld);
+                    const t = tf(mockWorld);
                     allTowerArr.push(t);
                     if (t.levelUpArr === null || t.levelUpArr === undefined || t.levelUpArr.length === 0) {
                         return;
                     }
-                    for (let item of t.levelUpArr) {
-                        // levelUpArr contains tower names (strings), not functions
+                    for (const item of t.levelUpArr) {
                         let nextFunc: TowerCreator | undefined;
                         if (typeof item === 'string') {
                             nextFunc = TowerRegistry.getCreator(item) as TowerCreator | undefined;
@@ -95,54 +89,34 @@ export function cannonInterface(): void {
             };
             dfs(towerFunc);
 
-            for (let towerObj of allTowerArr) {
-                // Tower div
-                let towerEle = document.createElement("div");
-                towerEle.classList.add("tower");
-                // Title
-                let title = document.createElement("h3");
-                title.innerText = towerObj.name;
-                towerEle.appendChild(title);
-                // Image
-                let towerImg = document.createElement("div");
-                towerImg.style.backgroundImage = `url('/towers/imgs/towers.png')`;
-                towerImg.style.width = TOWER_IMG_PRE_WIDTH + "px";
-                towerImg.style.height = TOWER_IMG_PRE_HEIGHT + "px";
-                let diffPos = towerObj.getImgStartPosByIndex(towerObj.imgIndex);
-                towerImg.style.backgroundPositionX = -diffPos.x + "px";
-                towerImg.style.backgroundPositionY = -diffPos.y + "px";
-                towerImg.style.margin = "0 auto";
-                towerEle.appendChild(towerImg);
-                // Data section
-                let data = document.createElement("div");
-                let line = document.createElement("p");
-                line.innerText = `射程：${towerObj.rangeR}px`;
-                data.appendChild(line);
-                line = document.createElement("p");
-                line.innerText = `子弹速度：${towerObj.bullySpeed}`;
-                data.appendChild(line);
+            const towerImgUrl = getAssetUrl("/towers/imgs/towers.png");
 
-                line = document.createElement("p");
-                line.innerText = `血量：${towerObj.rangeR}`;
-                data.appendChild(line);
+            for (const towerObj of allTowerArr) {
+                const card = createEntityCard({
+                    className: "tower",
+                    title: towerObj.name,
+                    image: {
+                        url: towerImgUrl,
+                        width: TOWER_IMG_PRE_WIDTH,
+                        height: TOWER_IMG_PRE_HEIGHT,
+                        index: towerObj.imgIndex,
+                        getPosition: towerObj.getImgStartPosByIndex
+                    },
+                    dataItems: [
+                        { label: "射程", value: towerObj.rangeR + "px" },
+                        { label: "子弹速度", value: towerObj.bullySpeed },
+                        { label: "血量", value: towerObj.rangeR },
+                        { label: "攻击间歇时间", value: towerObj.clock },
+                        { label: "价格", value: towerObj.price },
+                        { label: "详细信息", value: towerObj.comment }
+                    ]
+                });
 
-                line = document.createElement("p");
-                line.innerText = `攻击间歇时间：${towerObj.clock}`;
-                data.appendChild(line);
-                line = document.createElement("p");
-                line.innerText = `价格：${towerObj.price}`;
-                data.appendChild(line);
+                // Add empty common div for consistency
+                const common = document.createElement("div");
+                card.appendChild(common);
 
-                line = document.createElement("p");
-                line.innerText = `详细信息：${towerObj.comment}`;
-                data.appendChild(line);
-
-                towerEle.appendChild(data);
-                // Overview
-                let common = document.createElement("div");
-                towerEle.appendChild(common);
-
-                contentEle.appendChild(towerEle);
+                contentEle.appendChild(card);
             }
         } catch (e) {
             console.error('Error initializing cannon interface:', e);

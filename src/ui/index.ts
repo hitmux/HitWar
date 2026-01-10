@@ -14,6 +14,13 @@ export { gotoPage } from './navigation/router';
 // Panels
 export { PanelDragManager } from './panels/panelDrag';
 
+// Components
+export { setupBackButton, setupBackButtonBySelector } from './components/backButton';
+export { createEntityCard, getAssetUrl } from './components/entityCard';
+
+// Utils
+export { withInitGuard, isInitialized, resetInitialization, resetAllInitializations } from './utils/initGuard';
+
 // Interfaces
 export {
     mainInterface,

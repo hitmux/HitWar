@@ -83,11 +83,11 @@ export class TowerHammer extends Tower {
         let itemCircle = this.additionItem.getBodyCircle();
         let actualDamage = this.itemDamage * this.getDamageMultiplier();
         for (let m of nearbyMonsters) {
-            // Check fog first
-            if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
+            // Check fog first, using circle visibility for edge detection
+            const mc = m.getBodyCircle();
+            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
-            const mc = m.getBodyCircle();
             if (Circle.collides(itemCircle.x, itemCircle.y, itemCircle.r, mc.x, mc.y, mc.r)) {
                 m.hpChange(-actualDamage);
             }
@@ -99,8 +99,9 @@ export class TowerHammer extends Tower {
         let effectiveRangeSq = effectiveRange * effectiveRange;
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
         for (let m of nearbyMonsters) {
-            // Check fog first
-            if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
+            // Check fog first, using circle visibility for edge detection
+            const mc = m.getBodyCircle();
+            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
             let distanceSq = m.pos.disSq(this.pos);

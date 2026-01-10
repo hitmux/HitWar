@@ -5,18 +5,16 @@
 import { gotoPage } from '../navigation/router';
 import { cannonInterface } from './cannonInterface';
 import { monstersInterface } from './monstersInterface';
-
-// Flag to prevent multiple event bindings
-let isInitialized = false;
+import { setupBackButton } from '../components/backButton';
+import { withInitGuard } from '../utils/initGuard';
 
 /**
  * Wiki interface logic
  */
 export function wikiInterface(): void {
-    let thisInterface = document.querySelector(".wiki-interface") as HTMLElement;
+    const thisInterface = document.querySelector(".wiki-interface") as HTMLElement;
 
-    // Only add event listeners once
-    if (!isInitialized) {
+    withInitGuard('wiki-interface', () => {
         thisInterface.querySelector(".cannonList")!.addEventListener("click", () => {
             gotoPage("cannon-interface");
             cannonInterface();
@@ -25,9 +23,6 @@ export function wikiInterface(): void {
             gotoPage("monsters-interface");
             monstersInterface();
         });
-        thisInterface.querySelector(".backPage")!.addEventListener("click", () => {
-            gotoPage("main-interface");
-        });
-        isInitialized = true;
-    }
+        setupBackButton(thisInterface, "main-interface");
+    });
 }

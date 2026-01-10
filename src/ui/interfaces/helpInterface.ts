@@ -2,14 +2,12 @@
  * Help interface
  */
 
-import { gotoPage } from '../navigation/router';
+import { setupBackButton } from '../components/backButton';
 
 /**
  * Help interface logic
  */
 export function helpInterface(): void {
-    let thisInterface = document.querySelector(".help-interface") as HTMLElement;
-    thisInterface.querySelector(".backPage")!.addEventListener("click", () => {
-        gotoPage("main-interface");
-    });
+    const thisInterface = document.querySelector(".help-interface") as HTMLElement;
+    setupBackButton(thisInterface, "main-interface");
 }

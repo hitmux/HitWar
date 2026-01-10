@@ -41,7 +41,7 @@ interface WorldLike {
     height: number;
     batterys: Tower[];
     territory?: { markDirty(): void };
-    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean };
+    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean; isCircleVisible(x: number, y: number, radius: number): boolean };
     user: { money: number };
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: unknown): void;
@@ -77,20 +77,10 @@ export class TowerHell extends Tower {
     }
 
     getTarget(): void {
-        if (this.target === null || this.target.isDead() || this.target === undefined) {
-            let effectiveRange = this.getEffectiveRangeR();
-            let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
-            let viewCircle = this.getViewCircle();
-            for (let m of nearbyMonsters) {
-                // Check fog first (fast rejection)
-                if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
-                    continue;
-                }
-                const mc = m.getBodyCircle();
-                if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
-                    this.target = m;
-                    return;
-                }
+        if (this.target === null || this.target === undefined || this.target.isDead()) {
+            const target = this.findFirstTarget();
+            if (target) {
+                this.target = target;
             }
         }
     }

@@ -45,6 +45,7 @@ interface TerritoryLike {
 interface FogOfWarLike {
     enabled: boolean;
     isPositionVisible(x: number, y: number): boolean;
+    isCircleVisible(x: number, y: number, radius: number): boolean;
     markDirty(): void;
 }
 
@@ -230,11 +231,11 @@ export class Tower extends CircleObject {
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.rangeR + 50);
         const viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
-            // Check fog first (fast rejection), then check view range
-            if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
+            // Check fog first (fast rejection), using circle visibility for edge detection
+            const mc = m.getBodyCircle();
+            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
-            const mc = m.getBodyCircle();
             if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 this.dirction = m.pos.sub(this.pos).to1();
                 for (let i = 0; i < this.attackBullyNum; i++) {
@@ -256,11 +257,11 @@ export class Tower extends CircleObject {
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.rangeR + 50);
         const viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
-            // Check fog first (fast rejection), then check view range
-            if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
+            // Check fog first (fast rejection), using circle visibility for edge detection
+            const mc = m.getBodyCircle();
+            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
-            const mc = m.getBodyCircle();
             if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 let targetDir = m.pos.sub(this.pos).to1();
                 for (let i = 0; i < this.attackBullyNum; i++) {
@@ -380,6 +381,30 @@ export class Tower extends CircleObject {
             this._viewCircle.r = r;
         }
         return this._viewCircle;
+    }
+
+    /**
+     * Find the first valid target monster in range
+     * Considers fog of war visibility
+     * @param cachedMonsters Optional pre-queried monsters array to avoid redundant spatial queries
+     * @returns The first valid target monster, or null if none found
+     */
+    findFirstTarget(cachedMonsters?: MonsterLike[]): MonsterLike | null {
+        const effectiveRange = this.getEffectiveRangeR();
+        const nearbyMonsters = cachedMonsters ?? this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
+        const viewCircle = this.getViewCircle();
+
+        for (const m of nearbyMonsters) {
+            const mc = m.getBodyCircle();
+            // Check fog first (fast rejection)
+            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
+                continue;
+            }
+            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
+                return m;
+            }
+        }
+        return null;
     }
 
     getDamageMultiplier(): number {

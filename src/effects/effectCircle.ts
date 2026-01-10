@@ -96,19 +96,19 @@ export class EffectCircle extends Effect {
      */
     flashFireAnimation(): void {
         this.circle.setStrokeWidth(0);
-        this.circle.strokeColor = MyColor.Transparent();
+        this.circle.strokeColor.setRGBA(0, 0, 0, 0);
         this.circle.fillColor.setRGBA(255, 255, 0, Functions.timeRateAlpha(this.time / this.duration));
     }
 
     flashBlueAnimation(): void {
         this.circle.setStrokeWidth(0);
-        this.circle.strokeColor = MyColor.Transparent();
+        this.circle.strokeColor.setRGBA(0, 0, 0, 0);
         this.circle.fillColor.setRGBA(0, 100, 255, Functions.timeRateAlpha(this.time / this.duration));
     }
 
     flashRedAnimation(): void {
         this.circle.setStrokeWidth(0);
-        this.circle.strokeColor = MyColor.Transparent();
+        this.circle.strokeColor.setRGBA(0, 0, 0, 0);
         this.circle.fillColor.setRGBA(255, 100, 0, Functions.timeRateAlpha(this.time / this.duration));
     }
 
@@ -117,7 +117,7 @@ export class EffectCircle extends Effect {
      */
     flashGreenAnimation(): void {
         this.circle.setStrokeWidth(0);
-        this.circle.strokeColor = MyColor.Transparent();
+        this.circle.strokeColor.setRGBA(0, 0, 0, 0);
         this.circle.fillColor.setRGBA(20, 200, 0, Functions.timeRateAlphaDownFast(this.time / this.duration));
     }
 
@@ -126,7 +126,7 @@ export class EffectCircle extends Effect {
      */
     flashBrownAnimation(): void {
         this.circle.setStrokeWidth(0);
-        this.circle.strokeColor = MyColor.Transparent();
+        this.circle.strokeColor.setRGBA(0, 0, 0, 0);
         this.circle.fillColor.setRGBA(101, 77, 39, Functions.timeRateAlphaDownFast(this.time / this.duration));
     }
 
@@ -135,7 +135,7 @@ export class EffectCircle extends Effect {
      */
     energeticAnimation(): void {
         this.circle.setStrokeWidth(0);
-        this.circle.strokeColor = MyColor.Transparent();
+        this.circle.strokeColor.setRGBA(0, 0, 0, 0);
         this.circle.fillColor.setRGBA(20, 200, 0, 1);
     }
 

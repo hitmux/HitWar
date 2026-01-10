@@ -1,79 +1,51 @@
 /**
  * Basic monster variants
- * Contains: Normal, Runner, TestMonster, Ox1~3 (6)
+ *
+ * Contains: Normal, Runner, TestMonster, Ox1~3 (6 monsters)
+ * Now using data-driven configuration system.
  */
-import { MyColor } from '../../entities/myColor';
+
 import { Monster } from '../base/monster';
-import { MonsterRegistry } from '../monsterRegistry';
+import { registerMonstersFromConfig, createMonsterFromConfig } from '../config/factory';
+import {
+    BASIC_MONSTER_CONFIGS,
+    NORMAL_CONFIG,
+    RUNNER_CONFIG,
+    TEST_MONSTER_CONFIG,
+    OX1_CONFIG,
+    OX2_CONFIG,
+    OX3_CONFIG
+} from '../config/basicMonsters';
+import type { AnyMonsterConfig } from '../config/types';
 
 interface WorldLike {
     [key: string]: unknown;
 }
 
+// Exported for backward compatibility
 export function Normal(world: WorldLike): Monster {
-    const m = Monster.randInit(world as any);
-    m.speedNumb = 0.3;
-    m.comment = "普通人";
-    return m;
+    return createMonsterFromConfig(NORMAL_CONFIG, world);
 }
 
 export function Runner(world: WorldLike): Monster {
-    const m = Monster.randInit(world as any);
-    m.speedNumb = 1;
-    m.comment = "跑人";
-    return m;
+    return createMonsterFromConfig(RUNNER_CONFIG, world);
 }
 
 export function TestMonster(world: WorldLike): Monster {
-    const m = Monster.randInit(world as any);
-    m.name = "测试";
-    m.hpInit(1);
-    m.colishDamage = 0;
-    m.addPrice = 10;
-    m.comment = "这个是程序测试用的";
-    return m;
+    return createMonsterFromConfig(TEST_MONSTER_CONFIG, world);
 }
 
 export function Ox1(world: WorldLike): Monster {
-    const m = Monster.randInit(world as any);
-    m.name = "冲锋1级";
-    m.bodyColor = MyColor.arrTo([80, 20, 20, 1]);
-    m.speedNumb = 0.01;
-    m.accelerationV = 0.01;
-    m.maxSpeedN = 5;
-    m.imgIndex = 1;
-    m.comment = "速度会越来越快";
-    return m;
+    return createMonsterFromConfig(OX1_CONFIG, world);
 }
 
 export function Ox2(world: WorldLike): Monster {
-    const m = Monster.randInit(world as any);
-    m.name = "冲锋2级";
-    m.bodyColor = MyColor.arrTo([120, 20, 20, 1]);
-    m.speedNumb = 0.01;
-    m.accelerationV = 0.05;
-    m.maxSpeedN = 7;
-    m.imgIndex = 1;
-    m.comment = "加速度，速度越来越快";
-    return m;
+    return createMonsterFromConfig(OX2_CONFIG, world);
 }
 
 export function Ox3(world: WorldLike): Monster {
-    const m = Monster.randInit(world as any);
-    m.name = "冲锋3级";
-    m.bodyColor = MyColor.arrTo([150, 20, 20, 1]);
-    m.speedNumb = 0.01;
-    m.accelerationV = 0.1;
-    m.maxSpeedN = 10;
-    m.imgIndex = 1;
-    m.comment = "比普通冲锋加速的更快";
-    return m;
+    return createMonsterFromConfig(OX3_CONFIG, world);
 }
 
-// Register monsters
-MonsterRegistry.register('Normal', Normal as any);
-MonsterRegistry.register('Runner', Runner as any);
-MonsterRegistry.register('TestMonster', TestMonster as any);
-MonsterRegistry.register('Ox1', Ox1 as any);
-MonsterRegistry.register('Ox2', Ox2 as any);
-MonsterRegistry.register('Ox3', Ox3 as any);
+// Register monsters using configuration system
+registerMonstersFromConfig(BASIC_MONSTER_CONFIGS as AnyMonsterConfig[]);

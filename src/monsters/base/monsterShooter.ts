@@ -113,8 +113,9 @@ export class MonsterShooter extends Monster {
     }
 
     getTarget(): void {
+        const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.rangeR);
         const viewCircle = this.getViewCircle();
-        for (let building of this.world.getAllBuildingArr()) {
+        for (let building of nearbyBuildings) {
             const bc = building.getBodyCircle();
             if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, bc.x, bc.y, bc.r)) {
                 this.target = building;

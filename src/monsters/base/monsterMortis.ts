@@ -121,7 +121,8 @@ export class MonsterMortis extends Monster {
     }
 
     refreshTarget(): void {
-        for (let building of this.world.getAllBuildingArr()) {
+        const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.viewRadius);
+        for (let building of nearbyBuildings) {
             if (building.getBodyCircle().impact(new Circle(this.pos.x, this.pos.y, this.viewRadius) as any)) {
                 this.target = building;
                 return;
@@ -136,8 +137,9 @@ export class MonsterMortis extends Monster {
     }
 
     clash(): void {
+        const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 50);
         const myCircle = this.getBodyCircle();
-        for (let b of this.world.getAllBuildingArr()) {
+        for (let b of nearbyBuildings) {
             const bc = b.getBodyCircle();
             if (Circle.collides(myCircle.x, myCircle.y, myCircle.r, bc.x, bc.y, bc.r)) {
                 this.bombSelf();

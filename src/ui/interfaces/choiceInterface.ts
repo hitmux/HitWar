@@ -5,12 +5,13 @@
 import { gotoPage } from '../navigation/router';
 import { SaveUI } from '../../systems/save/saveUI';
 import { endlessMode } from './endlessMode';
+import { setupBackButton } from '../components/backButton';
 
 /**
  * Mode choice interface logic
  */
 export function choiceInterface(): void {
-    let thisInterface = document.querySelector(".modeChoice-interface") as HTMLElement;
+    const thisInterface = document.querySelector(".modeChoice-interface") as HTMLElement;
 
     thisInterface.querySelector(".endlessMode-easy")!.addEventListener("click", () => {
         gotoPage("war-interface");
@@ -44,13 +45,11 @@ export function choiceInterface(): void {
         });
     });
 
-    thisInterface.querySelector(".backPage")!.addEventListener("click", () => {
-        gotoPage("main-interface");
-    });
+    setupBackButton(thisInterface, "main-interface");
 
     // Add import save button if not already added
     if (!thisInterface.querySelector(".importSaveBtn")) {
-        let btnList = thisInterface.querySelector(".btnList") as HTMLElement;
+        const btnList = thisInterface.querySelector(".btnList") as HTMLElement;
         SaveUI.addImportButton(btnList, (saveData: unknown) => {
             const data = saveData as { mode: string; haveFlow: boolean };
             SaveUI.showImportSuccess(saveData as any);

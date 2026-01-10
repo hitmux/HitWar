@@ -147,6 +147,12 @@ interface ValidationResult {
     data?: SaveData;
 }
 
+// Entity validation configuration
+interface EntityValidationConfig {
+    entityName: string;
+    registry?: { has(name: string): boolean };
+}
+
 // World-like interface for type safety
 interface WorldLike {
     time: number;
@@ -766,76 +772,52 @@ export class SaveManager {
     }
 
     /**
+     * Validate common entity data (coordinates, HP, optional registry check)
+     */
+    private static validateEntityData(data: unknown, config: EntityValidationConfig): string | null {
+        if (!data || typeof data !== 'object') return `${config.entityName}数据格式无效`;
+        const entity = data as Record<string, unknown>;
+
+        if (!this.isValidNumber(entity.x) || !this.isValidNumber(entity.y)) {
+            return `${config.entityName}坐标无效`;
+        }
+        if (!this.isValidPositiveNumber(entity.hp) || !this.isValidPositiveNumber(entity.maxHp)) {
+            return `${config.entityName}HP无效`;
+        }
+        if (config.registry && entity.creatorFunc !== null && typeof entity.creatorFunc === 'string') {
+            if (!config.registry.has(entity.creatorFunc)) {
+                return `未知的${config.entityName}类型: ${entity.creatorFunc}`;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Validate tower data
      */
     private static validateTowerData(data: unknown): string | null {
-        if (!data || typeof data !== 'object') return '塔数据格式无效';
-        const t = data as Record<string, unknown>;
-
-        if (!this.isValidNumber(t.x) || !this.isValidNumber(t.y)) {
-            return '塔坐标无效';
-        }
-        if (!this.isValidPositiveNumber(t.hp) || !this.isValidPositiveNumber(t.maxHp)) {
-            return '塔HP无效';
-        }
-        if (t.creatorFunc !== null && typeof t.creatorFunc === 'string' && !TowerRegistry.has(t.creatorFunc)) {
-            return `未知的塔类型: ${t.creatorFunc}`;
-        }
-        return null;
+        return this.validateEntityData(data, { entityName: '塔', registry: TowerRegistry });
     }
 
     /**
      * Validate monster data
      */
     private static validateMonsterData(data: unknown): string | null {
-        if (!data || typeof data !== 'object') return '怪物数据格式无效';
-        const m = data as Record<string, unknown>;
-
-        if (!this.isValidNumber(m.x) || !this.isValidNumber(m.y)) {
-            return '怪物坐标无效';
-        }
-        if (!this.isValidPositiveNumber(m.hp) || !this.isValidPositiveNumber(m.maxHp)) {
-            return '怪物HP无效';
-        }
-        if (m.creatorFunc !== null && typeof m.creatorFunc === 'string' && !MonsterRegistry.has(m.creatorFunc)) {
-            return `未知的怪物类型: ${m.creatorFunc}`;
-        }
-        return null;
+        return this.validateEntityData(data, { entityName: '怪物', registry: MonsterRegistry });
     }
 
     /**
      * Validate building data
      */
     private static validateBuildingData(data: unknown): string | null {
-        if (!data || typeof data !== 'object') return '建筑数据格式无效';
-        const b = data as Record<string, unknown>;
-
-        if (!this.isValidNumber(b.x) || !this.isValidNumber(b.y)) {
-            return '建筑坐标无效';
-        }
-        if (!this.isValidPositiveNumber(b.hp) || !this.isValidPositiveNumber(b.maxHp)) {
-            return '建筑HP无效';
-        }
-        if (typeof b.creatorFunc === 'string' && !BuildingRegistry.has(b.creatorFunc)) {
-            return `未知的建筑类型: ${b.creatorFunc}`;
-        }
-        return null;
+        return this.validateEntityData(data, { entityName: '建筑', registry: BuildingRegistry });
     }
 
     /**
      * Validate mine data
      */
     private static validateMineData(data: unknown): string | null {
-        if (!data || typeof data !== 'object') return '矿点数据格式无效';
-        const m = data as Record<string, unknown>;
-
-        if (!this.isValidNumber(m.x) || !this.isValidNumber(m.y)) {
-            return '矿点坐标无效';
-        }
-        if (!this.isValidPositiveNumber(m.hp) || !this.isValidPositiveNumber(m.maxHp)) {
-            return '矿点HP无效';
-        }
-        return null;
+        return this.validateEntityData(data, { entityName: '矿点' });
     }
 
     /**

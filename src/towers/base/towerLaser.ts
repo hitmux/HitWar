@@ -61,7 +61,7 @@ interface WorldLike {
     height: number;
     batterys: Tower[];
     territory?: { markDirty(): void };
-    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean };
+    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean; isCircleVisible(x: number, y: number, radius: number): boolean };
     user: { money: number };
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: unknown): void;
@@ -152,10 +152,11 @@ export class TowerLaser extends Tower {
             const maxPossibleRange = effectiveRange + len * maxCount;
             const allNearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, maxPossibleRange);
 
-            // Filter monsters by fog visibility
+            // Filter monsters by fog visibility (using circle visibility for edge detection)
             const visibleMonsters: MonsterLike[] = [];
             for (const m of allNearbyMonsters) {
-                if (!this.world.fog?.enabled || this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
+                const mc = m.getBodyCircle();
+                if (!this.world.fog?.enabled || this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                     visibleMonsters.push(m);
                 }
             }
@@ -285,19 +286,9 @@ export class TowerLaser extends Tower {
     }
 
     getTarget(): void {
-        let effectiveRange = this.getEffectiveRangeR();
-        let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
-        let viewCircle = this.getViewCircle();
-        for (let m of nearbyMonsters) {
-            // Check fog first (fast rejection)
-            if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
-                continue;
-            }
-            const mc = m.getBodyCircle() as Circle;
-            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
-                this.target = m;
-                return;
-            }
+        const target = this.findFirstTarget();
+        if (target) {
+            this.target = target;
         }
     }
 

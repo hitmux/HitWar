@@ -46,7 +46,7 @@ interface WorldLike {
     height: number;
     batterys: Tower[];
     territory?: { markDirty(): void };
-    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean };
+    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean; isCircleVisible(x: number, y: number, radius: number): boolean };
     user: { money: number };
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: unknown): void;
@@ -112,28 +112,10 @@ export class TowerRay extends Tower {
     }
 
     refreshTarget(cachedMonsters?: MonsterLike[]): void {
-        let effectiveRange = this.getEffectiveRangeR();
-        let nearbyMonsters: MonsterLike[];
-        
-        // Use cached results if available and range matches
-        if (cachedMonsters && this._cachedQueryRange >= effectiveRange) {
-            nearbyMonsters = cachedMonsters;
-        } else {
-            nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
-        }
-        
-        let viewCircle = this.getViewCircle();
-        for (let m of nearbyMonsters) {
-            // Check fog first (fast rejection)
-            if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
-                continue;
-            }
-            const mc = m.getBodyCircle();
-            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
-                this.target = m;
-                this.dirction = this.target.pos.sub(this.pos).to1();
-                return;
-            }
+        const target = this.findFirstTarget(cachedMonsters as any);
+        if (target) {
+            this.target = target as MonsterLike;
+            this.dirction = this.target.pos.sub(this.pos).to1();
         }
     }
 
@@ -155,11 +137,12 @@ export class TowerRay extends Tower {
             
             let actualDamage = this.damage * this.getDamageMultiplier();
             for (let m of nearbyMonsters) {
-                // Check fog first
-                if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
+                // Check fog first, using circle visibility for edge detection
+                const mc = m.getBodyCircle();
+                if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                     continue;
                 }
-                if (line.intersectWithCircle(m.getBodyCircle() as any)) {
+                if (line.intersectWithCircle(mc as any)) {
                     m.hpChange(-actualDamage);
                 }
             }
@@ -284,11 +267,12 @@ export class TowerRay extends Tower {
             if (doCollision) {
                 let nearbyMonsters = this.world.getMonstersInRange(br.PosEnd.x, br.PosEnd.y, this.rayLen);
                 for (let m of nearbyMonsters) {
-                    // Check fog first
-                    if (this.world.fog?.enabled && !this.world.fog.isPositionVisible(m.pos.x, m.pos.y)) {
+                    // Check fog first, using circle visibility for edge detection
+                    const mc = m.getBodyCircle();
+                    if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                         continue;
                     }
-                    if (br.intersectWithCircle(m.getBodyCircle() as any)) {
+                    if (br.intersectWithCircle(mc as any)) {
                         m.hpChange(-actualDamage);
                         if (!this.rayThrowAble) {
                             toDelete.push(br);
