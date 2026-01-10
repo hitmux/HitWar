@@ -85,6 +85,8 @@ export class Bully extends CircleObject {
     static _viewCircle: Circle | null = null;
     // Static Circle for bomb collision detection (reused to avoid allocations)
     private static _bombCircle: Circle = new Circle(0, 0, 0);
+    // Static Vector for move() to avoid GC pressure
+    private static _bullyTempVec: Vector = new Vector(0, 0);
 
     static getViewCircle(x: number, y: number, r: number): Circle {
         if (!Bully._viewCircle) {
@@ -260,8 +262,11 @@ export class Bully extends CircleObject {
         const prevX = this.pos.x;
         const prevY = this.pos.y;
         if (this.targetAble && this.haveTarget()) {
-            const dV = (this.target!.pos as Vector).sub(this.pos).to1().mul(this.speedToTargetN);
-            this.pos.add(dV);
+            // Use static temp vector to avoid GC pressure
+            const temp = Bully._bullyTempVec;
+            Vector.subTo(this.target!.pos as Vector, this.pos, temp);
+            temp.normalizeInPlace().mulInPlace(this.speedToTargetN);
+            this.pos.add(temp);
             this._markMovement(prevX, prevY);
         } else {
             super.move();

@@ -106,6 +106,10 @@ export class Tower extends CircleObject {
     // 静态变量：缓存的网格尺寸（避免每帧重复计算）
     private static _gridWidth: number = 0;
     private static _gridHeight: number = 0;
+    // Static temp vectors for shrapnelAttack to avoid GC pressure
+    private static _towerTempVec: Vector = new Vector(0, 0);
+    private static _towerTempVec2: Vector = new Vector(0, 0);
+    private static _towerZeroVec: Vector = new Vector(0, 0);
 
     /**
      * 初始化网格尺寸（在图片加载完成后调用）
@@ -263,12 +267,15 @@ export class Tower extends CircleObject {
                 continue;
             }
             if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
-                let targetDir = m.pos.sub(this.pos).to1();
+                // Use static temp vectors to avoid GC pressure
+                Vector.subTo(m.pos, this.pos, Tower._towerTempVec);
+                Tower._towerTempVec.normalizeInPlace();
                 for (let i = 0; i < this.attackBullyNum; i++) {
-                    this.dirction = Vector.rotatePoint(Vector.zero(), targetDir,
-                        2 * this.bullyRotate * (i / this.attackBullyNum));
-                    this.dirction = Vector.rotatePoint(Vector.zero(), this.dirction,
-                        -this.bullyRotate);
+                    Vector.rotatePointTo(Tower._towerZeroVec, Tower._towerTempVec,
+                        2 * this.bullyRotate * (i / this.attackBullyNum), Tower._towerTempVec2);
+                    Vector.rotatePointTo(Tower._towerZeroVec, Tower._towerTempVec2,
+                        -this.bullyRotate, Tower._towerTempVec2);
+                    this.dirction.copyFrom(Tower._towerTempVec2);
                     this.fire();
                 }
                 if (typeof SoundManager !== 'undefined') {

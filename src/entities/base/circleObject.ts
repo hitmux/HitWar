@@ -21,6 +21,8 @@ interface WorldLike {
 export class CircleObject {
     // Cached font string to avoid repeated string creation
     static FONT_9 = "9px Microsoft YaHei";
+    // Static temp vector for move() to avoid GC pressure
+    private static _tempVec: Vector = new Vector(0, 0);
 
     pos: Vector;
     world: WorldLike;
@@ -222,13 +224,16 @@ export class CircleObject {
         const prevX = this.pos.x;
         const prevY = this.pos.y;
         if (this.acceleration.x === this.acceleration.y && this.acceleration.x === 0) {
-            this.speed.add(this.speed.mul(this.accelerationV));
+            // Use static temp vector to avoid GC pressure
+            Vector.mulTo(this.speed, this.accelerationV, CircleObject._tempVec);
+            this.speed.add(CircleObject._tempVec);
         } else {
             this.speed.add(this.acceleration);
         }
         const maxSpeedSq = this.maxSpeedN * this.maxSpeedN;
         if (this.speed.absSq() > maxSpeedSq) {
-            this.speed = this.speed.mul(this.maxSpeedN / this.speed.abs());
+            // Use in-place operations to avoid GC pressure
+            this.speed.mulInPlace(this.maxSpeedN / this.speed.abs());
         }
         this.pos.add(this.speed);
         this._markMovement(prevX, prevY);

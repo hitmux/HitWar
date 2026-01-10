@@ -243,4 +243,65 @@ export class Vector {
     copy(): Vector {
         return new Vector(this.x, this.y);
     }
+
+    /**
+     * Copy values from another vector (modifies this vector)
+     */
+    copyFrom(other: Vector): this {
+        this.x = other.x;
+        this.y = other.y;
+        return this;
+    }
+
+    // ==================== Static *To methods (write result to out parameter) ====================
+
+    /**
+     * Subtract b from a, write result to out
+     */
+    static subTo(a: Vector, b: Vector, out: Vector): Vector {
+        out.x = a.x - b.x;
+        out.y = a.y - b.y;
+        return out;
+    }
+
+    /**
+     * Multiply vector by scalar, write result to out
+     */
+    static mulTo(v: Vector, n: number, out: Vector): Vector {
+        out.x = v.x * n;
+        out.y = v.y * n;
+        return out;
+    }
+
+    /**
+     * Normalize vector to unit length, write result to out
+     */
+    static normalizeTo(v: Vector, out: Vector): Vector {
+        const a = Math.sqrt(v.x * v.x + v.y * v.y);
+        out.x = v.x / a;
+        out.y = v.y / a;
+        return out;
+    }
+
+    /**
+     * Rotate 90 degrees counter-clockwise, write result to out
+     */
+    static rotate90To(v: Vector, out: Vector): Vector {
+        out.x = -v.y;
+        out.y = v.x;
+        return out;
+    }
+
+    /**
+     * Rotate point p1 around pivot p0 by angle a, write result to out
+     */
+    static rotatePointTo(p0: Vector, p1: Vector, a: number, out: Vector): Vector {
+        const cos = Math.cos(a);
+        const sin = Math.sin(a);
+        const dx = p1.x - p0.x;
+        const dy = p1.y - p0.y;
+        out.x = dx * cos - dy * sin + p0.x;
+        out.y = dx * sin + dy * cos + p0.y;
+        return out;
+    }
 }

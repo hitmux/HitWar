@@ -348,24 +348,41 @@ export class Monster extends CircleObject {
     }
 
     selfSwingMove(): void {
-        let vec = this.destination.sub(this.pos).to1();
-        this.changedSpeed = vec.rotate90().mul(Math.sin(this.liveTime / 10) * 10);
+        // Use instance temp vectors to avoid GC pressure
+        Vector.subTo(this.destination, this.pos, this._moveVec);
+        this._moveVec.normalizeInPlace();
+        Vector.rotate90To(this._moveVec, this._tempVec);
+        this._tempVec.mulInPlace(Math.sin(this.liveTime / 10) * 10);
+        this.changedSpeed.copyFrom(this._tempVec);
     }
 
     selfSuddenlyMove(): void {
-        let vec = this.destination.sub(this.pos).to1();
-        this.changedSpeed = vec.mul((Math.sin(this.liveTime / 10) + 1) * 2);
+        // Use instance temp vectors to avoid GC pressure
+        Vector.subTo(this.destination, this.pos, this._moveVec);
+        this._moveVec.normalizeInPlace();
+        Vector.mulTo(this._moveVec, (Math.sin(this.liveTime / 10) + 1) * 2, this._tempVec);
+        this.changedSpeed.copyFrom(this._tempVec);
     }
 
     selfExcitingMove(): void {
-        let vec = this.destination.sub(this.pos).to1();
-        this.changedSpeed = vec.mul((Math.sin(this.liveTime / 4) + 0.3) * 6);
+        // Use instance temp vectors to avoid GC pressure
+        Vector.subTo(this.destination, this.pos, this._moveVec);
+        this._moveVec.normalizeInPlace();
+        Vector.mulTo(this._moveVec, (Math.sin(this.liveTime / 4) + 0.3) * 6, this._tempVec);
+        this.changedSpeed.copyFrom(this._tempVec);
     }
 
     selfDoubleSwingMove(): void {
-        let vec = this.destination.sub(this.pos).to1();
-        this.changedSpeed = vec.rotate90().mul(Math.sin(Math.pow(this.liveTime / 10, 0.5)) * 10);
-        this.changedSpeed.plus(vec.mul(Math.cos(Math.pow(this.liveTime / 10, 2)) * 20));
+        // Use instance temp vectors to avoid GC pressure
+        Vector.subTo(this.destination, this.pos, this._moveVec);
+        this._moveVec.normalizeInPlace();
+        Vector.rotate90To(this._moveVec, this._tempVec);
+        this._tempVec.mulInPlace(Math.sin(Math.pow(this.liveTime / 10, 0.5)) * 10);
+        this.changedSpeed.copyFrom(this._tempVec);
+        // Add second component
+        const cos = Math.cos(Math.pow(this.liveTime / 10, 2)) * 20;
+        this.changedSpeed.x += this._moveVec.x * cos;
+        this.changedSpeed.y += this._moveVec.y * cos;
     }
 
     move(): void {
@@ -519,8 +536,10 @@ export class Monster extends CircleObject {
             const gAreaRSq = this.gAreaR * this.gAreaR;
             for (let b of nearbyBuildings) {
                 if (this.pos.disSq(b.pos as Vector) < gAreaRSq) {
-                    let gSpeed = this.pos.sub(b.pos as Vector).to1().mul(this.gAreaNum);
-                    (b.pos as Vector).add(gSpeed);
+                    // Use instance temp vector to avoid GC pressure
+                    Vector.subTo(this.pos, b.pos as Vector, this._tempVec);
+                    this._tempVec.normalizeInPlace().mulInPlace(this.gAreaNum);
+                    (b.pos as Vector).add(this._tempVec);
                 }
             }
         }
