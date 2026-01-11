@@ -9,6 +9,7 @@ import { MyColor } from '../../entities/myColor';
 import { CircleObject } from '../../entities/base/circleObject';
 import { MonsterRegistry } from '../monsterRegistry';
 import { MONSTER_IMG_PRE_WIDTH, MONSTER_IMG_PRE_HEIGHT, getMonstersImg } from '../monsterConstants';
+import { World } from '../../game/world';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
@@ -84,6 +85,11 @@ interface RootBuildingLike {
 interface WorldLike {
     width: number;
     height: number;
+    // Precomputed world constants (from World class)
+    worldCenterX: number;
+    worldCenterY: number;
+    minMonsterRadius: number;
+    monsterRadiusRange: number;
     monsters: Set<Monster>;
     allBullys: Iterable<BulletLike>;
     rootBuilding: RootBuildingLike;
@@ -250,7 +256,7 @@ export class Monster extends CircleObject {
         this.colishDamage = 100;
         this.r = 15;
         this.addPrice = 5;
-        this.destination = new Vector(this.world.width / 2, this.world.height / 2);
+        this.destination = new Vector(this.world.worldCenterX, this.world.worldCenterY);
         this.bodyColor = MyColor.arrTo([25, 25, 25, 0.8]);
         this.hpColor = MyColor.arrTo([200, 20, 20, 0.5]);
 
@@ -402,11 +408,9 @@ export class Monster extends CircleObject {
         }
 
         let distanceSpeedMul = 1;
-        const minRadius = Math.max(this.world.width, this.world.height) * 0.25;
-        const maxRadius = Math.max(this.world.width, this.world.height) * 0.8;
-        if (len > minRadius) {
-            const t = Math.min((len - minRadius) / (maxRadius - minRadius), 1);
-            distanceSpeedMul = 1 + 9 * Math.log(1 + t * Math.E) / Math.log(1 + Math.E);
+        if (len > this.world.minMonsterRadius) {
+            const t = Math.min((len - this.world.minMonsterRadius) / this.world.monsterRadiusRange, 1);
+            distanceSpeedMul = 1 + 9 * Math.log(1 + t * Math.E) / World._LOG_1_PLUS_E;
         }
 
         const speedMul = this.speedNumb * this.speedFreezeNumb * distanceSpeedMul;

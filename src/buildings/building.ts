@@ -63,6 +63,7 @@ export class Building extends CircleObject {
     // Affects nearby buildings
     otherHpAddAble: boolean;
     otherHpAddRadius: number;
+    private _otherHpAddRadiusSq: number;  // otherHpAddRadius² (cached)
     otherHpAddNum: number;
     otherHpAddFreezeTime: number;
 
@@ -93,6 +94,7 @@ export class Building extends CircleObject {
         // Affects nearby buildings
         this.otherHpAddAble = false;
         this.otherHpAddRadius = 100;
+        this._otherHpAddRadiusSq = 10000;  // 100²
         this.otherHpAddNum = 0;
         this.otherHpAddFreezeTime = 100;
 
@@ -146,7 +148,7 @@ export class Building extends CircleObject {
             if (this.liveTime % this.otherHpAddFreezeTime === 0) {
                 // Healing reduced by half in invalid territory
                 const healAmount = this.inValidTerritory ? this.otherHpAddNum : Math.floor(this.otherHpAddNum / 2);
-                const radiusSq = this.otherHpAddRadius * this.otherHpAddRadius;
+                const radiusSq = this._otherHpAddRadiusSq;
                 // Heal nearby buildings and towers
                 for (const b of this.world.buildings) {
                     if (b !== this) {

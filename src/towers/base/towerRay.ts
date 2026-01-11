@@ -170,8 +170,9 @@ export class TowerRay extends Tower {
     }
 
     scanningAttack(cachedMonsters?: MonsterLike[]): void {
-        let theta = this.scanningSpeed * this.liveTime;
-        this.dirction = new Vector(Math.sin(theta), Math.cos(theta));
+        const theta = this.scanningSpeed * this.liveTime;
+        this.dirction.x = Math.sin(theta);
+        this.dirction.y = Math.cos(theta);
         this.shoot(cachedMonsters);
     }
 

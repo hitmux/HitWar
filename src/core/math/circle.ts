@@ -6,6 +6,9 @@ import { Vector } from './vector';
 import { MyColor } from '../../entities/myColor';
 
 export class Circle {
+    // Precomputed constant
+    private static readonly TWO_PI = Math.PI * 2;
+
     x: number;
     y: number;
     r: number;
@@ -73,7 +76,7 @@ export class Circle {
         ctx.lineWidth = this.strokeWidth;
         ctx.strokeStyle = this.strokeColor.toStringRGBA();
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, 2 * Math.PI);
+        ctx.arc(this.x, this.y, this.r, 0, Circle.TWO_PI);
         ctx.stroke();
         ctx.fill();
         ctx.closePath();
@@ -96,7 +99,7 @@ export class Circle {
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 0.1;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, 2 * Math.PI);
+        ctx.arc(this.x, this.y, this.r, 0, Circle.TWO_PI);
         ctx.stroke();
     }
 
@@ -118,6 +121,6 @@ export class Circle {
      */
     renderPath(ctx: CanvasRenderingContext2D): void {
         ctx.moveTo(this.x + this.r, this.y);
-        ctx.arc(this.x, this.y, this.r, 0, 2 * Math.PI);
+        ctx.arc(this.x, this.y, this.r, 0, Circle.TWO_PI);
     }
 }

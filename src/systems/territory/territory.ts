@@ -35,6 +35,7 @@ interface WorldLike {
 export class Territory {
     world: WorldLike;
     territoryRadius: number = 100;  // Territory radius in px
+    private _territoryRadiusSq: number = 10000;  // territoryRadius² (cached)
     dirty: boolean = true;           // Dirty flag, needs recalculation
     private _pendingIdleCallback: number | null = null; // Track pending idle callback
 
@@ -229,7 +230,7 @@ export class Territory {
             return false;
         }
 
-        const radiusSq = this.territoryRadius * this.territoryRadius;
+        const radiusSq = this._territoryRadiusSq;
         for (const b of this.validBuildings) {
             if (b.pos.disSq(pos) <= radiusSq) {
                 return true;
@@ -266,8 +267,8 @@ export class Territory {
         if (allBuildings.length === 0) {
             return false;
         }
-        
-        const radiusSq = this.territoryRadius * this.territoryRadius;
+
+        const radiusSq = this._territoryRadiusSq;
         for (const b of allBuildings) {
             if (b.pos.disSq(pos) <= radiusSq) {
                 return true;
@@ -395,7 +396,7 @@ export class Territory {
      * Used for non-provider buildings (repair towers, gold mines)
      */
     private _isInValidTerritoryRange(pos: Vector): boolean {
-        const radiusSq = this.territoryRadius * this.territoryRadius;
+        const radiusSq = this._territoryRadiusSq;
         for (const vb of this.validBuildings) {
             if (vb.pos.disSq(pos) <= radiusSq) {
                 return true;

@@ -3,6 +3,9 @@
  * by littlefean
  */
 export class Vector {
+    // Precomputed constant
+    private static readonly TWO_PI = Math.PI * 2;
+
     x: number;
     y: number;
 
@@ -151,16 +154,14 @@ export class Vector {
      * Rotate point p1 around pivot p0 by angle a
      */
     static rotatePoint(p0: Vector, p1: Vector, a: number): Vector {
-        const ry0 = p0.y;
-        const rx0 = p0.x;
-        const x = p1.x;
-        const y = p1.y;
-
-        const cos = (x: number): number => Math.cos(x);
-        const sin = (x: number): number => Math.sin(x);
-        const x0 = (x - rx0) * cos(a) - (y - ry0) * sin(a) + rx0;
-        const y0 = (x - rx0) * sin(a) + (y - ry0) * cos(a) + ry0;
-        return new Vector(x0, y0);
+        const cosA = Math.cos(a);
+        const sinA = Math.sin(a);
+        const dx = p1.x - p0.x;
+        const dy = p1.y - p0.y;
+        return new Vector(
+            dx * cosA - dy * sinA + p0.x,
+            dx * sinA + dy * cosA + p0.y
+        );
     }
 
     /**
@@ -186,7 +187,7 @@ export class Vector {
      * Get random unit circle vector
      */
     static randCircle(): Vector {
-        const a = Math.random() * 2 * Math.PI;
+        const a = Math.random() * Vector.TWO_PI;
         const x = Math.sin(a);
         const y = Math.cos(a);
         return new Vector(x, y);

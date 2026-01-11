@@ -139,6 +139,9 @@ export class World {
     // Cached font string to avoid repeated string creation
     static FONT_16 = "16px Microsoft YaHei";
 
+    // Precomputed math constant: Math.log(1 + Math.E)
+    static readonly _LOG_1_PLUS_E = Math.log(1 + Math.E);
+
     // World dimensions
     width: number;
     height: number;
@@ -275,6 +278,14 @@ export class World {
     private _gridFullSyncCountdown: number = 0;
     private _viewQueryPadding: number = 96;
 
+    // Precomputed world constants (for Monster.move() optimization)
+    readonly maxDimension: number = 0;
+    readonly minMonsterRadius: number = 0;
+    readonly maxMonsterRadius: number = 0;
+    readonly monsterRadiusRange: number = 0;
+    readonly worldCenterX: number = 0;
+    readonly worldCenterY: number = 0;
+
     constructor(worldWidth: number, worldHeight: number, viewWidth?: number, viewHeight?: number) {
         // World size (game logic space)
         this.width = worldWidth;
@@ -283,6 +294,14 @@ export class World {
         // Viewport size (canvas size)
         this.viewWidth = viewWidth || worldWidth;
         this.viewHeight = viewHeight || worldHeight;
+
+        // Precompute world constants (used by Monster.move())
+        (this as any).maxDimension = Math.max(this.width, this.height);
+        (this as any).minMonsterRadius = this.maxDimension * 0.25;
+        (this as any).maxMonsterRadius = this.maxDimension * 0.8;
+        (this as any).monsterRadiusRange = this.maxMonsterRadius - this.minMonsterRadius;
+        (this as any).worldCenterX = this.width / 2;
+        (this as any).worldCenterY = this.height / 2;
 
         // Camera
         this.camera = new Camera(this.viewWidth, this.viewHeight, this.width, this.height);
