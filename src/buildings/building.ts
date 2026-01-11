@@ -12,6 +12,8 @@ import { BuildingRegistry } from './buildingRegistry';
 
 interface TerritoryLike {
     markDirty(): void;
+    addBuildingIncremental(building: unknown): void;
+    removeBuildingIncremental(building: unknown): void;
 }
 
 interface UserLike {
@@ -170,9 +172,9 @@ export class Building extends CircleObject {
 
     remove(): void {
         this.hpSet(0);
-        // Mark territory for recalculation
+        // Use incremental update instead of markDirty
         if (this.world.territory) {
-            this.world.territory.markDirty();
+            this.world.territory.removeBuildingIncremental(this as any);
         }
         super.remove();
     }

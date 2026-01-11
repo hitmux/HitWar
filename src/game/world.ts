@@ -415,8 +415,9 @@ export class World {
     addTower(battery: TowerLike): void {
         this.batterys.push(battery);
         this._buildingQuadTreeDirty = true;
+        // Use incremental update instead of markDirty
         if (this.territory) {
-            this.territory.markDirty();
+            this.territory.addBuildingIncremental(battery as any);
         }
     }
 
@@ -603,8 +604,9 @@ export class World {
         this.buildings.push(building);
         this._buildingQuadTreeDirty = true;
         this._staticLayerDirty = true;
+        // Use incremental update instead of markDirty
         if (this.territory) {
-            this.territory.markDirty();
+            this.territory.addBuildingIncremental(building as any);
         }
     }
 

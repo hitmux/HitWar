@@ -40,6 +40,8 @@ interface MonsterLike {
 
 interface TerritoryLike {
     markDirty(): void;
+    addBuildingIncremental(building: unknown): void;
+    removeBuildingIncremental(building: unknown): void;
 }
 
 interface FogOfWarLike {
@@ -207,8 +209,9 @@ export class Tower extends CircleObject {
         if (index > -1) {
             this.world.batterys.splice(index, 1);
         }
+        // Use incremental update instead of markDirty
         if (this.world.territory) {
-            this.world.territory.markDirty();
+            this.world.territory.removeBuildingIncremental(this as any);
         }
         super.remove();
     }

@@ -45,9 +45,12 @@ export class Territory {
 
     // Grid cache for fast position queries
     private _gridCellSize: number = 50;  // Grid cell size in pixels
-    private _validTerritoryGrid: Map<string, boolean> = new Map();  // Grid cache for valid territory
-    private _anyTerritoryGrid: Map<string, boolean> = new Map();     // Grid cache for any territory
-    private _gridCacheValid: boolean = false;  // Grid cache validity flag
+    private _anyTerritoryGrid: Map<string, boolean> = new Map();     // Grid cache for any territory (used by isPositionInAnyTerritory)
+    private _gridCacheValid: boolean = false;  // Grid cache validity flag (for isPositionInAnyTerritory)
+
+    // Incremental update: reference counting grid
+    private _validGridRefCount: Map<number, number> = new Map();  // Grid key -> count of buildings covering it
+    private _buildingGridCells: Map<BuildingLike, Set<number>> = new Map();  // Building -> set of grid keys it covers
 
     // Renderer
     renderer: TerritoryRenderer;
@@ -197,7 +200,10 @@ export class Territory {
         // Invalidate renderer cache
         this.renderer.invalidateCache();
 
-        // Invalidate grid cache (will be rebuilt on next query if needed)
+        // Rebuild reference counting grid (incremental update needs this)
+        this._rebuildRefCountGrid();
+
+        // Invalidate old grid cache (for isPositionInAnyTerritory which still uses old mechanism)
         this._gridCacheValid = false;
 
         // Notify fog system (territory change affects vision sources)
@@ -206,39 +212,30 @@ export class Territory {
 
     /**
      * Check if a position is in valid territory
-     * Optimized: Uses grid cache for O(1) lookup in most cases
+     * Optimized: Uses reference counting grid for O(1) lookup
      */
     isPositionInValidTerritory(pos: Vector): boolean {
-        // Rebuild grid cache if invalid
-        if (!this._gridCacheValid) {
-            this._rebuildValidTerritoryGrid();
-        }
+        const gx = Math.floor(pos.x / this._gridCellSize);
+        const gy = Math.floor(pos.y / this._gridCellSize);
+        const key = this._getNumericKey(gx, gy);
 
-        // Query grid cache first (fast path)
-        const gridKey = this._getGridKey(pos.x, pos.y);
-        const gridValue = this._validTerritoryGrid.get(gridKey);
-        
-        // Fast path: if grid says true, directly return true
-        // Grid cell size (50px) is smaller than territory radius (100px),
-        // so if grid center is in territory, nearby points are likely in territory too
-        if (gridValue === true) {
+        // O(1) lookup: if grid has count, position is in valid territory
+        if (this._validGridRefCount.has(key)) {
             return true;
         }
-        
-        // Grid says false or undefined (not marked), do exact check for edge cases
-        // This handles positions near grid boundaries where grid might miss
-        // But in most cases, if grid is not marked, there's no territory
+
+        // Edge case: precise check for positions near grid boundaries
         if (this.validBuildings.size === 0) {
             return false;
         }
-        
+
         const radiusSq = this.territoryRadius * this.territoryRadius;
         for (const b of this.validBuildings) {
             if (b.pos.disSq(pos) <= radiusSq) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -297,39 +294,221 @@ export class Territory {
     }
 
     /**
-     * Rebuild grid cache for valid territory
-     * Marks grid cells that contain valid territory buildings
+     * Get numeric grid key (avoids string allocation in hot path)
+     * Uses bit packing: ((gx + 20000) << 16) | (gy + 20000)
      */
-    private _rebuildValidTerritoryGrid(): void {
-        this._validTerritoryGrid.clear();
-        
+    private _getNumericKey(gx: number, gy: number): number {
+        return ((gx + 20000) << 16) | (gy + 20000);
+    }
+
+    /**
+     * Calculate grid cells covered by a building's territory
+     * Returns Set of numeric grid keys
+     */
+    private _calculateCoveredCells(building: BuildingLike): Set<number> {
+        const cells = new Set<number>();
         const radiusSq = this.territoryRadius * this.territoryRadius;
-        
-        // Mark grid cells that contain valid territory
-        for (const b of this.validBuildings) {
-            // Calculate grid bounds covered by this building's territory
-            const minGridX = Math.floor((b.pos.x - this.territoryRadius) / this._gridCellSize);
-            const maxGridX = Math.floor((b.pos.x + this.territoryRadius) / this._gridCellSize);
-            const minGridY = Math.floor((b.pos.y - this.territoryRadius) / this._gridCellSize);
-            const maxGridY = Math.floor((b.pos.y + this.territoryRadius) / this._gridCellSize);
-            
-            // Mark all grid cells that might intersect with this territory
-            for (let gx = minGridX; gx <= maxGridX; gx++) {
-                for (let gy = minGridY; gy <= maxGridY; gy++) {
-                    const gridKey = `${gx},${gy}`;
-                    // Check if grid cell center is within territory
-                    const cellCenterX = (gx + 0.5) * this._gridCellSize;
-                    const cellCenterY = (gy + 0.5) * this._gridCellSize;
-                    const distSq = b.pos.disSq({ x: cellCenterX, y: cellCenterY } as Vector);
-                    
-                    if (distSq <= radiusSq) {
-                        this._validTerritoryGrid.set(gridKey, true);
-                    }
+
+        const minGridX = Math.floor((building.pos.x - this.territoryRadius) / this._gridCellSize);
+        const maxGridX = Math.floor((building.pos.x + this.territoryRadius) / this._gridCellSize);
+        const minGridY = Math.floor((building.pos.y - this.territoryRadius) / this._gridCellSize);
+        const maxGridY = Math.floor((building.pos.y + this.territoryRadius) / this._gridCellSize);
+
+        for (let gx = minGridX; gx <= maxGridX; gx++) {
+            for (let gy = minGridY; gy <= maxGridY; gy++) {
+                const cellCenterX = (gx + 0.5) * this._gridCellSize;
+                const cellCenterY = (gy + 0.5) * this._gridCellSize;
+                const distSq = building.pos.disSq({ x: cellCenterX, y: cellCenterY } as Vector);
+
+                if (distSq <= radiusSq) {
+                    cells.add(this._getNumericKey(gx, gy));
                 }
             }
         }
-        
-        this._gridCacheValid = true;
+        return cells;
+    }
+
+    /**
+     * Add building to reference counting grid (incremental)
+     */
+    private _addBuildingToGrid(building: BuildingLike): void {
+        const cells = this._calculateCoveredCells(building);
+        this._buildingGridCells.set(building, cells);
+
+        for (const key of cells) {
+            const count = this._validGridRefCount.get(key) || 0;
+            this._validGridRefCount.set(key, count + 1);
+        }
+    }
+
+    /**
+     * Remove building from reference counting grid (incremental)
+     */
+    private _removeBuildingFromGrid(building: BuildingLike): void {
+        const cells = this._buildingGridCells.get(building);
+        if (!cells) return;
+
+        for (const key of cells) {
+            const count = this._validGridRefCount.get(key) || 0;
+            if (count <= 1) {
+                this._validGridRefCount.delete(key);
+            } else {
+                this._validGridRefCount.set(key, count - 1);
+            }
+        }
+        this._buildingGridCells.delete(building);
+    }
+
+    /**
+     * Rebuild reference counting grid from validBuildings (used in recalculate)
+     */
+    private _rebuildRefCountGrid(): void {
+        this._validGridRefCount.clear();
+        this._buildingGridCells.clear();
+
+        for (const building of this.validBuildings) {
+            // Only territory providers affect the grid
+            if (this._canProvideTerritory(building)) {
+                this._addBuildingToGrid(building);
+            }
+        }
+    }
+
+    // ==================== Incremental Update API ====================
+
+    /**
+     * Check if a new building connects to valid territory
+     * Returns true if within 2*territoryRadius of any valid provider
+     */
+    private _checkConnectionToValid(building: BuildingLike): boolean {
+        const searchRadius = this.territoryRadius * 2;
+        for (const vb of this.validBuildings) {
+            if (this._canProvideTerritory(vb) && vb.pos.dis(building.pos) <= searchRadius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if position is within range of any valid territory provider
+     * Used for non-provider buildings (repair towers, gold mines)
+     */
+    private _isInValidTerritoryRange(pos: Vector): boolean {
+        const radiusSq = this.territoryRadius * this.territoryRadius;
+        for (const vb of this.validBuildings) {
+            if (vb.pos.disSq(pos) <= radiusSq) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Incremental add: add building and update territory state
+     * O(k) connection check + O(16) grid update, much faster than full recalculate
+     */
+    addBuildingIncremental(building: BuildingLike): void {
+        if (this._canProvideTerritory(building)) {
+            // Provider building: check connection to valid territory
+            const isConnected = this._checkConnectionToValid(building);
+            if (isConnected) {
+                this.validBuildings.add(building);
+                this._addBuildingToGrid(building);
+                building.inValidTerritory = true;
+            } else {
+                this.invalidBuildings.add(building);
+                this._applyInvalidPenalty(building);
+            }
+        } else {
+            // Non-provider building (repair tower, gold mine): check if in valid territory range
+            const inValid = this._isInValidTerritoryRange(building.pos);
+            if (inValid) {
+                this.validBuildings.add(building);
+                building.inValidTerritory = true;
+            } else {
+                this.invalidBuildings.add(building);
+                this._applyInvalidPenalty(building);
+            }
+        }
+
+        // Notify renderer and fog system
+        this.renderer.invalidateCache();
+        this.world.fog?.markDirty();
+    }
+
+    /**
+     * Incremental remove: remove building and update territory state
+     * O(k) split check + O(16) grid update, much faster than full recalculate
+     */
+    removeBuildingIncremental(building: BuildingLike): void {
+        const wasValid = this.validBuildings.has(building);
+
+        // 1. Remove from grid (only for valid provider buildings)
+        if (wasValid && this._canProvideTerritory(building)) {
+            this._removeBuildingFromGrid(building);
+        }
+
+        // 2. Remove from sets
+        this.validBuildings.delete(building);
+        this.invalidBuildings.delete(building);
+
+        // 3. Check for split (only for valid provider buildings)
+        if (wasValid && this._canProvideTerritory(building)) {
+            this._handlePotentialSplit(building);
+        }
+
+        // 4. Notify renderer and fog system
+        this.renderer.invalidateCache();
+        this.world.fog?.markDirty();
+    }
+
+    /**
+     * Split detection: check if removing a building causes territory to split
+     * Uses BFS to check if all neighbors are still connected
+     * Falls back to full recalculate if split detected
+     */
+    private _handlePotentialSplit(removedBuilding: BuildingLike): void {
+        // Find all neighbors of the removed building (valid providers within connection range)
+        const neighbors: BuildingLike[] = [];
+        const searchRadius = this.territoryRadius * 2;
+
+        for (const b of this.validBuildings) {
+            if (this._canProvideTerritory(b) && b.pos.dis(removedBuilding.pos) <= searchRadius) {
+                neighbors.push(b);
+            }
+        }
+
+        // 0 or 1 neighbor: no split possible
+        if (neighbors.length <= 1) return;
+
+        // BFS from first neighbor, check if all other neighbors are reachable
+        const reachable = new Set<BuildingLike>();
+        const queue: BuildingLike[] = [neighbors[0]];
+        let queueIndex = 0;
+        reachable.add(neighbors[0]);
+
+        while (queueIndex < queue.length) {
+            const current = queue[queueIndex++];
+            for (const b of this.validBuildings) {
+                if (!this._canProvideTerritory(b)) continue;
+                if (reachable.has(b)) continue;
+                if (current.pos.dis(b.pos) <= searchRadius) {
+                    reachable.add(b);
+                    queue.push(b);
+                }
+            }
+        }
+
+        // Check if any neighbor is unreachable (split occurred)
+        for (let i = 1; i < neighbors.length; i++) {
+            if (!reachable.has(neighbors[i])) {
+                // Split detected, trigger full recalculation
+                this.dirty = true;
+                this.recalculate();
+                return;
+            }
+        }
     }
 
     /**
