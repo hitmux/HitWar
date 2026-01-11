@@ -410,7 +410,7 @@ export class World {
      * Generate mines
      */
     generateMines(): void {
-        const totalCount = 120 + Math.floor(Math.random() * 11);
+        const totalCount = 165 + Math.floor(Math.random() * 16);
         const minDistFromRoot = 200;
         const minDistFromEdge = 100;
         // Guaranteed mines near root: 100-300 distance
