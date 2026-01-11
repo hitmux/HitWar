@@ -187,6 +187,8 @@ export interface RayParams {
     rayColor?: [number, number, number, number];
     /** Ray width */
     rayWidth?: number;
+    /** Attack type: 'attack' (default), 'scanningAttack', 'shootingAttack', or 'gerAttack' */
+    attackType?: 'attack' | 'scanningAttack' | 'shootingAttack' | 'gerAttack';
 }
 
 /**

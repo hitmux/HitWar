@@ -221,6 +221,21 @@ function applyRayParams(tower: TowerRay, config: RayTowerConfig): void {
         tower.rayColor = new MyColor(...params.rayColor);
     }
     if (params.rayWidth !== undefined) tower.rayWidth = params.rayWidth;
+    if (params.attackType !== undefined) {
+        switch (params.attackType) {
+            case 'scanningAttack':
+                tower.attackFunc = tower.scanningAttack;
+                break;
+            case 'shootingAttack':
+                tower.attackFunc = tower.shootingAttack;
+                break;
+            case 'gerAttack':
+                tower.attackFunc = tower.gerAttack;
+                break;
+            default:
+                tower.attackFunc = tower.attack;
+        }
+    }
 }
 
 /**
