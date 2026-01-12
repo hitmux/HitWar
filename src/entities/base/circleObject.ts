@@ -62,6 +62,10 @@ export class CircleObject {
     protected _territoryPenaltyApplied: boolean;
     protected _originalRangeR: number | null;
 
+    // 上一帧位置（用于扫掠碰撞检测）
+    prevX: number = 0;
+    prevY: number = 0;
+
     constructor(pos: Vector, world: WorldLike) {
         this.pos = pos;
         this.world = world;
@@ -95,6 +99,10 @@ export class CircleObject {
         this._territoryPenaltyApplied = false;
         this._originalRangeR = null;
         this._bodyVersion = 0;
+
+        // 初始化上一帧位置
+        this.prevX = pos.x;
+        this.prevY = pos.y;
     }
 
     /**
@@ -221,8 +229,10 @@ export class CircleObject {
     }
 
     move(): void {
-        const prevX = this.pos.x;
-        const prevY = this.pos.y;
+        // 保存上一帧位置（用于扫掠碰撞检测）
+        this.prevX = this.pos.x;
+        this.prevY = this.pos.y;
+
         if (this.acceleration.x === this.acceleration.y && this.acceleration.x === 0) {
             // Use static temp vector to avoid GC pressure
             Vector.mulTo(this.speed, this.accelerationV, CircleObject._tempVec);
@@ -236,7 +246,7 @@ export class CircleObject {
             this.speed.mulInPlace(this.maxSpeedN / this.speed.abs());
         }
         this.pos.add(this.speed);
-        this._markMovement(prevX, prevY);
+        this._markMovement(this.prevX, this.prevY);
     }
 
     isInScreen(): boolean {

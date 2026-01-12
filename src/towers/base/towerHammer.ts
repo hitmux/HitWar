@@ -10,6 +10,7 @@ import { MyColor } from '../../entities/myColor';
 import { CircleObject } from '../../entities/base/circleObject';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import { scalePeriod } from '../../core/speedScale';
 
 interface VectorLike {
     x: number;
@@ -56,7 +57,7 @@ export class TowerHammer extends Tower {
         this.itemRange = this.rangeR;
         this.itemRidus = 20;
         this.itemDamage = 1000;
-        this.itemSpeed = 10;
+        this.itemSpeed = scalePeriod(10);
         this.additionItem = this.initAdditionItem();
     }
 
@@ -126,9 +127,43 @@ export class TowerHammer extends Tower {
     }
 
     goStep(): void {
-        super.goStep();
+        // 保持向后兼容：执行完整的更新逻辑
+        this.goStepMove();
+        this.goStepCollide();
+    }
+
+    /**
+     * 移动阶段：处理锤子物品的位置更新
+     */
+    goStepMove(): void {
+        super.goStepMove();
+        // 更新锤子物品位置
+        let a = this.itemSpeed;
+        let loc = new Vector(Math.sin(this.liveTime / a), Math.cos(this.liveTime / a)).mul(this.itemRange);
+        this.additionItem.pos = this.pos.plus(loc);
+    }
+
+    /**
+     * 碰撞阶段：处理锤子的目标检测和碰撞
+     */
+    goStepCollide(): void {
+        super.goStepCollide();
         this.toTarget();
-        this.itemGoStep();
+        // 锤子物品碰撞检测
+        let itemPos = this.additionItem.pos;
+        let itemR = this.additionItem.r;
+        let nearbyMonsters = this.world.getMonstersInRange(itemPos.x, itemPos.y, itemR + 50);
+        let itemCircle = this.additionItem.getBodyCircle();
+        let actualDamage = this.itemDamage * this.getDamageMultiplier();
+        for (let m of nearbyMonsters) {
+            const mc = m.getBodyCircle();
+            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
+                continue;
+            }
+            if (Circle.collides(itemCircle.x, itemCircle.y, itemCircle.r, mc.x, mc.y, mc.r)) {
+                m.hpChange(-actualDamage);
+            }
+        }
     }
 }
 

@@ -18,6 +18,7 @@ import type {
     TerminatorMonsterConfig,
     MovementType
 } from './types';
+import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 
 // Declare globals for bullet types
 declare const BullyFinally: Record<string, (() => unknown) | null> | undefined;
@@ -90,16 +91,16 @@ function applyMonsterParams(monster: Monster, config: AnyMonsterConfig): void {
     const params = config.params;
     if (!params) return;
 
-    // Basic params
-    if (params.speedNumb !== undefined) monster.speedNumb = params.speedNumb;
+    // Basic params (apply speed scaling)
+    if (params.speedNumb !== undefined) monster.speedNumb = scaleSpeed(params.speedNumb);
     if (params.r !== undefined) monster.r = params.r;
     if (params.colishDamage !== undefined) monster.colishDamage = params.colishDamage;
     if (params.hp !== undefined) monster.hpInit(params.hp);
     if (params.bodyColor) monster.bodyColor = MyColor.arrTo(params.bodyColor);
     if (params.bodyStrokeColor) monster.bodyStrokeColor = MyColor.arrTo(params.bodyStrokeColor);
     if (params.bodyStrokeWidth !== undefined) monster.bodyStrokeWidth = params.bodyStrokeWidth;
-    if (params.accelerationV !== undefined) monster.accelerationV = params.accelerationV;
-    if (params.maxSpeedN !== undefined) monster.maxSpeedN = params.maxSpeedN;
+    if (params.accelerationV !== undefined) monster.accelerationV = scaleSpeed(params.accelerationV);
+    if (params.maxSpeedN !== undefined) monster.maxSpeedN = scaleSpeed(params.maxSpeedN);
     if (params.teleportingAble !== undefined) monster.teleportingAble = params.teleportingAble;
     if (params.throwAble !== undefined) monster.throwAble = params.throwAble;
 
@@ -126,11 +127,11 @@ function applyExtendedParams(monster: Monster, config: MonsterConfig): void {
         monster.bombSelfDamage = params.bombSelf.bombSelfDamage;
     }
 
-    // Bully change area
+    // Bully change area (apply period scaling to f)
     if (params.bullyChange) {
         monster.haveBullyChangeArea = params.bullyChange.haveBullyChangeArea;
         monster.bullyChangeDetails.r = params.bullyChange.r;
-        monster.bullyChangeDetails.f = params.bullyChange.f;
+        monster.bullyChangeDetails.f = scalePeriod(params.bullyChange.f);
         if (params.bullyChange.bullyDR !== undefined) {
             monster.bullyChangeDetails.bullyDR = params.bullyChange.bullyDR;
         }
@@ -149,28 +150,28 @@ function applyExtendedParams(monster: Monster, config: MonsterConfig): void {
         monster.gAreaNum = params.gravityArea.gAreaNum;
     }
 
-    // Laser defense
+    // Laser defense (apply period scaling to freeze params)
     if (params.laserDefense) {
         monster.haveLaserDefence = params.laserDefense.haveLaserDefence;
-        monster.laserFreeze = params.laserDefense.laserFreeze;
+        monster.laserFreeze = scalePeriod(params.laserDefense.laserFreeze);
         monster.laserdefendPreNum = params.laserDefense.laserdefendPreNum;
         monster.maxLaserNum = params.laserDefense.maxLaserNum;
         monster.laserDefendNum = params.laserDefense.laserDefendNum;
-        monster.laserRecoverFreeze = params.laserDefense.laserRecoverFreeze;
+        monster.laserRecoverFreeze = scalePeriod(params.laserDefense.laserRecoverFreeze);
         monster.laserRecoverNum = params.laserDefense.laserRecoverNum;
         monster.laserRadius = params.laserDefense.laserRadius;
     }
 
-    // Gain ability
+    // Gain ability (apply period scaling to gainFrequency, speed scaling to gainSpeedNAddNum)
     if (params.gain) {
         monster.haveGain = params.gain.haveGain;
         monster.gainDetails = {
             gainRadius: params.gain.gainRadius,
-            gainFrequency: params.gain.gainFrequency,
+            gainFrequency: scalePeriod(params.gain.gainFrequency),
             gainR: params.gain.gainR ?? 0,
             gainCollideDamageAddNum: params.gain.gainCollideDamageAddNum ?? 0,
             gainHpAddedNum: params.gain.gainHpAddedNum ?? 0,
-            gainSpeedNAddNum: params.gain.gainSpeedNAddNum ?? 0,
+            gainSpeedNAddNum: scaleSpeed(params.gain.gainSpeedNAddNum ?? 0),
             gainHpAddedRate: params.gain.gainHpAddedRate ?? 0,
             gainMaxHpAddedNum: params.gain.gainMaxHpAddedNum ?? 0,
         };
@@ -205,7 +206,7 @@ function applyShooterParams(monster: MonsterShooter, config: ShooterMonsterConfi
     if (!params) return;
 
     if (params.rangeR !== undefined) monster.rangeR = params.rangeR;
-    if (params.clock !== undefined) monster.clock = params.clock;
+    if (params.clock !== undefined) monster.clock = scalePeriod(params.clock);
     if (params.bulletType) {
         monster.getmMainBullyFunc = getBulletFunc(params.bulletType) as any;
     }

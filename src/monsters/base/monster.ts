@@ -10,6 +10,7 @@ import { CircleObject } from '../../entities/base/circleObject';
 import { MonsterRegistry } from '../monsterRegistry';
 import { MONSTER_IMG_PRE_WIDTH, MONSTER_IMG_PRE_HEIGHT, getMonstersImg } from '../monsterConstants';
 import { World } from '../../game/world';
+import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
@@ -241,13 +242,13 @@ export class Monster extends CircleObject {
         this.gameType = "Monster";
         this.name = "默认怪物";
 
-        this.speedNumb = 1;
+        this.speedNumb = scaleSpeed(1);
         this.speedFreezeNumb = 1;
         this.minFreezeNum = 0.2;
 
         this.changedSpeed = Vector.zero();
         this.changeSpeedFunc = () => {};
-        this.maxSpeedN = 15;
+        this.maxSpeedN = scaleSpeed(15);
         this.burnMaxSpeedN = 2;
         this.burnRate = 0;
         this.maxBurnRate = 0.005;
@@ -295,11 +296,11 @@ export class Monster extends CircleObject {
         };
 
         this.haveLaserDefence = false;
-        this.laserFreeze = 1;
+        this.laserFreeze = scalePeriod(1);
         this.laserdefendPreNum = 10;
         this.maxLaserNum = 1000;
         this.laserDefendNum = 1000;
-        this.laserRecoverFreeze = 10;
+        this.laserRecoverFreeze = scalePeriod(10);
         this.laserRecoverNum = 10;
         this.laserRadius = 100;
         this._laserBarBorder = null;
@@ -307,7 +308,7 @@ export class Monster extends CircleObject {
 
         this.deadSummonAble = false;
         this.summonAble = false;
-        this.summonFreezeTime = 100;
+        this.summonFreezeTime = scalePeriod(100);
         this.summonCount = 4;
         this.summonDistance = 30;
         this.summonMonsterFunc = (world) => MonsterRegistry.create('Normal', world) as Monster | null;
@@ -358,7 +359,7 @@ export class Monster extends CircleObject {
         Vector.subTo(this.destination, this.pos, this._moveVec);
         this._moveVec.normalizeInPlace();
         Vector.rotate90To(this._moveVec, this._tempVec);
-        this._tempVec.mulInPlace(Math.sin(this.liveTime / 10) * 10);
+        this._tempVec.mulInPlace(Math.sin(this.liveTime / scalePeriod(10)) * 10);
         this.changedSpeed.copyFrom(this._tempVec);
     }
 
@@ -366,7 +367,7 @@ export class Monster extends CircleObject {
         // Use instance temp vectors to avoid GC pressure
         Vector.subTo(this.destination, this.pos, this._moveVec);
         this._moveVec.normalizeInPlace();
-        Vector.mulTo(this._moveVec, (Math.sin(this.liveTime / 10) + 1) * 2, this._tempVec);
+        Vector.mulTo(this._moveVec, (Math.sin(this.liveTime / scalePeriod(10)) + 1) * 2, this._tempVec);
         this.changedSpeed.copyFrom(this._tempVec);
     }
 
@@ -374,7 +375,7 @@ export class Monster extends CircleObject {
         // Use instance temp vectors to avoid GC pressure
         Vector.subTo(this.destination, this.pos, this._moveVec);
         this._moveVec.normalizeInPlace();
-        Vector.mulTo(this._moveVec, (Math.sin(this.liveTime / 4) + 0.3) * 6, this._tempVec);
+        Vector.mulTo(this._moveVec, (Math.sin(this.liveTime / scalePeriod(4)) + 0.3) * 6, this._tempVec);
         this.changedSpeed.copyFrom(this._tempVec);
     }
 
@@ -383,10 +384,10 @@ export class Monster extends CircleObject {
         Vector.subTo(this.destination, this.pos, this._moveVec);
         this._moveVec.normalizeInPlace();
         Vector.rotate90To(this._moveVec, this._tempVec);
-        this._tempVec.mulInPlace(Math.sin(Math.pow(this.liveTime / 10, 0.5)) * 10);
+        this._tempVec.mulInPlace(Math.sin(Math.pow(this.liveTime / scalePeriod(10), 0.5)) * 10);
         this.changedSpeed.copyFrom(this._tempVec);
         // Add second component
-        const cos = Math.cos(Math.pow(this.liveTime / 10, 2)) * 20;
+        const cos = Math.cos(Math.pow(this.liveTime / scalePeriod(10), 2)) * 20;
         this.changedSpeed.x += this._moveVec.x * cos;
         this.changedSpeed.y += this._moveVec.y * cos;
     }
@@ -629,6 +630,17 @@ export class Monster extends CircleObject {
     }
 
     goStep(): void {
+        // 保持向后兼容：执行完整的更新逻辑
+        this.updateState();
+        this.moveOnly();
+        this.clashOnly();
+    }
+
+    /**
+     * 状态更新阶段：处理非移动/碰撞的逻辑
+     * 包括：liveTime增加、激光防御、召唤、获取、子弹变化、死亡检查、重力
+     */
+    updateState(): void {
         super.goStep();
         this.laserDefend();
         this.summon();
@@ -639,7 +651,13 @@ export class Monster extends CircleObject {
             this.remove();
         }
         this.gravyPower();
-        this.clash();
+    }
+
+    /**
+     * 移动阶段：只执行移动逻辑
+     * 用于分离移动和碰撞检测的两阶段更新
+     */
+    moveOnly(): void {
         if (this.burnRate > this.maxBurnRate) {
             this.burnRate = this.maxBurnRate;
         }
@@ -647,6 +665,30 @@ export class Monster extends CircleObject {
             this.hpChange(-this.burnRate * this.maxHp);
         }
         this.move();
+    }
+
+    /**
+     * 碰撞检测阶段：只执行碰撞检测逻辑
+     * 用于分离移动和碰撞检测的两阶段更新
+     * 使用扫掠检测以处理高速移动的穿透问题
+     */
+    clashOnly(): void {
+        let nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
+        for (let b of nearbyBuildings) {
+            const bc = b.getBodyCircle();
+            // 使用扫掠检测（建筑不移动，所以用基础扫掠检测）
+            if (Circle.sweepCollides(
+                this.prevX, this.prevY, this.pos.x, this.pos.y, this.r,
+                bc.x, bc.y, bc.r
+            )) {
+                this.bombSelf();
+                b.hpChange(-this.colishDamage);
+                if (!this.throwAble) {
+                    this.remove();
+                    break;
+                }
+            }
+        }
     }
 
     render(ctx: CanvasRenderingContext2D): void {

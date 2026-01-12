@@ -9,6 +9,7 @@ import { MyColor } from '../entities/myColor';
 import { CircleObject } from '../entities/base/circleObject';
 import { EffectCircle } from '../effects/effectCircle';
 import { BuildingRegistry } from './buildingRegistry';
+import { scalePeriod } from '../core/speedScale';
 
 interface TerritoryLike {
     markDirty(): void;
@@ -85,18 +86,18 @@ export class Building extends CircleObject {
         // Production properties
         this.moneyAddedAble = false;
         this.moneyAddedNum = 0;  // Money added per tick
-        this.moneyAddedFreezeTime = 100;  // Ticks between money additions
+        this.moneyAddedFreezeTime = scalePeriod(100);  // Ticks between money additions
 
         // Self-healing properties
         this.hpAddNum = 0;
-        this.hpAddNumFreezeTime = 100;
+        this.hpAddNumFreezeTime = scalePeriod(100);
 
         // Affects nearby buildings
         this.otherHpAddAble = false;
         this.otherHpAddRadius = 100;
         this._otherHpAddRadiusSq = 10000;  // 100²
         this.otherHpAddNum = 0;
-        this.otherHpAddFreezeTime = 100;
+        this.otherHpAddFreezeTime = scalePeriod(100);
 
         this.levelUpArr = [];
 

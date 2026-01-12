@@ -12,6 +12,7 @@ import { TowerHell } from '../base/towerHell';
 import { TowerRay } from '../base/towerRay';
 import { TowerRegistry, type TowerMeta } from '../towerRegistry';
 import { MyColor } from '@/entities/myColor';
+import { scaleSpeed, scalePeriod } from '@/core/speedScale';
 import type {
     AnyTowerConfig,
     TowerConfig,
@@ -107,7 +108,7 @@ function applyTowerParams(tower: Tower, config: AnyTowerConfig): void {
     // Basic properties
     if (params.rAdd !== undefined) tower.r += params.rAdd;
     if (params.rangeR !== undefined) tower.rangeR = params.rangeR;
-    if (params.clock !== undefined) tower.clock = params.clock;
+    if (params.clock !== undefined) tower.clock = scalePeriod(params.clock);
     if (params.hp !== undefined) tower.hpInit(params.hp);
 
     // Bullet properties
@@ -117,8 +118,8 @@ function applyTowerParams(tower: Tower, config: AnyTowerConfig): void {
             tower.getmMainBullyFunc = bulletCreator as any;
         }
     }
-    if (params.bullySpeed !== undefined) tower.bullySpeed = params.bullySpeed;
-    if (params.bullySpeedAddMax !== undefined) tower.bullySpeedAddMax = params.bullySpeedAddMax;
+    if (params.bullySpeed !== undefined) tower.bullySpeed = scaleSpeed(params.bullySpeed);
+    if (params.bullySpeedAddMax !== undefined) tower.bullySpeedAddMax = scaleSpeed(params.bullySpeedAddMax);
     if (params.bullyDeviationRotate !== undefined) tower.bullyDeviationRotate = params.bullyDeviationRotate;
     if (params.bullyDeviation !== undefined) tower.bullyDeviation = params.bullyDeviation;
     if (params.bullyRotate !== undefined) tower.bullyRotate = params.bullyRotate;
@@ -143,7 +144,7 @@ function applyLaserParams(tower: TowerLaser, config: LaserTowerConfig): void {
     if (!params) return;
 
     if (params.laserBaseDamage !== undefined) tower.laserBaseDamage = params.laserBaseDamage;
-    if (params.laserFreezeMax !== undefined) tower.laserFreezeMax = params.laserFreezeMax;
+    if (params.laserFreezeMax !== undefined) tower.laserFreezeMax = scalePeriod(params.laserFreezeMax);
     if (params.laserMaxDamage !== undefined) tower.laserMaxDamage = params.laserMaxDamage;
     if (params.laserDamagePreAdd !== undefined) tower.laserDamagePreAdd = params.laserDamagePreAdd;
     if (params.laserColor) {
@@ -167,7 +168,7 @@ function applyHammerParams(tower: TowerHammer, config: HammerTowerConfig): void 
     if (params.itemRange !== undefined) tower.itemRange = params.itemRange;
     if (params.itemRidus !== undefined) tower.itemRidus = params.itemRidus;
     if (params.itemDamage !== undefined) tower.itemDamage = params.itemDamage;
-    if (params.itemSpeed !== undefined) tower.itemSpeed = params.itemSpeed;
+    if (params.itemSpeed !== undefined) tower.itemSpeed = scalePeriod(params.itemSpeed);
     if (params.hasAdditionItem) {
         tower.additionItem = tower.initAdditionItem();
     }
@@ -184,7 +185,7 @@ function applyBoomerangParams(tower: TowerBoomerang, config: BoomerangTowerConfi
     if (params.barLen !== undefined) tower.barLen = params.barLen;
     if (params.barDis !== undefined) tower.barDis = params.barDis;
     if (params.barWidth !== undefined) tower.barWidth = params.barWidth;
-    if (params.barRotateSelfSpeed !== undefined) tower.barRotateSelfSpeed = params.barRotateSelfSpeed;
+    if (params.barRotateSelfSpeed !== undefined) tower.barRotateSelfSpeed = scaleSpeed(params.barRotateSelfSpeed);
 }
 
 /**
@@ -196,7 +197,7 @@ function applyHellParams(tower: TowerHell, config: HellTowerConfig): void {
 
     if (params.nowDamage !== undefined) tower.nowDamage = params.nowDamage;
     if (params.damageRate !== undefined) tower.damageRate = params.damageRate;
-    if (params.laserFreezeMax !== undefined) tower.laserFreezeMax = params.laserFreezeMax;
+    if (params.laserFreezeMax !== undefined) tower.laserFreezeMax = scalePeriod(params.laserFreezeMax);
 }
 
 /**
@@ -208,13 +209,14 @@ function applyRayParams(tower: TowerRay, config: RayTowerConfig): void {
 
     if (params.rayLen !== undefined) tower.rayLen = params.rayLen;
     if (params.damage !== undefined) tower.damage = params.damage;
+    // scanningSpeed 是视觉旋转角速度，不使用 scaleSpeed
     if (params.scanningSpeed !== undefined) tower.scanningSpeed = params.scanningSpeed;
-    if (params.rayMoveSpeed !== undefined) tower.rayMoveSpeed = params.rayMoveSpeed;
+    if (params.rayMoveSpeed !== undefined) tower.rayMoveSpeed = scaleSpeed(params.rayMoveSpeed);
     if (params.rayNum !== undefined) tower.rayNum = params.rayNum;
     if (params.rayDeviationRotate !== undefined) tower.rayDeviationRotate = params.rayDeviationRotate;
     if (params.rayDeviation !== undefined) tower.rayDeviation = params.rayDeviation;
     if (params.rayMaxRange !== undefined) tower.rayMaxRange = params.rayMaxRange;
-    if (params.rayClock !== undefined) tower.rayClock = params.rayClock;
+    if (params.rayClock !== undefined) tower.rayClock = scalePeriod(params.rayClock);
     if (params.rayThrowAble !== undefined) tower.rayThrowAble = params.rayThrowAble;
     if (params.rayRepel !== undefined) tower.rayRepel = params.rayRepel;
     if (params.rayColor) {

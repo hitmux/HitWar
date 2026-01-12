@@ -17,6 +17,9 @@ export interface TowerLike {
     goStep: () => void;
     render: (ctx: CanvasRenderingContext2D) => void;
     getBodyCircle: () => any; // Returns Circle or compatible object
+    // 分离的移动和碰撞方法
+    goStepMove: () => void;
+    goStepCollide: () => void;
 }
 
 // 建筑实体接口
@@ -40,6 +43,13 @@ export interface MonsterLike extends SpatialEntity {
     colishDamage: number;
     goStep: () => void;
     render: (ctx: CanvasRenderingContext2D) => void;
+    // 分离的移动和碰撞方法
+    updateState: () => void;  // 状态更新（死亡检查等）
+    moveOnly: () => void;
+    clashOnly: () => void;
+    // 上一帧位置（用于扫掠碰撞检测）
+    prevX: number;
+    prevY: number;
 }
 
 // 子弹实体接口
@@ -49,6 +59,12 @@ export interface BullyLike extends SpatialEntity {
     isOutScreen: () => boolean;
     goStep: () => void;
     render: (ctx: CanvasRenderingContext2D) => void;
+    // 分离的移动和碰撞方法
+    move: () => void;
+    collide: (world: any) => void;
+    // 上一帧位置（用于扫掠碰撞检测）
+    prevX: number;
+    prevY: number;
 }
 
 // 效果实体接口
@@ -305,26 +321,50 @@ export class EntityManager {
 
     /**
      * Update all entities (call goStep)
+     * 使用三阶段更新：状态更新 -> 移动 -> 碰撞检测
+     * 这样可以使用相对速度扫掠检测来避免高速移动的穿透问题
      */
     updateEntities(): void {
-        // Tower actions
+        // === 阶段0: 怪物状态更新（包括死亡检查） ===
+        for (const m of this.monsters) {
+            m.updateState();
+        }
+
+        // === 阶段1: 所有实体执行移动 ===
+        // Tower 移动（塔自身和子弹的移动）
         for (const b of this.batterys) {
-            b.goStep();
+            b.goStepMove();
         }
-        // Standalone bullet actions
+        // Standalone bullet 移动
         for (const p of this.othersBullys) {
-            p.goStep();
+            p.move();
         }
+        // Monster 移动
+        for (const m of this.monsters) {
+            m.moveOnly();
+        }
+
+        // === 阶段2: 所有碰撞检测 ===
+        // Tower 碰撞检测（子弹碰撞和攻击逻辑）
+        for (const b of this.batterys) {
+            b.goStepCollide();
+        }
+        // Standalone bullet 碰撞检测
+        for (const p of this.othersBullys) {
+            p.collide(this._context as any);
+        }
+        // Monster 碰撞检测
+        for (const m of this.monsters) {
+            m.clashOnly();
+        }
+
+        // === 阶段3: 其他逻辑（建筑、矿点、效果不需要分离） ===
         // Building actions
         for (const b of this.buildings) {
             b.goStep();
         }
         // Mine actions
         for (const m of this.mines) {
-            m.goStep();
-        }
-        // Monster actions
-        for (const m of this.monsters) {
             m.goStep();
         }
         // Effect steps

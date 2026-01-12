@@ -15,6 +15,7 @@ import {
 import { EffectText } from '../../effects/effect';
 import { Sounds } from '../../systems/sound/sounds';
 import type { MonsterLike, EffectLike } from '../entities';
+import { scalePeriod } from '../../core/speedScale';
 
 // 怪物流接口
 export interface MonsterFlow {
@@ -69,7 +70,7 @@ export class WaveManager {
 
     // Non-flow mode settings
     haveFlow: boolean = true;
-    monsterAddFreezeTick: number = 200;
+    monsterAddFreezeTick: number = scalePeriod(200);
     monsterPreAdd: number = 3;
     maxMonsterNum: number = 250;
 
@@ -137,7 +138,7 @@ export class WaveManager {
             ) as unknown as MonsterFlow;
         }
 
-        if (this.monsterFlow.delayTick === 200 - 1) {
+        if (this.monsterFlow.delayTick === scalePeriod(200) - 1) {
             const et = new EffectText(`第 ${this.monsterFlow.level} 波即将到来！`);
             et.textSize = 40;
             et.duration = 100;

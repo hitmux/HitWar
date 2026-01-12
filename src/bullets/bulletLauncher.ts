@@ -7,6 +7,7 @@
 import { Vector } from '../core/math/vector';
 import { BulletRegistry } from './bulletRegistry';
 import { Bully } from './bullet';
+import { scaleSpeed, scalePeriod } from '../core/speedScale';
 
 interface BindObjectLike {
     liveTime: number;
@@ -41,10 +42,10 @@ export class BulletLauncher {
         this.world = world;
         this.pos = pos;  // Launch origin position
 
-        this.clock = 5;  // Reaction time
+        this.clock = scalePeriod(5);  // Reaction time
         this.launcherObjGetterFunc = () => BulletRegistry.create('Normal') as Bully | null;
 
-        this.bullySpeed = 8;  // Bullet base speed
+        this.bullySpeed = scaleSpeed(8);  // Bullet base speed
         this.bullySpeedAddMax = 0;  // Bullet speed random increase
         this.bullyDeviationRotate = 0;  // Bullet plane random offset (direction)
         this.bullyDeviation = 0;  // Bullet plane random offset

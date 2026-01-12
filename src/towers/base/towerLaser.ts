@@ -9,6 +9,7 @@ import { Rectangle } from '../../core/math/rectangle';
 import { MyColor } from '../../entities/myColor';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import { scalePeriod } from '../../core/speedScale';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
@@ -107,7 +108,7 @@ export class TowerLaser extends Tower {
         this.price = 1000;
 
         this.laserBaseDamage = 100;
-        this.laserFreezeMax = 10;
+        this.laserFreezeMax = scalePeriod(10);
         this.laserFreezeNow = 0;
         this.laserMaxDamage = 10000;
         this.laserDamageAdd = 0;
@@ -126,14 +127,30 @@ export class TowerLaser extends Tower {
     }
 
     goStep(): void {
+        // 保持向后兼容：执行完整的更新逻辑
+        this.goStepMove();
+        this.goStepCollide();
+    }
+
+    /**
+     * 移动阶段：处理激光塔状态更新
+     */
+    goStepMove(): void {
         // Clear dead target reference to allow GC
         if (this.target && this.target.isDead()) {
             this.target = null;
         }
-        super.goStep();
-        this.attackFunc();
+        super.goStepMove();
         this.laserFreezeChange(1);
         this.addDamage();
+    }
+
+    /**
+     * 碰撞阶段：处理激光塔攻击
+     */
+    goStepCollide(): void {
+        super.goStepCollide();
+        this.attackFunc();
     }
 
     zapAttack(): void {

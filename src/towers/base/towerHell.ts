@@ -115,7 +115,23 @@ export class TowerHell extends Tower {
     }
 
     goStep(): void {
-        super.goStep();
+        // 保持向后兼容：执行完整的更新逻辑
+        this.goStepMove();
+        this.goStepCollide();
+    }
+
+    /**
+     * 移动阶段：继承基类移动逻辑
+     */
+    goStepMove(): void {
+        super.goStepMove();
+    }
+
+    /**
+     * 碰撞阶段：处理地狱塔的目标获取和攻击
+     */
+    goStepCollide(): void {
+        super.goStepCollide();
         this.getTarget();
         this.attack();
     }

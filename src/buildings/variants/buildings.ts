@@ -7,6 +7,7 @@ import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
 import { Building } from '../building';
 import { BuildingRegistry } from '../buildingRegistry';
+import { scalePeriod } from '../../core/speedScale';
 
 interface WorldLike {
     [key: string]: unknown;
@@ -35,7 +36,7 @@ export function Collector(world: WorldLike): Building {
     res.name = "金矿";
     res.moneyAddedAble = true;
     res.moneyAddedNum = 50;
-    res.moneyAddedFreezeTime = 2000;
+    res.moneyAddedFreezeTime = scalePeriod(2000);
     res.r = 15;
     res.hpInit(3000);
 
@@ -56,7 +57,7 @@ export function Treatment(world: WorldLike): Building {
     res.otherHpAddAble = true;
     res.otherHpAddNum = 200;
     res.otherHpAddRadius = 120;
-    res.otherHpAddFreezeTime = 100;
+    res.otherHpAddFreezeTime = scalePeriod(100);
     res.r = 10;
     res.hpInit(7500);
     res.price = 1200;

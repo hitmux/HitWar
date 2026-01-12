@@ -55,6 +55,9 @@ interface EntityLike {
     burnRate?: number;
     bodyColor?: { change(dr: number, dg: number, db: number, da: number): void };
     changedSpeed?: VectorLike;
+    // 上一帧位置（用于扫掠碰撞检测）
+    prevX?: number;
+    prevY?: number;
 }
 
 interface TowerLike {
@@ -259,17 +262,32 @@ export class Bully extends CircleObject {
     }
 
     move(): void {
-        const prevX = this.pos.x;
-        const prevY = this.pos.y;
+        // 保存上一帧位置（用于扫掠碰撞检测）
+        this.prevX = this.pos.x;
+        this.prevY = this.pos.y;
+
         if (this.targetAble && this.haveTarget()) {
             // Use static temp vector to avoid GC pressure
             const temp = Bully._bullyTempVec;
             Vector.subTo(this.target!.pos as Vector, this.pos, temp);
             temp.normalizeInPlace().mulInPlace(this.speedToTargetN);
             this.pos.add(temp);
-            this._markMovement(prevX, prevY);
+            this._markMovement(this.prevX, this.prevY);
         } else {
-            super.move();
+            // super.move() 现在也会设置 prevX/prevY，但我们已经先设置了
+            // 所以需要跳过 super.move() 中的重复设置
+            if (this.acceleration.x === this.acceleration.y && this.acceleration.x === 0) {
+                Vector.mulTo(this.speed, this.accelerationV, Bully._bullyTempVec);
+                this.speed.add(Bully._bullyTempVec);
+            } else {
+                this.speed.add(this.acceleration);
+            }
+            const maxSpeedSq = this.maxSpeedN * this.maxSpeedN;
+            if (this.speed.absSq() > maxSpeedSq) {
+                this.speed.mulInPlace(this.maxSpeedN / this.speed.abs());
+            }
+            this.pos.add(this.speed);
+            this._markMovement(this.prevX, this.prevY);
         }
     }
 
@@ -309,6 +327,7 @@ export class Bully extends CircleObject {
 
     /**
      * Bullet collision detection with monsters
+     * 使用扫掠碰撞检测以避免高速移动时的穿透问题
      */
     collide(world: WorldLike): void {
         let arr: EntityLike[];
@@ -317,11 +336,30 @@ export class Bully extends CircleObject {
             arr = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
         } else {
             // Use quadtree for monster collision detection
-            arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.r + 50);
+            arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.r + 100);
         }
         for (const m of arr) {
             const mc = m.getBodyCircle();
-            if (Circle.collides(this.pos.x, this.pos.y, this.r, mc.x, mc.y, mc.r)) {
+            
+            // 使用扫掠碰撞检测
+            let collided: boolean;
+            if (this.targetTower) {
+                // 建筑不移动，使用基础扫掠检测
+                collided = Circle.sweepCollides(
+                    this.prevX, this.prevY, this.pos.x, this.pos.y, this.r,
+                    mc.x, mc.y, mc.r
+                );
+            } else {
+                // 怪物也在移动，使用相对速度扫掠检测
+                const mPrevX = m.prevX ?? mc.x;
+                const mPrevY = m.prevY ?? mc.y;
+                collided = Circle.sweepCollidesRelative(
+                    this.prevX, this.prevY, this.pos.x, this.pos.y, this.r,
+                    mPrevX, mPrevY, mc.x, mc.y, mc.r
+                );
+            }
+            
+            if (collided) {
                 // If target has teleport ability
                 if (m.teleportingAble && m.teleporting) {
                     m.teleporting();

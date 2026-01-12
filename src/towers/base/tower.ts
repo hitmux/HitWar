@@ -9,6 +9,7 @@ import { CircleObject } from '../../entities/base/circleObject';
 import { TowerRegistry } from '../towerRegistry';
 import { TOWER_IMG_PRE_WIDTH, TOWER_IMG_PRE_HEIGHT, getTowersImg } from '../towerConstants';
 import { VisionType, VISION_CONFIG } from '@/systems/fog/visionConfig';
+import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 
 // Declare globals for non-migrated modules
 declare const BullyFinally: { Normal: () => BulletLike } | undefined;
@@ -29,6 +30,11 @@ interface BulletLike {
     split(): void;
     outTowerViewRange(): boolean;
     remove(): void;
+    // 分离的移动和碰撞方法
+    move(): void;
+    rChange(): void;
+    getTarget(): void;
+    collide(world: WorldLike): void;
 }
 
 interface MonsterLike {
@@ -130,13 +136,13 @@ export class Tower extends CircleObject {
         this.r = 15;
         this.rangeR = 100;
         this.dirction = new Vector(1, 2).to1();
-        this.clock = 5;
+        this.clock = scalePeriod(5);
 
         this.bullys = new Set();
 
         this.getmMainBullyFunc = typeof BullyFinally !== 'undefined' ? BullyFinally.Normal : null;
 
-        this.bullySpeed = 8;
+        this.bullySpeed = scaleSpeed(8);
         this.bullySpeedAddMax = 0;
         this.bullyDeviationRotate = 0;
         this.bullyDeviation = 0;
@@ -176,17 +182,25 @@ export class Tower extends CircleObject {
     }
 
     goStep(): void {
+        // 保持向后兼容：执行移动和碰撞检测
+        this.goStepMove();
+        this.goStepCollide();
+    }
+
+    /**
+     * 移动阶段：执行塔和子弹的移动
+     * 用于分离移动和碰撞检测的两阶段更新
+     */
+    goStepMove(): void {
         super.goStep();
         super.move();
 
-        this.removeOutRangeBullet();
+        // 子弹移动和目标获取
         for (let b of this.bullys) {
-            b.goStep();
+            b.move();
+            b.rChange();
+            b.getTarget();
         }
-        if (this.isDead()) {
-            return;
-        }
-        this.attackFunc();
 
         // Radar rotation
         if (this.visionType === VisionType.RADAR && this.visionLevel > 0) {
@@ -195,6 +209,23 @@ export class Tower extends CircleObject {
                 this.radarAngle -= Math.PI * 2;
             }
         }
+    }
+
+    /**
+     * 碰撞检测阶段：执行子弹碰撞检测和攻击逻辑
+     * 用于分离移动和碰撞检测的两阶段更新
+     */
+    goStepCollide(): void {
+        this.removeOutRangeBullet();
+        for (let b of this.bullys) {
+            b.collide(this.world);
+            // 处理分裂子弹
+            b.split();
+        }
+        if (this.isDead()) {
+            return;
+        }
+        this.attackFunc();
     }
 
     remove(): void {
@@ -364,7 +395,7 @@ export class Tower extends CircleObject {
                 this._upIconOffset = new Vector(0, 0);
             }
             this._upIconOffset.x = this.pos.x + this.r * 0.2;
-            this._upIconOffset.y = this.pos.y - this.r * 1.5 + Math.sin(this.liveTime / 5) * 5;
+            this._upIconOffset.y = this.pos.y - this.r * 1.5 + Math.sin(this.liveTime / scalePeriod(5)) * 5;
             if (typeof UP_LEVEL_ICON !== 'undefined') {
                 ctx.drawImage(
                     UP_LEVEL_ICON,

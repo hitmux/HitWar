@@ -136,7 +136,7 @@ export class UIController {
     restoreSpeedButtonState(): void {
         this.speedBtns.forEach(btn => {
             btn.classList.remove("active");
-            if (parseInt(btn.dataset.speed!) === this.world.gameSpeed) {
+            if (parseFloat(btn.dataset.speed!) === this.world.gameSpeed) {
                 btn.classList.add("active");
             }
         });
@@ -181,7 +181,7 @@ export class UIController {
             btn.addEventListener("click", () => {
                 this.speedBtns.forEach(b => b.classList.remove("active"));
                 btn.classList.add("active");
-                this.world.gameSpeed = parseInt(btn.dataset.speed!);
+                this.world.gameSpeed = parseFloat(btn.dataset.speed!);
             });
         });
     }

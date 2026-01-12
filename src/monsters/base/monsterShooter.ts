@@ -6,6 +6,7 @@ import { Vector } from '../../core/math/vector';
 import { Circle } from '../../core/math/circle';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
+import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 
 // Declare globals for non-migrated modules
 declare const BullyFinally: { S: () => BulletLike } | undefined;
@@ -79,8 +80,8 @@ export class MonsterShooter extends Monster {
         this.dirction = new Vector(1, 2).to1();
 
         this.getmMainBullyFunc = typeof BullyFinally !== 'undefined' ? BullyFinally.S : null;
-        this.bullySpeed = 8;
-        this.clock = 5;
+        this.bullySpeed = scaleSpeed(8);
+        this.clock = scalePeriod(5);
         this.attackBullyNum = 1;
         this.bullyDeviationRotate = 0;
         this.bullySpeedAddMax = 0;

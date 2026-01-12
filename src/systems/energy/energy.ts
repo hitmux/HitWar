@@ -3,6 +3,8 @@
  * Handles energy production/consumption calculation, penalty logic
  */
 
+import { scalePeriod } from '../../core/speedScale';
+
 interface WorldLike {
     time: number;
     user: { money: number };
@@ -14,9 +16,10 @@ interface WorldLike {
 
 export class Energy {
     world: WorldLike;
-    PENALTY_INTERVAL: number = 120; // Penalty interval (ticks)
+    PENALTY_INTERVAL: number = scalePeriod(120); // Penalty interval (ticks)
     PENALTY_COST: number = 1;       // Money cost per energy deficit unit
     ROOT_PRODUCTION: number = 6;    // Headquarters fixed production
+    BONUS_INTERVAL: number = scalePeriod(400); // Bonus interval (ticks)
 
     // Cache for production and consumption
     private _productionCache: number = 0;
@@ -122,8 +125,8 @@ export class Energy {
             this.world.user.money -= this.PENALTY_COST;
         }
         
-        // Energy surplus bonus: +1 gold per surplus energy every 400 ticks
-        if (balance > 0 && this.world.time % 400 === 0) {
+        // Energy surplus bonus: +1 gold per surplus energy every BONUS_INTERVAL ticks
+        if (balance > 0 && this.world.time % this.BONUS_INTERVAL === 0) {
             this.world.user.money += balance;
         }
     }

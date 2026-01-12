@@ -8,6 +8,7 @@ import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
+import { scaleSpeed } from '../../core/speedScale';
 
 interface CircleLike {
     x: number;
@@ -47,7 +48,7 @@ export class MonsterTerminator extends Monster {
 
     constructor(pos: Vector, world: any) {
         super(pos, world);
-        this.speedNumb = 0.3;
+        this.speedNumb = scaleSpeed(0.3);
         this.meeleAttacking = false;
         this.scar = new Set();
     }
@@ -98,6 +99,26 @@ export class MonsterTerminator extends Monster {
         for (let b of nearbyBuildings) {
             const bc = b.getBodyCircle();
             if (Circle.collides(myCircle.x, myCircle.y, myCircle.r, bc.x, bc.y, bc.r)) {
+                this.bombSelf();
+                this.meeleAttacking = true;
+                b.hpChange(-this.colishDamage);
+            }
+        }
+    }
+
+    /**
+     * 碰撞检测阶段（使用扫掠检测）
+     */
+    clashOnly(): void {
+        this.meeleAttacking = false;
+        const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
+        for (let b of nearbyBuildings) {
+            const bc = b.getBodyCircle();
+            // 使用扫掠检测（建筑不移动）
+            if (Circle.sweepCollides(
+                this.prevX, this.prevY, this.pos.x, this.pos.y, this.r,
+                bc.x, bc.y, bc.r
+            )) {
                 this.bombSelf();
                 this.meeleAttacking = true;
                 b.hpChange(-this.colishDamage);

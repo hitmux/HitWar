@@ -10,6 +10,7 @@ import { MyColor } from '../../entities/myColor';
 import { LineObject } from '../../entities/base/lineObject';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import { scaleSpeed } from '../../core/speedScale';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
@@ -96,6 +97,8 @@ export class TowerRay extends Tower {
         this.targetLiveTime = 0;
 
         this.attackFunc = this.attack;
+        // 注意：scanningSpeed 是视觉旋转角速度，不使用 scaleSpeed
+        // 旋转速度的感知不需要随游戏速度缩放
         this.scanningSpeed = 0.01;
 
         this.rayMoveSpeed = 0;
@@ -240,27 +243,56 @@ export class TowerRay extends Tower {
     }
 
     goStep(): void {
-        super.goStep();
+        // 保持向后兼容：执行完整的更新逻辑
+        this.goStepMove();
+        this.goStepCollide();
+    }
+
+    /**
+     * 移动阶段：处理射线子弹的移动
+     */
+    goStepMove(): void {
+        super.goStepMove();
         
+        // 射线子弹移动
+        for (let br of this.rayBullys) {
+            br.lineGoStep();
+        }
+    }
+
+    /**
+     * 碰撞阶段：处理攻击和射线子弹碰撞
+     */
+    goStepCollide(): void {
         // Cache query results at the start of the frame for reuse
-        // Calculate the maximum range needed by any attack method
         const effectiveRange = this.getEffectiveRangeR();
         const maxQueryRange = Math.max(effectiveRange, this.rayLen);
         
         // Query once and cache the results
         this._cachedMonstersInRange = this.world.getMonstersInRange(this.pos.x, this.pos.y, maxQueryRange);
         this._cachedQueryRange = maxQueryRange;
-        
-        // Pass cached results to attack function
+
+        // 移除超出范围的子弹
+        this.removeOutRangeBullet();
+        for (let b of this.bullys) {
+            b.collide(this.world);
+            b.split();
+        }
+
+        if (this.isDead()) {
+            return;
+        }
+
+        // 执行攻击（带缓存的怪物查询）
         this.attackFunc(this._cachedMonstersInRange);
 
+        // 射线子弹碰撞检测
         const toDelete: LineObject[] = [];
         const doCollision = this.liveTime % 2 === 0;
         const actualDamage = doCollision ? this.damage * 2 : 0;
         const maxRangeSq = this.rayMaxRange * this.rayMaxRange;
 
         for (let br of this.rayBullys) {
-            br.lineGoStep();
             if (br.PosEnd.disSq(this.pos) > maxRangeSq) {
                 toDelete.push(br);
                 continue;

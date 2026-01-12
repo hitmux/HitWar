@@ -7,6 +7,7 @@ import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
+import { scaleSpeed } from '../../core/speedScale';
 
 // Declare globals for non-migrated modules
 declare const EffectCircle: {
@@ -71,7 +72,7 @@ export class MonsterMortis extends Monster {
         this.throwAble = true;
 
         this.viewRadius = 100;
-        this.bumpV = 12;
+        this.bumpV = scaleSpeed(12);
         this.bumpDis = 50;
         this.bumpEndPoint = null;
         this.target = null;
@@ -142,6 +143,28 @@ export class MonsterMortis extends Monster {
         for (let b of nearbyBuildings) {
             const bc = b.getBodyCircle();
             if (Circle.collides(myCircle.x, myCircle.y, myCircle.r, bc.x, bc.y, bc.r)) {
+                this.bombSelf();
+                b.hpChange(-this.bumpDamage);
+                if (!this.throwAble) {
+                    this.remove();
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * 碰撞检测阶段（使用扫掠检测）
+     */
+    clashOnly(): void {
+        const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
+        for (let b of nearbyBuildings) {
+            const bc = b.getBodyCircle();
+            // 使用扫掠检测（建筑不移动）
+            if (Circle.sweepCollides(
+                this.prevX, this.prevY, this.pos.x, this.pos.y, this.r,
+                bc.x, bc.y, bc.r
+            )) {
                 this.bombSelf();
                 b.hpChange(-this.bumpDamage);
                 if (!this.throwAble) {

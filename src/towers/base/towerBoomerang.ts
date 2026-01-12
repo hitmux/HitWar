@@ -9,6 +9,7 @@ import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 
 interface VectorLike {
     x: number;
@@ -60,7 +61,7 @@ export class TowerBoomerang extends Tower {
         this.barLen = 20;
         this.barDis = this.rangeR;
         this.barWidth = 10;
-        this.barRotateSelfSpeed = 0.5;
+        this.barRotateSelfSpeed = scaleSpeed(0.5);
 
         this.barDirect = Vector.randCircle();
         this.bar = this.initBar();
@@ -78,7 +79,7 @@ export class TowerBoomerang extends Tower {
     }
 
     barGo(): void {
-        this.barDis = (Math.sin(this.liveTime / 10) + 1) * this.rangeR;
+        this.barDis = (Math.sin(this.liveTime / scalePeriod(10)) + 1) * this.rangeR;
         let barCenterLoc = this.pos.plus(this.dirction.mul(this.barDis));
         this.bar.moveTo(barCenterLoc);
     }
@@ -121,9 +122,42 @@ export class TowerBoomerang extends Tower {
     }
 
     goStep(): void {
-        super.goStep();
+        // 保持向后兼容：执行完整的更新逻辑
+        this.goStepMove();
+        this.goStepCollide();
+    }
+
+    /**
+     * 移动阶段：处理旋转镖的移动和旋转
+     */
+    goStepMove(): void {
+        super.goStepMove();
+        this.barGo();
+        this.barRotate();
+    }
+
+    /**
+     * 碰撞阶段：处理旋转镖的碰撞检测
+     */
+    goStepCollide(): void {
+        super.goStepCollide();
         this.getTarget();
-        this.barGoStep();
+        // 旋转镖碰撞检测
+        let barCenter = this.bar.PosStart.plus(this.bar.PosEnd).mul(0.5);
+        let dx = this.bar.PosEnd.x - this.bar.PosStart.x;
+        let dy = this.bar.PosEnd.y - this.bar.PosStart.y;
+        let barLen = Math.sqrt(dx * dx + dy * dy);
+        let nearbyMonsters = this.world.getMonstersInRange(barCenter.x, barCenter.y, barLen);
+        let actualDamage = this.damage * this.getDamageMultiplier();
+        for (let m of nearbyMonsters) {
+            const mc = m.getBodyCircle();
+            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
+                continue;
+            }
+            if (this.bar.intersectWithCircle(mc as any)) {
+                m.hpChange(-actualDamage);
+            }
+        }
     }
 
     render(ctx: CanvasRenderingContext2D): void {

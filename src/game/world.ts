@@ -114,9 +114,13 @@ export class World {
     // === Backward Compatible Proxy Properties ===
     // Entity collections (proxied to EntityManager)
     get batterys(): TowerLike[] { return this._entityManager.batterys; }
+    set batterys(value: TowerLike[]) { this._entityManager.batterys = value; }
     get buildings(): BuildingLike[] { return this._entityManager.buildings; }
+    set buildings(value: BuildingLike[]) { this._entityManager.buildings = value; }
     get mines(): Set<Mine> { return this._entityManager.mines; }
+    set mines(value: Set<Mine>) { this._entityManager.mines = value; }
     get monsters(): Set<MonsterLike> { return this._entityManager.monsters; }
+    set monsters(value: Set<MonsterLike>) { this._entityManager.monsters = value; }
     get effects(): Set<EffectLike> { return this._entityManager.effects; }
     get othersBullys(): BullyLike[] { return this._entityManager.othersBullys; }
     get allBullys(): Set<BullyLike> { return this._entityManager.allBullys; }
