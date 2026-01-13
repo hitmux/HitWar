@@ -118,8 +118,9 @@ export class Functions {
      * T800 count based on wave
      */
     static levelT800Count(level: number): number {
-        const res = Math.floor(Math.pow(level, 1.2) / 10);
-        return res < 1 ? 1 : res;
+        const res = Math.floor(Math.pow(level, 1.2) / 20); // 数量减半
+        const count = res < 1 ? 1 : res;
+        return count > 10 ? 10 : count; // 最多10个
     }
 
     static levelT800CountHard(level: number): number {

@@ -38,8 +38,8 @@ export const VISION_CONFIG = {
 
     // Radar tower config
     radar: {
-        radius: { 1: 300, 2: 550, 3: 800 } as Record<number, number>,
-        price: { 1: 100, 2: 150, 3: 200 } as Record<number, number>,  // Cumulative: 100, 250, 450
+        radius: { 1: 300, 2: 550, 3: 800, 4: 1050, 5: 1300 } as Record<number, number>,
+        price: { 1: 100, 2: 150, 3: 200, 4: 250, 5: 300 } as Record<number, number>,  // Cumulative: 100, 250, 450, 700, 1000
         sweepAngle: Math.PI / 6,      // 30 degree sweep width
         sweepSpeed: 0.03,             // Rotation speed (rad/frame) - 1.5x faster
         revealDuration: 180,          // Temp reveal duration in frames (~3s @60fps)

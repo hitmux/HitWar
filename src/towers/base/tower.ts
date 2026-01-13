@@ -236,9 +236,9 @@ export class Tower extends CircleObject {
         }
         this.bullys.clear();
         
-        const index = this.world.batterys.indexOf(this);
-        if (index > -1) {
-            this.world.batterys.splice(index, 1);
+        const towerIndex = this.world.batterys.indexOf(this);
+        if (towerIndex > -1) {
+            this.world.batterys.splice(towerIndex, 1);
         }
         // Use incremental update instead of markDirty
         if (this.world.territory) {

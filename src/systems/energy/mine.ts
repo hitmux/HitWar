@@ -139,6 +139,10 @@ export class Mine extends CircleObject {
             if (idx !== -1) {
                 buildings.splice(idx, 1);
             }
+            // Mark building quadtree as dirty so spatial queries are updated
+            if ((this.world as any)._spatialSystem) {
+                (this.world as any)._spatialSystem.markBuildingQuadTreeDirty();
+            }
             this.state = Mine.STATE_NORMAL;
             this.powerPlantLevel = 0;
             this.hp = 0;
@@ -188,6 +192,10 @@ export class Mine extends CircleObject {
                 const idx = buildings.indexOf(this);
                 if (idx !== -1) {
                     buildings.splice(idx, 1);
+                }
+                // Mark building quadtree as dirty so spatial queries are updated
+                if ((this.world as any)._spatialSystem) {
+                    (this.world as any)._spatialSystem.markBuildingQuadTreeDirty();
                 }
             }
 

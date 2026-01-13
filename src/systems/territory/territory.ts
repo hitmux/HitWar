@@ -392,6 +392,94 @@ export class Territory {
     }
 
     /**
+     * When a new valid building is added, try to reconnect any invalid buildings
+     * that are now within range of the valid territory network
+     */
+    private _tryReconnectInvalidBuildings(newValidBuilding: BuildingLike): void {
+        if (this.invalidBuildings.size === 0) return;
+        
+        const searchRadius = this.territoryRadius * 2;
+        const radiusSq = this._territoryRadiusSq;
+        
+        // Separate providers and non-providers for efficient processing
+        const invalidProviders: BuildingLike[] = [];
+        const invalidNonProviders: BuildingLike[] = [];
+        for (const b of this.invalidBuildings) {
+            if (this._canProvideTerritory(b)) {
+                invalidProviders.push(b);
+            } else {
+                invalidNonProviders.push(b);
+            }
+        }
+        
+        if (invalidProviders.length === 0 && invalidNonProviders.length === 0) return;
+        
+        // BFS from new valid building to find reconnectable providers
+        const toReconnect: BuildingLike[] = [];
+        const reconnectedSet = new Set<BuildingLike>();
+        
+        // Initial pass: find providers directly connected to newValidBuilding
+        for (const b of invalidProviders) {
+            if (newValidBuilding.pos.dis(b.pos) <= searchRadius) {
+                toReconnect.push(b);
+                reconnectedSet.add(b);
+            }
+        }
+        
+        // BFS: find chains of reconnectable providers
+        // Optimization: only iterate remaining (not yet reconnected) providers
+        let queueIndex = 0;
+        while (queueIndex < toReconnect.length) {
+            const current = toReconnect[queueIndex++];
+            for (const b of invalidProviders) {
+                if (reconnectedSet.has(b)) continue;
+                if (current.pos.dis(b.pos) <= searchRadius) {
+                    toReconnect.push(b);
+                    reconnectedSet.add(b);
+                }
+            }
+        }
+        
+        // No providers reconnected, check if non-providers can connect to newValidBuilding directly
+        if (toReconnect.length === 0) {
+            for (const b of invalidNonProviders) {
+                if (newValidBuilding.pos.disSq(b.pos) <= radiusSq) {
+                    this.invalidBuildings.delete(b);
+                    this.validBuildings.add(b);
+                    this._removeInvalidPenalty(b);
+                }
+            }
+            return;
+        }
+        
+        // Move reconnected providers from invalid to valid
+        for (const b of toReconnect) {
+            this.invalidBuildings.delete(b);
+            this.validBuildings.add(b);
+            this._addBuildingToGrid(b);
+            this._removeInvalidPenalty(b);
+        }
+        
+        // Check non-providers: in range of newValidBuilding or any reconnected provider
+        for (const b of invalidNonProviders) {
+            if (newValidBuilding.pos.disSq(b.pos) <= radiusSq) {
+                this.invalidBuildings.delete(b);
+                this.validBuildings.add(b);
+                this._removeInvalidPenalty(b);
+                continue;
+            }
+            for (const vb of toReconnect) {
+                if (vb.pos.disSq(b.pos) <= radiusSq) {
+                    this.invalidBuildings.delete(b);
+                    this.validBuildings.add(b);
+                    this._removeInvalidPenalty(b);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
      * Check if position is within range of any valid territory provider
      * Used for non-provider buildings (repair towers, gold mines)
      */
@@ -417,6 +505,8 @@ export class Territory {
                 this.validBuildings.add(building);
                 this._addBuildingToGrid(building);
                 building.inValidTerritory = true;
+                // Check if this new valid building can reconnect any invalid buildings
+                this._tryReconnectInvalidBuildings(building);
             } else {
                 this.invalidBuildings.add(building);
                 this._applyInvalidPenalty(building);

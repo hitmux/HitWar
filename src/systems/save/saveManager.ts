@@ -309,6 +309,12 @@ export class SaveManager {
         const TowerRay = TowerRegistry.getClassType('TowerRay') as any;
         const MonsterShooter = MonsterRegistry.getClassType('MonsterShooter') as any;
 
+        // Warn if tower count seems abnormally low for the game progress
+        const towerCount = world.batterys.length;
+        if (towerCount === 0 && world.time > 1000) {
+            console.warn(`[SaveManager] WARNING: No towers to save at time ${world.time}! This may indicate data loss.`);
+        }
+
         // Serialize towers
         for (const tower of world.batterys) {
             const t = tower as any;
@@ -508,7 +514,7 @@ export class SaveManager {
             for (const towerData of saveData.towers) {
                 const creator = TowerRegistry.getCreator(towerData.creatorFunc || '');
                 if (!creator) {
-                    console.warn("Unknown tower creator:", towerData.creatorFunc);
+                    console.warn("[SaveManager] Unknown tower creator:", towerData.creatorFunc, "- tower will be skipped");
                     continue;
                 }
 

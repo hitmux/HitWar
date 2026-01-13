@@ -283,13 +283,6 @@ export class TowerLaser extends Tower {
         if (isAttacked) {
             this.laserFreezeNow = 0;
             this.laserDamageAdd = 0;
-            if (typeof EffectCircle !== 'undefined') {
-                let c = EffectCircle.acquire(this.pos);
-                c.circle.r = effectiveRange;
-                c.duration = 10;
-                c.animationFunc = c.flashBrownAnimation;
-                this.world.addEffect?.(c);
-            }
         }
     }
 
