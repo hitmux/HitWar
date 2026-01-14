@@ -490,6 +490,10 @@ export class WorldRenderer {
         // Only render static parts of buildings (body, not HP bar)
         for (const b of buildings) {
             if ((b as any).gameType === "Mine") continue;
+            // DEBUG: Log headquarters position during static layer rebuild
+            // if ((b as any).name === "Headquarters") {
+            //     console.log('[DEBUG] Rebuilding static layer - Headquarters pos:', (b as any).pos?.x, (b as any).pos?.y);
+            // }
             if (typeof (b as any).renderStatic === 'function') {
                 (b as any).renderStatic(ctx);
             } else {

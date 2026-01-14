@@ -196,7 +196,9 @@ export class World {
 
         // Place root building
         let RootBuilding = BuildingFinallyCompat.Root!(this as any) as any;
+        //console.log('[DEBUG] Before setting pos - RootBuilding.pos:', RootBuilding.pos?.x, RootBuilding.pos?.y);
         RootBuilding.pos = new Vector(this.width / 2, this.height / 2);
+        //console.log('[DEBUG] After setting pos - RootBuilding.pos:', RootBuilding.pos?.x, RootBuilding.pos?.y);
         this.rootBuilding = RootBuilding as BuildingLike;
         this.addBuilding(this.rootBuilding);
 

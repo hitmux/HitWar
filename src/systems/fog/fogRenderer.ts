@@ -5,6 +5,7 @@
 
 import { FogOfWar } from './fogOfWar';
 import { VISION_CONFIG, RadarSweepArea, VisionType } from './visionConfig';
+import { PR } from '@/core/staticInitData';
 
 export class FogRenderer {
     private _fog: FogOfWar;
@@ -68,7 +69,7 @@ export class FogRenderer {
     render(ctx: CanvasRenderingContext2D, worldWidth: number, worldHeight: number): void {
         if (!this._fog.enabled) return;
 
-        const pr = window.devicePixelRatio || 1;
+        const pr = PR;
 
         // Check dimension changes, reinitialize canvas
         if (worldWidth !== this._cachedWidth || worldHeight !== this._cachedHeight || pr !== this._cachedPR) {
