@@ -24,14 +24,6 @@ export const EXCITING_CONFIG: MonsterConfig = {
             targetSelectionAble: true,
             strategy: 'balanced',
             scanRadius: 300
-        },
-        flocking: {
-            flockingAble: true,
-            perceptionRadius: 100,
-            separationRadius: 40,
-            separationWeight: 1.5,
-            alignmentWeight: 1.0,
-            cohesionWeight: 0.6
         }
     }
 };
@@ -54,14 +46,6 @@ export const VISITOR_CONFIG: MonsterConfig = {
             targetSelectionAble: true,
             strategy: 'balanced',
             scanRadius: 300
-        },
-        flocking: {
-            flockingAble: true,
-            perceptionRadius: 100,
-            separationRadius: 40,
-            separationWeight: 1.5,
-            alignmentWeight: 1.0,
-            cohesionWeight: 0.6
         }
     }
 };

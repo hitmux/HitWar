@@ -114,14 +114,6 @@ export const BAT_CONFIG: MonsterConfig = {
             targetSelectionAble: true,
             strategy: 'nearest',
             scanRadius: 200
-        },
-        flocking: {
-            flockingAble: true,
-            perceptionRadius: 60,
-            separationRadius: 20,
-            separationWeight: 1.5,
-            alignmentWeight: 1.2,
-            cohesionWeight: 0.8
         }
     }
 };
@@ -144,14 +136,6 @@ export const SPOKE_CONFIG: MonsterConfig = {
             targetSelectionAble: true,
             strategy: 'balanced',
             scanRadius: 300
-        },
-        flocking: {
-            flockingAble: true,
-            perceptionRadius: 100,
-            separationRadius: 40,
-            separationWeight: 1.5,
-            alignmentWeight: 1.0,
-            cohesionWeight: 0.6
         }
     }
 };
@@ -174,14 +158,6 @@ export const SPOKEMAN_CONFIG: MonsterConfig = {
             targetSelectionAble: true,
             strategy: 'balanced',
             scanRadius: 300
-        },
-        flocking: {
-            flockingAble: true,
-            perceptionRadius: 100,
-            separationRadius: 40,
-            separationWeight: 1.5,
-            alignmentWeight: 1.0,
-            cohesionWeight: 0.6
         }
     }
 };

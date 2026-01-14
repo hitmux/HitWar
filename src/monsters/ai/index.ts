@@ -15,10 +15,3 @@ export {
     DEFAULT_TARGET_CONFIG
 } from './targetSelection';
 export type { TargetConfig, TargetStrategy } from './targetSelection';
-
-export {
-    calcFlockingForce,
-    calcSurroundForce,
-    DEFAULT_FLOCKING_CONFIG
-} from './flocking';
-export type { FlockingConfig } from './flocking';

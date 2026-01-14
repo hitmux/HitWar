@@ -213,28 +213,6 @@ export interface TargetSelectionParams {
 }
 
 /**
- * Flocking (group behavior) AI parameters
- */
-export interface FlockingParams {
-    /** Enable flocking behavior */
-    flockingAble: boolean;
-    /** Perception radius (how far to detect neighbors) */
-    perceptionRadius?: number;
-    /** Separation radius (closer neighbors are pushed away) */
-    separationRadius?: number;
-    /** Update interval (frames) */
-    updateInterval?: number;
-    /** Separation weight (avoid crowding) */
-    separationWeight?: number;
-    /** Alignment weight (match direction) */
-    alignmentWeight?: number;
-    /** Cohesion weight (stay together) */
-    cohesionWeight?: number;
-    /** Maximum force applied */
-    maxForce?: number;
-}
-
-/**
  * MonsterShooter specific parameters
  */
 export interface ShooterParams {
@@ -281,8 +259,6 @@ export interface MonsterConfig extends MonsterBaseConfig {
         dodge?: DodgeParams;
         /** Dynamic target selection AI */
         targetSelection?: TargetSelectionParams;
-        /** Flocking (group behavior) AI */
-        flocking?: FlockingParams;
     };
 }
 
@@ -296,8 +272,6 @@ export interface ShooterMonsterConfig extends MonsterBaseConfig {
         dodge?: DodgeParams;
         /** Dynamic target selection AI */
         targetSelection?: TargetSelectionParams;
-        /** Flocking (group behavior) AI */
-        flocking?: FlockingParams;
     };
 }
 

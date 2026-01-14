@@ -27,14 +27,6 @@ export const SLIME_L_CONFIG: MonsterConfig = {
             targetSelectionAble: true,
             strategy: 'balanced',
             scanRadius: 300
-        },
-        flocking: {
-            flockingAble: true,
-            perceptionRadius: 120,
-            separationRadius: 60,
-            separationWeight: 1.2,
-            alignmentWeight: 0.8,
-            cohesionWeight: 0.5
         }
     }
 };
@@ -60,14 +52,6 @@ export const SLIME_M_CONFIG: MonsterConfig = {
             targetSelectionAble: true,
             strategy: 'balanced',
             scanRadius: 280
-        },
-        flocking: {
-            flockingAble: true,
-            perceptionRadius: 100,
-            separationRadius: 50,
-            separationWeight: 1.5,
-            alignmentWeight: 1.0,
-            cohesionWeight: 0.6
         }
     }
 };
@@ -94,14 +78,6 @@ export const SLIME_S_CONFIG: MonsterConfig = {
             targetSelectionAble: true,
             strategy: 'nearest',
             scanRadius: 250
-        },
-        flocking: {
-            flockingAble: true,
-            perceptionRadius: 80,
-            separationRadius: 30,
-            separationWeight: 2.0,
-            alignmentWeight: 1.2,
-            cohesionWeight: 0.8
         }
     }
 };

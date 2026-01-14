@@ -20,13 +20,10 @@ import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 import {
     calcBulletDodge,
     selectTarget,
-    calcFlockingForce,
     DEFAULT_DODGE_CONFIG,
     DEFAULT_TARGET_CONFIG,
-    DEFAULT_FLOCKING_CONFIG,
     type DodgeConfig,
-    type TargetConfig,
-    type FlockingConfig
+    type TargetConfig
 } from '../ai';
 
 // Declare globals for non-migrated modules
@@ -255,11 +252,6 @@ export class Monster extends CircleObject {
     targetConfig: TargetConfig;
     protected _targetVec: Vector;
 
-    // AI: Flocking (group behavior)
-    flockingAble: boolean;
-    flockingConfig: FlockingConfig;
-    protected _flockingVec: Vector;
-
     imgIndex: number;
 
     declare world: WorldLike;
@@ -352,11 +344,6 @@ export class Monster extends CircleObject {
         this.targetSelectionAble = false;
         this.targetConfig = { ...DEFAULT_TARGET_CONFIG };
         this._targetVec = new Vector(0, 0);
-
-        // AI: Flocking (group behavior)
-        this.flockingAble = false;
-        this.flockingConfig = { ...DEFAULT_FLOCKING_CONFIG };
-        this._flockingVec = new Vector(0, 0);
 
         this.imgIndex = 0;
     }
@@ -456,21 +443,9 @@ export class Monster extends CircleObject {
         }
     }
 
-    /**
-     * AI: 群体协作行为
-     * 让怪物像鱼群一样协调移动（分离、对齐、聚合）
-     */
-    selfFlockingMove(): void {
-        if (!this.flockingAble) return;
-        calcFlockingForce(this, this.flockingConfig, this._flockingVec);
-        this.changedSpeed.add(this._flockingVec);
-    }
-
     move(): void {
         // AI: 躲避子弹（在计算速度前）
         this.selfDodgeMove();
-        // AI: 群体协作
-        this.selfFlockingMove();
 
         this._moveVec.x = this.destination.x - this.pos.x;
         this._moveVec.y = this.destination.y - this.pos.y;
