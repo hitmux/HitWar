@@ -166,19 +166,9 @@ export class TowerLaser extends Tower {
             let attacked = false;
             let effectiveRange = this.getEffectiveRangeR();
 
-            // Pre-query a larger range to reduce query count
-            // Maximum possible range: effectiveRange + zapLen * zapCount
-            const maxPossibleRange = effectiveRange + len * maxCount;
-            const allNearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, maxPossibleRange);
-
-            // Filter monsters by fog visibility (using circle visibility for edge detection)
-            const visibleMonsters: MonsterLike[] = [];
-            for (const m of allNearbyMonsters) {
-                const mc = m.getBodyCircle();
-                if (!this.world.fog?.enabled || this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
-                    visibleMonsters.push(m);
-                }
-            }
+            // Cache fog reference and check if fog is enabled once
+            const fog = this.world.fog;
+            const fogEnabled = fog?.enabled ?? false;
 
             // Iterative implementation using queue instead of recursion
             interface ZapNode {
@@ -200,14 +190,24 @@ export class TowerLaser extends Tower {
                 const searchRadius = (node.remainingCount === maxCount) ? effectiveRange : len;
                 const searchRadiusSq = searchRadius * searchRadius;
 
+                // Query monsters only within the current search radius (not the entire chain range)
+                const nearbyMonsters = this.world.getMonstersInRange(node.pos.x, node.pos.y, searchRadius);
+
                 // Calculate damage for this attack: base damage * (damageMultipleRate ^ attackIndex)
                 const currentDamage = zapDamage * Math.pow(damageMultipleRate, node.attackIndex);
 
                 // Find the first unvisited monster within range
-                let found = false;
-                for (const m of visibleMonsters) {
+                for (const m of nearbyMonsters) {
                     if (monsterSet.has(m)) {
                         continue;
+                    }
+
+                    // Check fog visibility
+                    if (fogEnabled) {
+                        const mc = m.getBodyCircle();
+                        if (!fog!.isCircleVisible(mc.x, mc.y, mc.r)) {
+                            continue;
+                        }
                     }
 
                     // Calculate distance squared
@@ -219,7 +219,6 @@ export class TowerLaser extends Tower {
                         // Check collision with circle
                         const mc = m.getBodyCircle() as Circle;
                         if (Circle.collides(node.pos.x, node.pos.y, searchRadius, mc.x, mc.y, mc.r)) {
-                            found = true;
                             m.hpChange(-currentDamage);
                             monsterSet.add(m);
                             attacked = true;
