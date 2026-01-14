@@ -349,7 +349,7 @@ body {
       .openSourceInfo {
         position: absolute;
         left: 50%;
-        bottom: 30px;
+        bottom: 90px;
         transform: translateX(-50%);
         color: #e20303;
         font-size: 25px;
@@ -357,6 +357,32 @@ body {
         border: 2px solid rgb(7, 31, 245);
         padding: 10px 20px;
         border-radius: 5px;
+        .fonts();
+        
+        a {
+          color: #4a9eff;
+          text-decoration: underline;
+          transition: all 0.2s;
+          
+          &:hover {
+            color: #00d4ff;
+            text-shadow: 0 0 8px rgba(74, 158, 255, 0.6);
+          }
+        }
+      }
+
+      .previewNotice {
+        position: absolute;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        color: #ff9800;
+        font-size: 16px;
+        text-align: center;
+        padding: 8px 16px;
+        border-radius: 5px;
+        background: rgba(255, 152, 0, 0.15);
+        border: 1px solid rgba(255, 152, 0, 0.4);
         .fonts();
         
         a {
