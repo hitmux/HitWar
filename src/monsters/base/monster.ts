@@ -17,6 +17,17 @@ import { MonsterRegistry } from '../monsterRegistry';
 import { MONSTER_IMG_PRE_WIDTH, MONSTER_IMG_PRE_HEIGHT, getMonstersImg } from '../monsterConstants';
 import { World } from '../../game/world';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
+import {
+    calcBulletDodge,
+    selectTarget,
+    calcFlockingForce,
+    DEFAULT_DODGE_CONFIG,
+    DEFAULT_TARGET_CONFIG,
+    DEFAULT_FLOCKING_CONFIG,
+    type DodgeConfig,
+    type TargetConfig,
+    type FlockingConfig
+} from '../ai';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
@@ -234,6 +245,21 @@ export class Monster extends CircleObject {
     teleportingRange: number;
     teleportingCount: number;
 
+    // AI: Bullet dodge
+    dodgeAble: boolean;
+    dodgeConfig: DodgeConfig;
+    protected _dodgeVec: Vector;
+
+    // AI: Dynamic target selection
+    targetSelectionAble: boolean;
+    targetConfig: TargetConfig;
+    protected _targetVec: Vector;
+
+    // AI: Flocking (group behavior)
+    flockingAble: boolean;
+    flockingConfig: FlockingConfig;
+    protected _flockingVec: Vector;
+
     imgIndex: number;
 
     declare world: WorldLike;
@@ -317,6 +343,21 @@ export class Monster extends CircleObject {
         this.teleportingRange = 100;
         this.teleportingCount = 3;
 
+        // AI: Bullet dodge
+        this.dodgeAble = false;
+        this.dodgeConfig = { ...DEFAULT_DODGE_CONFIG };
+        this._dodgeVec = new Vector(0, 0);
+
+        // AI: Dynamic target selection
+        this.targetSelectionAble = false;
+        this.targetConfig = { ...DEFAULT_TARGET_CONFIG };
+        this._targetVec = new Vector(0, 0);
+
+        // AI: Flocking (group behavior)
+        this.flockingAble = false;
+        this.flockingConfig = { ...DEFAULT_FLOCKING_CONFIG };
+        this._flockingVec = new Vector(0, 0);
+
         this.imgIndex = 0;
     }
 
@@ -392,7 +433,45 @@ export class Monster extends CircleObject {
         this.changedSpeed.y += this._moveVec.y * cos;
     }
 
+    /**
+     * AI: 躲避子弹行为
+     * 检测附近飞来的子弹并计算躲避向量
+     */
+    selfDodgeMove(): void {
+        if (!this.dodgeAble) return;
+        calcBulletDodge(this, this.dodgeConfig, this._dodgeVec);
+        this.changedSpeed.add(this._dodgeVec);
+    }
+
+    /**
+     * AI: 动态目标选择
+     * 根据策略选择最优攻击目标
+     */
+    updateTarget(): void {
+        if (!this.targetSelectionAble) return;
+        const newTarget = selectTarget(this, this.targetConfig, this._targetVec);
+        if (newTarget) {
+            this.destination.x = newTarget.x;
+            this.destination.y = newTarget.y;
+        }
+    }
+
+    /**
+     * AI: 群体协作行为
+     * 让怪物像鱼群一样协调移动（分离、对齐、聚合）
+     */
+    selfFlockingMove(): void {
+        if (!this.flockingAble) return;
+        calcFlockingForce(this, this.flockingConfig, this._flockingVec);
+        this.changedSpeed.add(this._flockingVec);
+    }
+
     move(): void {
+        // AI: 躲避子弹（在计算速度前）
+        this.selfDodgeMove();
+        // AI: 群体协作
+        this.selfFlockingMove();
+
         this._moveVec.x = this.destination.x - this.pos.x;
         this._moveVec.y = this.destination.y - this.pos.y;
         const len = Math.sqrt(this._moveVec.x * this._moveVec.x + this._moveVec.y * this._moveVec.y);
@@ -642,6 +721,8 @@ export class Monster extends CircleObject {
      */
     updateState(): void {
         super.goStep();
+        // AI: 动态目标选择
+        this.updateTarget();
         this.laserDefend();
         this.summon();
         this.gainOther();

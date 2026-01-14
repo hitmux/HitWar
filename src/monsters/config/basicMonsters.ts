@@ -13,7 +13,12 @@ export const NORMAL_CONFIG: MonsterConfig = {
     imgIndex: 0,
     comment: '普通人',
     params: {
-        speedNumb: 0.3
+        speedNumb: 0.3,
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'nearest',
+            scanRadius: 250
+        }
     }
 };
 
@@ -24,7 +29,17 @@ export const RUNNER_CONFIG: MonsterConfig = {
     imgIndex: 0,
     comment: '跑人',
     params: {
-        speedNumb: 1
+        speedNumb: 1,
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 100,
+            dodgeStrength: 6
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'nearest',
+            scanRadius: 200
+        }
     }
 };
 
@@ -51,7 +66,12 @@ export const OX1_CONFIG: MonsterConfig = {
         speedNumb: 0.01,
         accelerationV: 0.01,
         maxSpeedN: 5,
-        bodyColor: [80, 20, 20, 1]
+        bodyColor: [80, 20, 20, 1],
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'weakest',
+            scanRadius: 300
+        }
     }
 };
 
@@ -65,7 +85,12 @@ export const OX2_CONFIG: MonsterConfig = {
         speedNumb: 0.01,
         accelerationV: 0.05,
         maxSpeedN: 7,
-        bodyColor: [120, 20, 20, 1]
+        bodyColor: [120, 20, 20, 1],
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'weakest',
+            scanRadius: 300
+        }
     }
 };
 
@@ -79,7 +104,17 @@ export const OX3_CONFIG: MonsterConfig = {
         speedNumb: 0.01,
         accelerationV: 0.1,
         maxSpeedN: 10,
-        bodyColor: [150, 20, 20, 1]
+        bodyColor: [150, 20, 20, 1],
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 120,
+            dodgeStrength: 5
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'weakest',
+            scanRadius: 350
+        }
     }
 };
 

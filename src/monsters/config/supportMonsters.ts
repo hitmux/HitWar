@@ -27,6 +27,19 @@ export const MEDIC_CONFIG: MonsterConfig = {
             gainSpeedNAddNum: 0,
             gainHpAddedRate: 0.0,
             gainMaxHpAddedNum: 0
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 120,
+            separationRadius: 50,
+            separationWeight: 1.0,
+            alignmentWeight: 0.8,
+            cohesionWeight: 1.2
         }
     }
 };
@@ -52,6 +65,19 @@ export const MEDIC_S_CONFIG: MonsterConfig = {
             gainSpeedNAddNum: 0,
             gainHpAddedRate: 0.1,
             gainMaxHpAddedNum: 0
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 150,
+            separationRadius: 50,
+            separationWeight: 1.0,
+            alignmentWeight: 0.8,
+            cohesionWeight: 1.2
         }
     }
 };
@@ -77,6 +103,19 @@ export const MEDIC_M_CONFIG: MonsterConfig = {
             gainSpeedNAddNum: 0,
             gainHpAddedRate: 0.0,
             gainMaxHpAddedNum: 100
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 150,
+            separationRadius: 60,
+            separationWeight: 1.0,
+            alignmentWeight: 0.8,
+            cohesionWeight: 1.2
         }
     }
 };
@@ -101,6 +140,19 @@ export const SPEED_ADDER_CONFIG: MonsterConfig = {
             gainSpeedNAddNum: 0.02,
             gainHpAddedRate: 0.0,
             gainMaxHpAddedNum: 0
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 120,
+            separationRadius: 50,
+            separationWeight: 1.0,
+            alignmentWeight: 0.8,
+            cohesionWeight: 1.2
         }
     }
 };
@@ -125,6 +177,19 @@ export const ATTACK_ADDER_CONFIG: MonsterConfig = {
             gainSpeedNAddNum: 0.0,
             gainHpAddedRate: 0.0,
             gainMaxHpAddedNum: 0
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'threat',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 120,
+            separationRadius: 50,
+            separationWeight: 1.0,
+            alignmentWeight: 0.8,
+            cohesionWeight: 1.2
         }
     }
 };

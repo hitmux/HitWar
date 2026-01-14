@@ -22,6 +22,19 @@ export const SLIME_L_CONFIG: MonsterConfig = {
         summon: {
             deadSummonAble: true,
             summonMonsterName: 'Slime_M'
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 120,
+            separationRadius: 60,
+            separationWeight: 1.2,
+            alignmentWeight: 0.8,
+            cohesionWeight: 0.5
         }
     }
 };
@@ -42,6 +55,19 @@ export const SLIME_M_CONFIG: MonsterConfig = {
         summon: {
             deadSummonAble: true,
             summonMonsterName: 'Slime_S'
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 280
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 100,
+            separationRadius: 50,
+            separationWeight: 1.5,
+            alignmentWeight: 1.0,
+            cohesionWeight: 0.6
         }
     }
 };
@@ -58,7 +84,25 @@ export const SLIME_S_CONFIG: MonsterConfig = {
         r: 10,
         bodyColor: [171, 236, 97, 0.8],
         bodyStrokeColor: [47, 113, 56, 1],
-        bodyStrokeWidth: 3
+        bodyStrokeWidth: 3,
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 80,
+            dodgeStrength: 5
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'nearest',
+            scanRadius: 250
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 80,
+            separationRadius: 30,
+            separationWeight: 2.0,
+            alignmentWeight: 1.2,
+            cohesionWeight: 0.8
+        }
     }
 };
 

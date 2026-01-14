@@ -144,7 +144,7 @@ export class FogRenderer {
      * New: gradient extends outward from visible radius, creating 30% opacity fog at edge
      */
     private _initHoleMask(): void {
-        const { outerGradientSize, innerGradientAlpha } = VISION_CONFIG;
+        const { outerGradientSize, innerEdgeFogOpacity } = VISION_CONFIG;
         // Use a fixed size for the mask (outer gradient size determines effective radius)
         const maskRadius = outerGradientSize * 4;
         const size = (maskRadius + outerGradientSize) * 2;
@@ -158,13 +158,21 @@ export class FogRenderer {
             const ctx = this._holeMaskCanvas.getContext('2d')!;
             const center = maskRadius + outerGradientSize;
 
-            // Create radial gradient: inner edge fully transparent (visible radius), outer edge semi-transparent (30% fog)
+            // 1. Fill center area with full alpha (100% transparent / 0% fog)
+            ctx.beginPath();
+            ctx.arc(center, center, maskRadius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,1)';  // Full carve out
+            ctx.fill();
+
+            // 2. Draw gradient ring for edge transition (25% -> 100% fog)
+            // destination-out: alpha determines how much fog is removed
+            const innerAlpha = 1 - innerEdgeFogOpacity;  // 0.75 for 25% fog
             const gradient = ctx.createRadialGradient(
                 center, center, maskRadius,
                 center, center, maskRadius + outerGradientSize
             );
-            gradient.addColorStop(0, 'rgba(0,0,0,1)');  // Fully carve out (transparent)
-            gradient.addColorStop(1, `rgba(0,0,0,${innerGradientAlpha})`);  // Partially carve out (30% fog)
+            gradient.addColorStop(0, `rgba(0,0,0,${innerAlpha})`);  // Inner edge: 25% fog
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');              // Outer edge: 100% fog
 
             ctx.beginPath();
             ctx.arc(center, center, maskRadius + outerGradientSize, 0, Math.PI * 2);
@@ -293,7 +301,7 @@ export class FogRenderer {
      * New: gradient extends outward from visible radius
      */
     private _drawVisionHole(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
-        const { outerGradientSize, innerGradientAlpha } = VISION_CONFIG;
+        const { outerGradientSize, innerEdgeFogOpacity } = VISION_CONFIG;
 
         // Use pre-rendered mask if available
         if (this._holeMaskCanvas && this._holeMaskSize > 0) {
@@ -311,13 +319,21 @@ export class FogRenderer {
             return;
         }
 
-        // Fallback: create gradient directly (only if mask not initialized)
+        // Fallback: create directly (only if mask not initialized)
+        // 1. Fill center area with full alpha (100% transparent / 0% fog)
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,1)';  // Full carve out
+        ctx.fill();
+
+        // 2. Draw gradient ring for edge transition (25% -> 100% fog)
+        const innerAlpha = 1 - innerEdgeFogOpacity;  // 0.75 for 25% fog
         const gradient = ctx.createRadialGradient(
             x, y, radius,
             x, y, radius + outerGradientSize
         );
-        gradient.addColorStop(0, 'rgba(0,0,0,1)');  // Fully carve out (transparent)
-        gradient.addColorStop(1, `rgba(0,0,0,${innerGradientAlpha})`);  // Partially carve out (30% fog)
+        gradient.addColorStop(0, `rgba(0,0,0,${innerAlpha})`);  // Inner edge: 25% fog
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');              // Outer edge: 100% fog
 
         ctx.beginPath();
         ctx.arc(x, y, radius + outerGradientSize, 0, Math.PI * 2);
@@ -329,7 +345,8 @@ export class FogRenderer {
      * Draw radar sweep sector hole (with gradient edge and alpha)
      */
     private _drawRadarSweepHole(ctx: CanvasRenderingContext2D, area: RadarSweepArea): void {
-        const { edgeGradientSize } = VISION_CONFIG;
+        const { edgeGradientRatio } = VISION_CONFIG;
+        const edgeGradientSize = area.radius * edgeGradientRatio;
 
         const gradient = ctx.createRadialGradient(
             area.x, area.y, Math.max(0, area.radius - edgeGradientSize),

@@ -21,6 +21,11 @@ export const BULLET_WEARER_CONFIG: MonsterConfig = {
             r: 100,
             f: 5,
             bullyDR: -1
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
         }
     }
 };
@@ -40,6 +45,11 @@ export const BULLET_REPELLENT_CONFIG: MonsterConfig = {
             r: 150,
             f: 1,
             bullyAN: 1
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
         }
     }
 };
@@ -59,6 +69,11 @@ export const DAMAGE_REDUCERS_CONFIG: MonsterConfig = {
             r: 150,
             f: 1,
             bullyDD: -1
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
         }
     }
 };
@@ -81,6 +96,11 @@ export const BLACK_HOLE_CONFIG: MonsterConfig = {
             haveGArea: true,
             gAreaR: 160,
             gAreaNum: 2
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'threat',
+            scanRadius: 400
         }
     }
 };

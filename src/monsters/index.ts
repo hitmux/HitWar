@@ -37,6 +37,9 @@ import './variants/index';
 // Re-export variant modules for direct access
 export * as variants from './variants/index';
 
+// Export AI modules
+export * as ai from './ai/index';
+
 // Import MonsterRegistry for re-exporting functions
 import { MonsterRegistry } from './monsterRegistry';
 

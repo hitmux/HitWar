@@ -24,6 +24,11 @@ export const BULLDOZER_CONFIG: MonsterConfig = {
             haveGArea: true,
             gAreaR: 50,
             gAreaNum: -2
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'threat',
+            scanRadius: 350
         }
     }
 };
@@ -48,6 +53,11 @@ export const GLANS_CONFIG: MonsterConfig = {
             laserRecoverFreeze: 100,
             laserRecoverNum: 20,
             laserRadius: 100
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'threat',
+            scanRadius: 300
         }
     }
 };
@@ -71,6 +81,11 @@ export const WITCH_N_CONFIG: MonsterConfig = {
             summonCount: 4,
             summonDistance: 45, // ~30 + 15 (avg of random 30-60)
             summonMonsterName: 'bat'
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
         }
     }
 };
@@ -89,7 +104,25 @@ export const BAT_CONFIG: MonsterConfig = {
         maxSpeedN: 5,
         bodyColor: [152, 118, 170, 0.8],
         bodyStrokeColor: [152, 118, 170, 1],
-        bodyStrokeWidth: 5
+        bodyStrokeWidth: 5,
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 100,
+            dodgeStrength: 7
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'nearest',
+            scanRadius: 200
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 60,
+            separationRadius: 20,
+            separationWeight: 1.5,
+            alignmentWeight: 1.2,
+            cohesionWeight: 0.8
+        }
     }
 };
 
@@ -101,7 +134,25 @@ export const SPOKE_CONFIG: MonsterConfig = {
     comment: '一种移动路径来回摇摆的普通人',
     params: {
         speedNumb: 3,
-        movementType: 'swing'
+        movementType: 'swing',
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 120,
+            dodgeStrength: 8
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 100,
+            separationRadius: 40,
+            separationWeight: 1.5,
+            alignmentWeight: 1.0,
+            cohesionWeight: 0.6
+        }
     }
 };
 
@@ -113,7 +164,25 @@ export const SPOKEMAN_CONFIG: MonsterConfig = {
     comment: '一种路径来回前后突进的普通怪物',
     params: {
         speedNumb: 3,
-        movementType: 'suddenly'
+        movementType: 'suddenly',
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 120,
+            dodgeStrength: 8
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 100,
+            separationRadius: 40,
+            separationWeight: 1.5,
+            alignmentWeight: 1.0,
+            cohesionWeight: 0.6
+        }
     }
 };
 

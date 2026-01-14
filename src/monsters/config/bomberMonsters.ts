@@ -19,6 +19,11 @@ export const BOMBER1_CONFIG: MonsterConfig = {
             bombSelfAble: true,
             bombSelfRange: 80,
             bombSelfDamage: 200
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
         }
     }
 };
@@ -37,6 +42,16 @@ export const BOMBER2_CONFIG: MonsterConfig = {
             bombSelfAble: true,
             bombSelfRange: 120,
             bombSelfDamage: 800
+        },
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 100,
+            dodgeStrength: 5
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 350
         }
     }
 };
@@ -55,6 +70,16 @@ export const BOMBER3_CONFIG: MonsterConfig = {
             bombSelfAble: true,
             bombSelfRange: 200,
             bombSelfDamage: 5000
+        },
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 120,
+            dodgeStrength: 6
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 400
         }
     }
 };
@@ -71,7 +96,12 @@ export const THROWER1_CONFIG: MonsterConfig = {
         r: 30,
         throwAble: true,
         bodyColor: [50, 150, 150, 0.5],
-        bodyStrokeColor: [5, 15, 15, 1]
+        bodyStrokeColor: [5, 15, 15, 1],
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'weakest',
+            scanRadius: 300
+        }
     }
 };
 

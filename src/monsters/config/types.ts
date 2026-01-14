@@ -180,6 +180,61 @@ export interface SummonParams {
 }
 
 /**
+ * Bullet dodge AI parameters
+ */
+export interface DodgeParams {
+    /** Enable bullet dodging */
+    dodgeAble: boolean;
+    /** Detection radius for bullets */
+    detectRadius?: number;
+    /** Dodge strength (movement force) */
+    dodgeStrength?: number;
+    /** Reaction time interval (frames) */
+    reactionTime?: number;
+}
+
+/**
+ * Target selection strategy type
+ */
+export type TargetStrategyType = 'nearest' | 'weakest' | 'threat' | 'balanced';
+
+/**
+ * Dynamic target selection AI parameters
+ */
+export interface TargetSelectionParams {
+    /** Enable dynamic target selection */
+    targetSelectionAble: boolean;
+    /** Selection strategy */
+    strategy?: TargetStrategyType;
+    /** Scan radius for buildings */
+    scanRadius?: number;
+    /** Update interval (frames) */
+    updateInterval?: number;
+}
+
+/**
+ * Flocking (group behavior) AI parameters
+ */
+export interface FlockingParams {
+    /** Enable flocking behavior */
+    flockingAble: boolean;
+    /** Perception radius (how far to detect neighbors) */
+    perceptionRadius?: number;
+    /** Separation radius (closer neighbors are pushed away) */
+    separationRadius?: number;
+    /** Update interval (frames) */
+    updateInterval?: number;
+    /** Separation weight (avoid crowding) */
+    separationWeight?: number;
+    /** Alignment weight (match direction) */
+    alignmentWeight?: number;
+    /** Cohesion weight (stay together) */
+    cohesionWeight?: number;
+    /** Maximum force applied */
+    maxForce?: number;
+}
+
+/**
  * MonsterShooter specific parameters
  */
 export interface ShooterParams {
@@ -222,6 +277,12 @@ export interface MonsterConfig extends MonsterBaseConfig {
         laserDefense?: LaserDefenseParams;
         gain?: GainParams;
         summon?: SummonParams;
+        /** Bullet dodge AI */
+        dodge?: DodgeParams;
+        /** Dynamic target selection AI */
+        targetSelection?: TargetSelectionParams;
+        /** Flocking (group behavior) AI */
+        flocking?: FlockingParams;
     };
 }
 
@@ -230,7 +291,14 @@ export interface MonsterConfig extends MonsterBaseConfig {
  */
 export interface ShooterMonsterConfig extends MonsterBaseConfig {
     baseClass: 'MonsterShooter';
-    params?: MonsterParams & ShooterParams;
+    params?: MonsterParams & ShooterParams & {
+        /** Bullet dodge AI */
+        dodge?: DodgeParams;
+        /** Dynamic target selection AI */
+        targetSelection?: TargetSelectionParams;
+        /** Flocking (group behavior) AI */
+        flocking?: FlockingParams;
+    };
 }
 
 /**

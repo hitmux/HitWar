@@ -59,7 +59,11 @@ export interface WorldRendererContext {
 
     // Systems
     territory?: { renderer: { render: (ctx: CanvasRenderingContext2D) => void } };
-    fog?: { renderer: { render: (ctx: CanvasRenderingContext2D, width: number, height: number) => void } };
+    fog?: {
+        enabled: boolean;
+        renderer: { render: (ctx: CanvasRenderingContext2D, width: number, height: number) => void };
+        isCircleVisible: (x: number, y: number, radius: number) => boolean;
+    };
     energy?: { getTotalProduction: () => number; getTotalConsumption: () => number };
     energyRenderer?: { render: (ctx: CanvasRenderingContext2D) => void };
     monsterFlow?: { toString: () => string; level: number; delayTick: number };
@@ -270,8 +274,15 @@ export class WorldRenderer {
         this._bulletRenderList = bulletCandidates;
 
         // Collect visible monsters and bullets into shared style groups
+        // Skip entities fully covered by fog (100% opaque fog area)
+        const fog = this._context.fog;
+        const fogEnabled = fog?.enabled ?? false;
         for (const monster of monsterCandidates) {
             if (this._isObjectVisible(monster, this._visibleBounds)) {
+                // Skip rendering if fully covered by fog
+                if (fogEnabled && !fog!.isCircleVisible(monster.pos.x, monster.pos.y, monster.radius)) {
+                    continue;
+                }
                 this._addEntityToStyleGroup(monster);
                 this._visibleMonsters.push(monster);
             }
@@ -279,6 +290,10 @@ export class WorldRenderer {
         for (let i = 0; i < bulletCandidates.length; i++) {
             const bully = bulletCandidates[i];
             if (this._isObjectVisible(bully, this._visibleBounds)) {
+                // Skip rendering if fully covered by fog
+                if (fogEnabled && !fog!.isCircleVisible(bully.pos.x, bully.pos.y, bully.radius)) {
+                    continue;
+                }
                 this._addEntityToStyleGroup(bully);
             }
         }

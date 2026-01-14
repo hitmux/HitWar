@@ -16,7 +16,12 @@ export const SHOUTER_CONFIG: ShooterMonsterConfig = {
     params: {
         speedNumb: 0.35,
         r: 20,
-        bodyColor: [190, 145, 23, 1]
+        bodyColor: [190, 145, 23, 1],
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'threat',
+            scanRadius: 250
+        }
     }
 };
 
@@ -33,7 +38,12 @@ export const SHOUTER_STONE_CONFIG: ShooterMonsterConfig = {
         bodyColor: [190, 145, 23, 1],
         bulletType: 'CannonStone_L',
         clock: 50,
-        rangeR: 170
+        rangeR: 170,
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'weakest',
+            scanRadius: 200
+        }
     }
 };
 
@@ -50,7 +60,12 @@ export const SHOUTER_BOMBER_CONFIG: ShooterMonsterConfig = {
         bodyColor: [190, 145, 23, 1],
         bulletType: 'H_S',
         clock: 50,
-        rangeR: 128
+        rangeR: 128,
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'weakest',
+            scanRadius: 200
+        }
     }
 };
 
@@ -67,7 +82,12 @@ export const SHOUTER_SPIKE_CONFIG: ShooterMonsterConfig = {
         bodyColor: [190, 145, 23, 1],
         bulletType: 'SpikeBully',
         clock: 8,
-        rangeR: 100
+        rangeR: 100,
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'threat',
+            scanRadius: 150
+        }
     }
 };
 

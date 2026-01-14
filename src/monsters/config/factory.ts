@@ -196,6 +196,60 @@ function applyExtendedParams(monster: Monster, config: MonsterConfig): void {
         monster.summonMonsterFunc = ((world: unknown) =>
             MonsterRegistry.create(summonName, world) as Monster) as any;
     }
+
+    // AI: Bullet dodge
+    if (params.dodge) {
+        monster.dodgeAble = params.dodge.dodgeAble;
+        if (params.dodge.detectRadius !== undefined) {
+            monster.dodgeConfig.detectRadius = params.dodge.detectRadius;
+        }
+        if (params.dodge.dodgeStrength !== undefined) {
+            monster.dodgeConfig.dodgeStrength = params.dodge.dodgeStrength;
+        }
+        if (params.dodge.reactionTime !== undefined) {
+            monster.dodgeConfig.reactionTime = scalePeriod(params.dodge.reactionTime);
+        }
+    }
+
+    // AI: Dynamic target selection
+    if (params.targetSelection) {
+        monster.targetSelectionAble = params.targetSelection.targetSelectionAble;
+        if (params.targetSelection.strategy !== undefined) {
+            monster.targetConfig.strategy = params.targetSelection.strategy;
+        }
+        if (params.targetSelection.scanRadius !== undefined) {
+            monster.targetConfig.scanRadius = params.targetSelection.scanRadius;
+        }
+        if (params.targetSelection.updateInterval !== undefined) {
+            monster.targetConfig.updateInterval = scalePeriod(params.targetSelection.updateInterval);
+        }
+    }
+
+    // AI: Flocking (group behavior)
+    if (params.flocking) {
+        monster.flockingAble = params.flocking.flockingAble;
+        if (params.flocking.perceptionRadius !== undefined) {
+            monster.flockingConfig.perceptionRadius = params.flocking.perceptionRadius;
+        }
+        if (params.flocking.separationRadius !== undefined) {
+            monster.flockingConfig.separationRadius = params.flocking.separationRadius;
+        }
+        if (params.flocking.updateInterval !== undefined) {
+            monster.flockingConfig.updateInterval = scalePeriod(params.flocking.updateInterval);
+        }
+        if (params.flocking.separationWeight !== undefined) {
+            monster.flockingConfig.weights.separation = params.flocking.separationWeight;
+        }
+        if (params.flocking.alignmentWeight !== undefined) {
+            monster.flockingConfig.weights.alignment = params.flocking.alignmentWeight;
+        }
+        if (params.flocking.cohesionWeight !== undefined) {
+            monster.flockingConfig.weights.cohesion = params.flocking.cohesionWeight;
+        }
+        if (params.flocking.maxForce !== undefined) {
+            monster.flockingConfig.maxForce = params.flocking.maxForce;
+        }
+    }
 }
 
 /**

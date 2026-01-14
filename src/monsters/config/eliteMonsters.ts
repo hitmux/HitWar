@@ -14,7 +14,25 @@ export const EXCITING_CONFIG: MonsterConfig = {
     comment: '一种移动路径前后更加剧烈的快速的怪物，看起来很激动',
     params: {
         speedNumb: 3,
-        movementType: 'exciting'
+        movementType: 'exciting',
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 120,
+            dodgeStrength: 8
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 100,
+            separationRadius: 40,
+            separationWeight: 1.5,
+            alignmentWeight: 1.0,
+            cohesionWeight: 0.6
+        }
     }
 };
 
@@ -26,7 +44,25 @@ export const VISITOR_CONFIG: MonsterConfig = {
     comment: '移动路径会很怪，它会旋转的走向目标，绕很多圈才会进行撞击，像是来参观的',
     params: {
         speedNumb: 3,
-        movementType: 'doubleSwing'
+        movementType: 'doubleSwing',
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 120,
+            dodgeStrength: 7
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'balanced',
+            scanRadius: 300
+        },
+        flocking: {
+            flockingAble: true,
+            perceptionRadius: 100,
+            separationRadius: 40,
+            separationWeight: 1.5,
+            alignmentWeight: 1.0,
+            cohesionWeight: 0.6
+        }
     }
 };
 
@@ -38,7 +74,17 @@ export const ENDERMAN_CONFIG: MonsterConfig = {
     comment: '一旦受到子弹碰撞，就会瞬移，所以它免疫子弹撞击伤害（不能免疫爆炸等其他伤害），但是它可能会一不小心瞬移到你的建筑上，然后撞死了。',
     params: {
         speedNumb: 1,
-        teleportingAble: true
+        teleportingAble: true,
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 150,
+            dodgeStrength: 10
+        },
+        targetSelection: {
+            targetSelectionAble: true,
+            strategy: 'threat',
+            scanRadius: 350
+        }
     }
 };
 
@@ -51,7 +97,12 @@ export const MTS_CONFIG: MortisMonsterConfig = {
     comment: '像忍者一样，一旦发现了你的建筑，便会迅速对你的建筑进行收割，像忍者一样来回穿过你的建筑，对你的建筑造成伤害',
     params: {
         r: 35,
-        speedNumb: 1
+        speedNumb: 1,
+        dodge: {
+            dodgeAble: true,
+            detectRadius: 130,
+            dodgeStrength: 9
+        }
     }
 };
 
