@@ -227,7 +227,7 @@ export class WorldRenderer {
         // Apply camera transform
         camera.applyTransform(ctx);
 
-        // Render static layer (obstacles only) once per invalidation
+        // Render static layer (obstacles + static buildings) once per invalidation
         if (this._staticLayerCanvas) {
             ctx.drawImage(this._staticLayerCanvas, 0, 0);
         }
@@ -237,11 +237,13 @@ export class WorldRenderer {
             this._context.territory.renderer.render(ctx);
         }
 
-        // Render all buildings dynamically (no caching for crisp rendering)
+        // Render dynamic parts of buildings (HP bars)
         for (const b of this._context.buildings) {
             if ((b as any).gameType === "Mine") continue;
             if (this._isObjectVisible(b, this._visibleBounds)) {
-                b.render(ctx);
+                if (typeof (b as any).renderDynamic === 'function') {
+                    (b as any).renderDynamic(ctx);
+                }
             }
         }
 
@@ -470,8 +472,15 @@ export class WorldRenderer {
             }
         }
 
-        // Buildings are now rendered dynamically, not cached
-        // (Static layer only contains obstacles)
+        // Only render static parts of buildings (body, not HP bar)
+        for (const b of buildings) {
+            if ((b as any).gameType === "Mine") continue;
+            if (typeof (b as any).renderStatic === 'function') {
+                (b as any).renderStatic(ctx);
+            } else {
+                b.render(ctx);
+            }
+        }
 
         this._staticLayerDirty = false;
     }

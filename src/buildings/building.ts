@@ -153,12 +153,6 @@ export class Building extends CircleObject {
                         b.hpChange(healAmount);
                     }
                 }
-                // Heal effect
-                const e = EffectCircle.acquire(this.pos);
-                e.animationFunc = e.flashGreenAnimation;
-                e.duration = this.otherHpAddFreezeTime;
-                e.circle.r = this.otherHpAddRadius;
-                this.world.addEffect(e);
             }
         }
     }

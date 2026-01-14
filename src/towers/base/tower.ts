@@ -395,7 +395,8 @@ export class Tower extends CircleObject {
                 this._upIconOffset = new Vector(0, 0);
             }
             this._upIconOffset.x = this.pos.x + this.r * 0.2;
-            this._upIconOffset.y = this.pos.y - this.r * 1.5 + Math.sin(this.liveTime / scalePeriod(5)) * 5;
+            // 上下移动频率降低到原来的1/3（周期变为3倍）
+            this._upIconOffset.y = this.pos.y - this.r * 1.5 + Math.sin(this.liveTime / scalePeriod(15)) * 5;
             if (typeof UP_LEVEL_ICON !== 'undefined') {
                 ctx.drawImage(
                     UP_LEVEL_ICON,
