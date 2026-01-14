@@ -280,7 +280,7 @@ export class WorldRenderer {
         for (const monster of monsterCandidates) {
             if (this._isObjectVisible(monster, this._visibleBounds)) {
                 // Skip rendering if fully covered by fog
-                if (fogEnabled && !fog!.isCircleVisible(monster.pos.x, monster.pos.y, monster.radius)) {
+                if (fogEnabled && !fog!.isCircleVisible(monster.pos.x, monster.pos.y, monster.r)) {
                     continue;
                 }
                 this._addEntityToStyleGroup(monster);
@@ -291,7 +291,7 @@ export class WorldRenderer {
             const bully = bulletCandidates[i];
             if (this._isObjectVisible(bully, this._visibleBounds)) {
                 // Skip rendering if fully covered by fog
-                if (fogEnabled && !fog!.isCircleVisible(bully.pos.x, bully.pos.y, bully.radius)) {
+                if (fogEnabled && !fog!.isCircleVisible(bully.pos.x, bully.pos.y, bully.r)) {
                     continue;
                 }
                 this._addEntityToStyleGroup(bully);
