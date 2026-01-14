@@ -4,9 +4,15 @@
  */
 import { Vector } from '../../core/math/vector';
 import { Circle } from '../../core/math/circle';
-import { Rectangle } from '../../core/math/rectangle';
 import { MyColor } from '../../entities/myColor';
 import { CircleObject } from '../../entities/base/circleObject';
+import {
+    renderStatusBar,
+    createStatusBarCache,
+    BAR_OFFSET,
+    BAR_COLORS,
+    type StatusBarCache
+} from '../../entities/statusBar';
 import { MonsterRegistry } from '../monsterRegistry';
 import { MONSTER_IMG_PRE_WIDTH, MONSTER_IMG_PRE_HEIGHT, getMonstersImg } from '../monsterConstants';
 import { World } from '../../game/world';
@@ -213,12 +219,7 @@ export class Monster extends CircleObject {
     laserRecoverFreeze: number;
     laserRecoverNum: number;
     laserRadius: number;
-    protected _laserBarBorder: Rectangle | null;
-    protected _laserBarFill: Rectangle | null;
-
-    // Laser defense string caching for performance
-    private _laserDefendStr: string = "";
-    private _lastLaserDefendInt: number = -1;
+    protected _laserBarCache: StatusBarCache;
 
     // Death summon ability
     deadSummonAble: boolean;
@@ -303,8 +304,7 @@ export class Monster extends CircleObject {
         this.laserRecoverFreeze = scalePeriod(10);
         this.laserRecoverNum = 10;
         this.laserRadius = 100;
-        this._laserBarBorder = null;
-        this._laserBarFill = null;
+        this._laserBarCache = createStatusBarCache();
 
         this.deadSummonAble = false;
         this.summonAble = false;
@@ -728,48 +728,24 @@ export class Monster extends CircleObject {
         }
         if (this.haveLaserDefence) {
             Monster.getRenderCircle(this.pos.x, this.pos.y, this.laserRadius).renderView(ctx);
-            let barH = this.hpBarHeight;
-            let hpRate = this.laserDefendNum / this.maxLaserNum;
-            let diff = 4;
-            let barX = this.pos.x - this.r;
-            let barY = this.pos.y - this.r - diff * barH;
-            let barW = this.r * 2;
+            
+            const barH = this.hpBarHeight;
+            const barX = this.pos.x - this.r;
+            const barY = this.pos.y - this.r + BAR_OFFSET.LASER_DEFENSE * barH;
+            const barW = this.r * 2;
+            const laserRate = this.laserDefendNum / this.maxLaserNum;
 
-            if (!this._laserBarBorder) {
-                this._laserBarBorder = new Rectangle(barX, barY, barW, barH);
-                this._laserBarBorder.setStrokeWidth(1);
-                this._laserBarBorder.setFillColor(0, 0, 0, 0);
-                this._laserBarBorder.setStrokeColor(1, 1, 1);
-            } else {
-                this._laserBarBorder.pos.x = barX;
-                this._laserBarBorder.pos.y = barY;
-                this._laserBarBorder.width = barW;
-                this._laserBarBorder.height = barH;
-            }
-            this._laserBarBorder.render(ctx);
-
-            if (!this._laserBarFill) {
-                this._laserBarFill = new Rectangle(barX, barY, barW * hpRate, barH);
-                this._laserBarFill.setStrokeWidth(0);
-                this._laserBarFill.setFillColor(255, 0, 255, 0.5);
-            } else {
-                this._laserBarFill.pos.x = barX;
-                this._laserBarFill.pos.y = barY;
-                this._laserBarFill.width = barW * hpRate;
-                this._laserBarFill.height = barH;
-            }
-            this._laserBarFill.render(ctx);
-
-            let laserDefendInt = Math.floor(this.laserDefendNum);
-            if (laserDefendInt !== this._lastLaserDefendInt) {
-                this._lastLaserDefendInt = laserDefendInt;
-                this._laserDefendStr = laserDefendInt.toString();
-            }
-            ctx.fillStyle = "black";
-            ctx.font = Monster.FONT_9;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "top";
-            ctx.fillText(this._laserDefendStr, this.pos.x, barY + 1);
+            renderStatusBar(ctx, {
+                x: barX,
+                y: barY,
+                width: barW,
+                height: barH,
+                fillRate: laserRate,
+                fillColor: BAR_COLORS.LASER_DEFENSE,
+                showText: true,
+                textValue: this.laserDefendNum,
+                cache: this._laserBarCache
+            });
         }
     }
 

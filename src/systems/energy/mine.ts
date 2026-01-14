@@ -11,7 +11,10 @@ import { EffectCircle } from '../../effects/effectCircle';
 interface WorldLike {
     buildings: unknown[];
     mines: Set<Mine>;
-    territory: { markDirty: () => void };
+    territory?: { 
+        markDirty: () => void;
+        addBuildingIncremental: (building: unknown) => void;
+    };
     addEffect: (effect: unknown) => void;
     user: { money: number };
 }
@@ -108,8 +111,8 @@ export class Mine extends CircleObject {
             this._updateRadius();
             // Add to buildings set so monsters can attack
             (this.world as any).buildings.push(this);
-            // Trigger territory update
-            (this.world as any).territory.markDirty();
+            // Immediate territory update (no 100ms delay)
+            (this.world as any).territory?.addBuildingIncremental?.(this);
         } else if (this.state === Mine.STATE_POWER_PLANT && this.powerPlantLevel < 3) {
             // Upgrade power plant
             this.powerPlantLevel++;

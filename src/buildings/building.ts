@@ -10,6 +10,7 @@ import { CircleObject } from '../entities/base/circleObject';
 import { EffectCircle } from '../effects/effectCircle';
 import { BuildingRegistry } from './buildingRegistry';
 import { scalePeriod } from '../core/speedScale';
+import { renderStatusBar, BAR_OFFSET } from '../entities/statusBar';
 
 interface TerritoryLike {
     markDirty(): void;
@@ -81,7 +82,8 @@ export class Building extends CircleObject {
         this.name = "Default Building";
         this.price = 10;
         this.hpInit(1000);
-        this.hpColor = MyColor.arrTo([2, 200, 50, 0.8]);
+        this.hpColor = MyColor.arrTo([2, 230, 13, 0.8]);
+        this.hpBarHeight = 7;
 
         // Production properties
         this.moneyAddedAble = false;
@@ -105,25 +107,13 @@ export class Building extends CircleObject {
     }
 
     hpChange(dh: number): void {
-        const prev = this.hp;
         super.hpChange(dh);
-        if (this.hp !== prev) {
-            const worldAny = this.world as any;
-            if (worldAny && typeof worldAny.markStaticLayerDirty === "function") {
-                worldAny.markStaticLayerDirty();
-            }
-        }
+        // Note: No need to mark static layer dirty since HP bars are now rendered dynamically
     }
 
     hpSet(hp: number): void {
-        const prev = this.hp;
         super.hpSet(hp);
-        if (this.hp !== prev) {
-            const worldAny = this.world as any;
-            if (worldAny && typeof worldAny.markStaticLayerDirty === "function") {
-                worldAny.markStaticLayerDirty();
-            }
-        }
+        // Note: No need to mark static layer dirty since HP bars are now rendered dynamically
     }
 
     goStep(): void {
@@ -183,7 +173,21 @@ export class Building extends CircleObject {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        super.render(ctx);
+        this.renderStatic(ctx);
+        this.renderDynamic(ctx);
+    }
+
+    /**
+     * Render static parts (body, healing range) - can be cached to static layer
+     */
+    renderStatic(ctx: CanvasRenderingContext2D): void {
+        if (!this.isInScreen()) {
+            return;
+        }
+
+        const c = this.getBodyCircle();
+        c.render(ctx);
+
         // Draw healing range circle (cache Circle object)
         if (this.otherHpAddAble) {
             if (!this._hpAddRangeCircle) {
@@ -197,6 +201,36 @@ export class Building extends CircleObject {
                 this._hpAddRangeCircle.y = this.pos.y;
             }
             this._hpAddRangeCircle.render(ctx);
+        }
+    }
+
+    /**
+     * Render dynamic parts (HP bar) - must be rendered every frame
+     */
+    renderDynamic(ctx: CanvasRenderingContext2D): void {
+        if (!this.isInScreen()) {
+            return;
+        }
+
+        // Render HP bar (copied from CircleObject.render)
+        if (this.maxHp > 0 && !this.isDead()) {
+            const barH = this.hpBarHeight;
+            const barX = this.pos.x - this.r;
+            const barY = this.pos.y - this.r + BAR_OFFSET.HP_TOP * barH;
+            const barW = this.r * 2;
+            const hpRate = this.hp / this.maxHp;
+
+            renderStatusBar(ctx, {
+                x: barX,
+                y: barY,
+                width: barW,
+                height: barH,
+                fillRate: hpRate,
+                fillColor: this.hpColor,
+                showText: true,
+                textValue: this.hp,
+                cache: this._hpBarCache
+            });
         }
     }
 }

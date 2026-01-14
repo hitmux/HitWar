@@ -4,11 +4,11 @@
  */
 
 import { Circle } from '../../core/math/circle';
-import { Rectangle } from '../../core/math/rectangle';
 import { Camera } from '../../core/camera';
 import { Obstacle } from '../../core/physics/obstacle';
 import { SpatialHashGrid } from '../../core/physics/spatialHashGrid';
 import { PR } from '../../core/staticInitData';
+import { renderStatusBar, BAR_OFFSET, type StatusBarCache } from '../../entities/statusBar';
 
 // Monsters imports
 import { getMonstersImg, MONSTER_IMG_PRE_WIDTH, MONSTER_IMG_PRE_HEIGHT } from '../../monsters/monsterConstants';
@@ -53,6 +53,8 @@ export interface WorldRendererContext {
             able: boolean;
             building: { r: number; rangeR: number } | null;
         };
+        /** 移动模式下选中的建筑位置和半径 */
+        moveTarget: { x: number; y: number; r: number } | null;
     };
 
     // Systems
@@ -136,6 +138,8 @@ export class WorldRenderer {
     // Preview circles cache
     private _previewBodyCircle: Circle | null = null;
     private _previewRangeCircle: Circle | null = null;
+    private _previewRepairCircle: Circle | null = null;  // 维修塔的维修半径圆圈
+    private _moveRangeCircle: Circle | null = null;
 
     // Per-frame render caches
     private _visibleBounds: [number, number, number, number] = [0, 0, 0, 0];
@@ -223,7 +227,7 @@ export class WorldRenderer {
         // Apply camera transform
         camera.applyTransform(ctx);
 
-        // Render static layer (obstacles + static buildings) once per invalidation
+        // Render static layer (obstacles only) once per invalidation
         if (this._staticLayerCanvas) {
             ctx.drawImage(this._staticLayerCanvas, 0, 0);
         }
@@ -231,6 +235,14 @@ export class WorldRenderer {
         // Render territory
         if (this._context.territory) {
             this._context.territory.renderer.render(ctx);
+        }
+
+        // Render all buildings dynamically (no caching for crisp rendering)
+        for (const b of this._context.buildings) {
+            if ((b as any).gameType === "Mine") continue;
+            if (this._isObjectVisible(b, this._visibleBounds)) {
+                b.render(ctx);
+            }
         }
 
         // Render game objects (with view culling)
@@ -291,6 +303,9 @@ export class WorldRenderer {
 
         // Render placement preview
         this._renderPlacementPreview(ctx);
+
+        // Render move range preview (选中建筑时显示75px移动范围圈)
+        this._renderMoveRangePreview(ctx);
 
         // Reset camera transform
         camera.resetTransform(ctx);
@@ -413,9 +428,13 @@ export class WorldRenderer {
         }
 
         const { width, height } = this._context;
-        if (this._staticLayerCanvas.width !== width || this._staticLayerCanvas.height !== height) {
-            this._staticLayerCanvas.width = width;
-            this._staticLayerCanvas.height = height;
+        // Use PR for high-resolution rendering
+        const targetWidth = width;
+        const targetHeight = height;
+        
+        if (this._staticLayerCanvas.width !== targetWidth || this._staticLayerCanvas.height !== targetHeight) {
+            this._staticLayerCanvas.width = targetWidth;
+            this._staticLayerCanvas.height = targetHeight;
             this._staticLayerDirty = true;
         }
 
@@ -451,10 +470,8 @@ export class WorldRenderer {
             }
         }
 
-        for (const b of buildings) {
-            if ((b as any).gameType === "Mine") continue;
-            b.render(ctx);
-        }
+        // Buildings are now rendered dynamically, not cached
+        // (Static layer only contains obstacles)
 
         this._staticLayerDirty = false;
     }
@@ -517,52 +534,27 @@ export class WorldRenderer {
             );
         }
 
-        const hpRate = monster.hp / monster.maxHp;
+        // Render HP bar using unified StatusBar
+        if (monster.maxHp > 0 && !monster.isDead()) {
+            const barH = monster.hpBarHeight;
+            const barX = monster.pos.x - monster.r;
+            const barY = monster.pos.y - monster.r + BAR_OFFSET.HP_TOP * barH;
+            const barW = monster.r * 2;
+            const hpRate = monster.hp / monster.maxHp;
 
-        if (monster.maxHp > 0) {
-            if (!monster.isDead()) {
-                const barH = monster.hpBarHeight;
-                const barX = monster.pos.x - monster.r;
-                const barY = monster.pos.y - monster.r - 2.5 * barH;
-                const barW = monster.r * 2;
-
-                if (!monster._hpBarBorder) {
-                    monster._hpBarBorder = new Rectangle(barX, barY, barW, barH);
-                    monster._hpBarBorder.setStrokeWidth(1);
-                    monster._hpBarBorder.setFillColor(0, 0, 0, 0);
-                    monster._hpBarBorder.setStrokeColor(1, 1, 1);
-                } else {
-                    monster._hpBarBorder.pos.x = barX;
-                    monster._hpBarBorder.pos.y = barY;
-                    monster._hpBarBorder.width = barW;
-                    monster._hpBarBorder.height = barH;
-                }
-                monster._hpBarBorder.render(ctx);
-
-                if (!monster._hpBarFill) {
-                    monster._hpBarFill = new Rectangle(barX, barY, barW * hpRate, barH);
-                    monster._hpBarFill.setStrokeWidth(0);
-                    monster._hpBarFill.setFillColor(monster.hpColor.r, monster.hpColor.g, monster.hpColor.b, monster.hpColor.a);
-                } else {
-                    monster._hpBarFill.pos.x = barX;
-                    monster._hpBarFill.pos.y = barY;
-                    monster._hpBarFill.width = barW * hpRate;
-                    monster._hpBarFill.height = barH;
-                    monster._hpBarFill.setFillColor(monster.hpColor.r, monster.hpColor.g, monster.hpColor.b, monster.hpColor.a);
-                }
-                monster._hpBarFill.render(ctx);
-
-                const hpInt = Math.floor(monster.hp);
-                if (hpInt !== monster._lastHpInt) {
-                    monster._lastHpInt = hpInt;
-                    monster._hpStr = hpInt.toString();
-                }
-                ctx.fillStyle = "black";
-                ctx.font = "9px Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "top";
-                ctx.fillText(monster._hpStr, monster.pos.x, barY + 1);
-            }
+            // Use monster's _hpBarCache (inherited from CircleObject)
+            const cache: StatusBarCache = monster._hpBarCache;
+            renderStatusBar(ctx, {
+                x: barX,
+                y: barY,
+                width: barW,
+                height: barH,
+                fillRate: hpRate,
+                fillColor: monster.hpColor,
+                showText: true,
+                textValue: monster.hp,
+                cache: cache
+            });
         }
     }
 
@@ -571,25 +563,84 @@ export class WorldRenderer {
         if (user.putLoc.building !== null && user.putLoc.building !== undefined) {
             const x = user.putLoc.x;
             const y = user.putLoc.y;
+            const building = user.putLoc.building as any;
 
+            // 渲染建筑体圆圈
             if (!this._previewBodyCircle) {
-                this._previewBodyCircle = new Circle(x, y, user.putLoc.building.r);
+                this._previewBodyCircle = new Circle(x, y, building.r);
             } else {
                 this._previewBodyCircle.x = x;
                 this._previewBodyCircle.y = y;
-                this._previewBodyCircle.r = user.putLoc.building.r;
+                this._previewBodyCircle.r = building.r;
             }
             this._previewBodyCircle.renderView(ctx);
 
-            if (!this._previewRangeCircle) {
-                this._previewRangeCircle = new Circle(x, y, user.putLoc.building.rangeR);
-            } else {
-                this._previewRangeCircle.x = x;
-                this._previewRangeCircle.y = y;
-                this._previewRangeCircle.r = user.putLoc.building.rangeR;
+            // 渲染射程圆圈（炮塔）
+            if (building.rangeR !== undefined && building.rangeR > 0) {
+                if (!this._previewRangeCircle) {
+                    this._previewRangeCircle = new Circle(x, y, building.rangeR);
+                } else {
+                    this._previewRangeCircle.x = x;
+                    this._previewRangeCircle.y = y;
+                    this._previewRangeCircle.r = building.rangeR;
+                }
+                this._previewRangeCircle.renderView(ctx);
             }
-            this._previewRangeCircle.renderView(ctx);
+
+            // 渲染维修半径圆圈（维修塔）
+            if (building.otherHpAddAble && building.otherHpAddRadius !== undefined && building.otherHpAddRadius > 0) {
+                if (!this._previewRepairCircle) {
+                    this._previewRepairCircle = new Circle(x, y, building.otherHpAddRadius);
+                    // 设置为绿色样式，与建筑静态渲染的维修范围一致
+                    this._previewRepairCircle.fillColor.setRGBA(0, 0, 0, 0);
+                    this._previewRepairCircle.strokeColor.setRGBA(81, 139, 60, 1);
+                    this._previewRepairCircle.setStrokeWidth(0.5);
+                } else {
+                    this._previewRepairCircle.x = x;
+                    this._previewRepairCircle.y = y;
+                    this._previewRepairCircle.r = building.otherHpAddRadius;
+                }
+                this._previewRepairCircle.render(ctx);
+            }
         }
+    }
+
+    /**
+     * 渲染移动模式下选中建筑的75px范围圈
+     */
+    private _renderMoveRangePreview(ctx: CanvasRenderingContext2D): void {
+        const { user } = this._context;
+        const moveTarget = user.moveTarget;
+        if (!moveTarget) return;
+
+        const MOVE_MAX_DISTANCE = 75;
+
+        // 更新或创建移动范围圈
+        if (!this._moveRangeCircle) {
+            this._moveRangeCircle = new Circle(moveTarget.x, moveTarget.y, MOVE_MAX_DISTANCE);
+        } else {
+            this._moveRangeCircle.x = moveTarget.x;
+            this._moveRangeCircle.y = moveTarget.y;
+            this._moveRangeCircle.r = MOVE_MAX_DISTANCE;
+        }
+
+        // 使用虚线样式渲染范围圈
+        ctx.save();
+        ctx.strokeStyle = "#4CAF50";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.beginPath();
+        ctx.arc(moveTarget.x, moveTarget.y, MOVE_MAX_DISTANCE, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 渲染选中建筑的高亮轮廓
+        ctx.strokeStyle = "#FFEB3B";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(moveTarget.x, moveTarget.y, moveTarget.r + 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
     }
 
     private _updateFpsTps(): void {

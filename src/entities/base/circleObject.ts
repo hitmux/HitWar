@@ -4,8 +4,13 @@
  */
 import { Vector } from '../../core/math/vector';
 import { Circle } from '../../core/math/circle';
-import { Rectangle } from '../../core/math/rectangle';
 import { MyColor } from '../myColor';
+import {
+    renderStatusBar,
+    createStatusBarCache,
+    BAR_OFFSET,
+    type StatusBarCache
+} from '../statusBar';
 
 interface CheatMode {
     enabled: boolean;
@@ -48,12 +53,8 @@ export class CircleObject {
     selected: boolean;
 
     protected _bodyCircle: Circle | null;
-    protected _hpBarBorder: Rectangle | null;
-    protected _hpBarFill: Rectangle | null;
+    protected _hpBarCache: StatusBarCache;
 
-    // HP string caching for performance
-    private _hpStr: string = "";
-    private _lastHpInt: number = -1;
     protected _bodyVersion: number = 0;
 
     // Territory related properties
@@ -91,8 +92,7 @@ export class CircleObject {
         this.selected = false;
 
         this._bodyCircle = null;
-        this._hpBarBorder = null;
-        this._hpBarFill = null;
+        this._hpBarCache = createStatusBarCache();
 
         this.inValidTerritory = true;
         this._originalMaxHp = null;
@@ -273,54 +273,27 @@ export class CircleObject {
             return;
         }
 
-        let hpRate = this.hp / this.maxHp;
-        let c = this.getBodyCircle();
+        const c = this.getBodyCircle();
         c.render(ctx);
 
-        if (this.maxHp > 0) {
-            if (!this.isDead()) {
-                let barH = this.hpBarHeight;
-                let barX = this.pos.x - this.r;
-                let barY = this.pos.y - this.r - 2.5 * barH;
-                let barW = this.r * 2;
+        if (this.maxHp > 0 && !this.isDead()) {
+            const barH = this.hpBarHeight;
+            const barX = this.pos.x - this.r;
+            const barY = this.pos.y - this.r + BAR_OFFSET.HP_TOP * barH;
+            const barW = this.r * 2;
+            const hpRate = this.hp / this.maxHp;
 
-                if (!this._hpBarBorder) {
-                    this._hpBarBorder = new Rectangle(barX, barY, barW, barH);
-                    this._hpBarBorder.setStrokeWidth(1);
-                    this._hpBarBorder.setFillColor(0, 0, 0, 0);
-                    this._hpBarBorder.setStrokeColor(1, 1, 1);
-                } else {
-                    this._hpBarBorder.pos.x = barX;
-                    this._hpBarBorder.pos.y = barY;
-                    this._hpBarBorder.width = barW;
-                    this._hpBarBorder.height = barH;
-                }
-                this._hpBarBorder.render(ctx);
-
-                if (!this._hpBarFill) {
-                    this._hpBarFill = new Rectangle(barX, barY, barW * hpRate, barH);
-                    this._hpBarFill.setStrokeWidth(0);
-                    this._hpBarFill.setFillColor(this.hpColor.r, this.hpColor.g, this.hpColor.b, this.hpColor.a);
-                } else {
-                    this._hpBarFill.pos.x = barX;
-                    this._hpBarFill.pos.y = barY;
-                    this._hpBarFill.width = barW * hpRate;
-                    this._hpBarFill.height = barH;
-                    this._hpBarFill.setFillColor(this.hpColor.r, this.hpColor.g, this.hpColor.b, this.hpColor.a);
-                }
-                this._hpBarFill.render(ctx);
-
-                let hpInt = Math.floor(this.hp);
-                if (hpInt !== this._lastHpInt) {
-                    this._lastHpInt = hpInt;
-                    this._hpStr = hpInt.toString();
-                }
-                ctx.fillStyle = "black";
-                ctx.font = CircleObject.FONT_9;
-                ctx.textAlign = "center";
-                ctx.textBaseline = "top";
-                ctx.fillText(this._hpStr, this.pos.x, barY + 1);
-            }
+            renderStatusBar(ctx, {
+                x: barX,
+                y: barY,
+                width: barW,
+                height: barH,
+                fillRate: hpRate,
+                fillColor: this.hpColor,
+                showText: true,
+                textValue: this.hp,
+                cache: this._hpBarCache
+            });
         }
     }
 }

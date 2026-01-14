@@ -5,8 +5,14 @@
  * use charging mechanics and continuous beam attacks.
  */
 import { Circle } from '../../core/math/circle';
-import { Rectangle } from '../../core/math/rectangle';
 import { MyColor } from '../../entities/myColor';
+import {
+    renderStatusBar,
+    createStatusBarCache,
+    BAR_OFFSET,
+    BAR_COLORS,
+    type StatusBarCache
+} from '../../entities/statusBar';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
 import { scalePeriod } from '../../core/speedScale';
@@ -88,11 +94,9 @@ export class TowerLaser extends Tower {
     zapLen: number;
     zapInitColor: MyColor;
 
-    // Cached render rectangles
-    protected _cooldownBarBorder: Rectangle | null;
-    protected _cooldownBarFill: Rectangle | null;
-    protected _chargeBarBorder: Rectangle | null;
-    protected _chargeBarFill: Rectangle | null;
+    // Cached status bar caches
+    protected _cooldownBarCache: StatusBarCache;
+    protected _chargeBarCache: StatusBarCache;
 
     declare attackFunc: LaserAttackFunc;
 
@@ -120,10 +124,8 @@ export class TowerLaser extends Tower {
         this.zapLen = 100;
         this.zapInitColor = new MyColor(0, 200, 255, 0.9);
 
-        this._cooldownBarBorder = null;
-        this._cooldownBarFill = null;
-        this._chargeBarBorder = null;
-        this._chargeBarFill = null;
+        this._cooldownBarCache = createStatusBarCache();
+        this._chargeBarCache = createStatusBarCache();
     }
 
     goStep(): void {
@@ -332,67 +334,37 @@ export class TowerLaser extends Tower {
     render(ctx: CanvasRenderingContext2D): void {
         super.render(ctx);
 
-        let barH = this.hpBarHeight;
-        let barX = this.pos.x - this.r;
-        let barW = this.r * 2;
+        const barH = this.hpBarHeight;
+        const barX = this.pos.x - this.r;
+        const barW = this.r * 2;
 
         // Render cooldown bar
-        let cooldownY = this.pos.y + this.r + 2.5 * barH;
-        let cooldownRate = this.laserFreezeNow / this.laserFreezeMax;
+        const cooldownY = this.pos.y + this.r + BAR_OFFSET.BOTTOM_1 * barH;
+        const cooldownRate = this.laserFreezeNow / this.laserFreezeMax;
 
-        if (!this._cooldownBarBorder) {
-            this._cooldownBarBorder = new Rectangle(barX, cooldownY, barW, barH);
-            this._cooldownBarBorder.setStrokeWidth(1);
-            this._cooldownBarBorder.setFillColor(0, 0, 0, 0);
-            this._cooldownBarBorder.setStrokeColor(1, 1, 1);
-        } else {
-            this._cooldownBarBorder.pos.x = barX;
-            this._cooldownBarBorder.pos.y = cooldownY;
-            this._cooldownBarBorder.width = barW;
-            this._cooldownBarBorder.height = barH;
-        }
-        this._cooldownBarBorder.render(ctx);
-
-        if (!this._cooldownBarFill) {
-            this._cooldownBarFill = new Rectangle(barX, cooldownY, barW * cooldownRate, barH);
-            this._cooldownBarFill.setStrokeWidth(0);
-            this._cooldownBarFill.setFillColor(0, 12, 200, 0.5);
-        } else {
-            this._cooldownBarFill.pos.x = barX;
-            this._cooldownBarFill.pos.y = cooldownY;
-            this._cooldownBarFill.width = barW * cooldownRate;
-            this._cooldownBarFill.height = barH;
-        }
-        this._cooldownBarFill.render(ctx);
+        renderStatusBar(ctx, {
+            x: barX,
+            y: cooldownY,
+            width: barW,
+            height: barH,
+            fillRate: cooldownRate,
+            fillColor: BAR_COLORS.COOLDOWN,
+            cache: this._cooldownBarCache
+        });
 
         // Render charge bar
-        let chargeY = this.pos.y + this.r + 3.8 * barH;
-        let chargeRate = this.laserDamageAdd / this.laserMaxDamage;
+        const chargeY = this.pos.y + this.r + BAR_OFFSET.BOTTOM_2 * barH;
+        const chargeRate = this.laserDamageAdd / this.laserMaxDamage;
 
-        if (!this._chargeBarBorder) {
-            this._chargeBarBorder = new Rectangle(barX, chargeY, barW, barH);
-            this._chargeBarBorder.setStrokeWidth(1);
-            this._chargeBarBorder.setFillColor(0, 0, 0, 0);
-            this._chargeBarBorder.setStrokeColor(1, 1, 1);
-        } else {
-            this._chargeBarBorder.pos.x = barX;
-            this._chargeBarBorder.pos.y = chargeY;
-            this._chargeBarBorder.width = barW;
-            this._chargeBarBorder.height = barH;
-        }
-        this._chargeBarBorder.render(ctx);
-
-        if (!this._chargeBarFill) {
-            this._chargeBarFill = new Rectangle(barX, chargeY, barW * chargeRate, barH);
-            this._chargeBarFill.setStrokeWidth(0);
-            this._chargeBarFill.setFillColor(255, 1, 255, 0.5);
-        } else {
-            this._chargeBarFill.pos.x = barX;
-            this._chargeBarFill.pos.y = chargeY;
-            this._chargeBarFill.width = barW * chargeRate;
-            this._chargeBarFill.height = barH;
-        }
-        this._chargeBarFill.render(ctx);
+        renderStatusBar(ctx, {
+            x: barX,
+            y: chargeY,
+            width: barW,
+            height: barH,
+            fillRate: chargeRate,
+            fillColor: BAR_COLORS.CHARGE,
+            cache: this._chargeBarCache
+        });
     }
 
     laserFreezeChange(df: number): void {

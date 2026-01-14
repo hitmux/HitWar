@@ -43,6 +43,8 @@ interface UserState {
         able: boolean;
         building: { r: number; rangeR: number } | null;
     };
+    /** 移动模式下选中的建筑位置和半径 */
+    moveTarget: { x: number; y: number; r: number } | null;
 }
 
 interface CheatModeState {
@@ -221,7 +223,8 @@ export class World {
 
         this.user = {
             money: 1000,
-            putLoc: { x: 0, y: 0, able: false, building: null }
+            putLoc: { x: 0, y: 0, able: false, building: null },
+            moveTarget: null
         };
 
         // 3. Wave Manager (depends on EntityManager and World)

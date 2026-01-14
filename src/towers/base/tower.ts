@@ -162,7 +162,7 @@ export class Tower extends CircleObject {
         this.hpColor = MyColor.arrTo([2, 230, 13, 0.8]);
         this.bodyStrokeWidth = 1;
         this.bodyStrokeColor = MyColor.Transparent();
-        this.hpBarHeight = 5;
+        this.hpBarHeight = 7;
 
         this.imgIndex = 0;
         this.audioSrcString = "/sound/发射音效/默认发射音效.mp3";

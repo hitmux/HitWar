@@ -4,6 +4,7 @@
 
 import { World } from '../../../game/world';
 import { Vector } from '../../../core/math/vector';
+import { Circle } from '../../../core/math/circle';
 import { EffectText } from '../../../effects/effect';
 import { TowerFinallyCompat } from '../../../towers/index';
 import { TOWER_IMG_WIDTH, TOWER_IMG_HEIGHT, TOWER_IMG_PRE_WIDTH, TOWER_IMG_PRE_HEIGHT } from '../../../towers/index';
@@ -15,6 +16,10 @@ import type { GameEntity, CanvasWithInputHandler } from './types';
 
 const BUILDING_FUNC_ARR = getBuildingFuncArr();
 const LEVELUP_POOL_SIZE = 10;
+
+// Move mode constants
+const MOVE_COST = 200;           // 移动费用
+const MOVE_MAX_DISTANCE = 75;    // 最大移动距离
 const ICON_RATE = 0.5;
 
 /**
@@ -64,6 +69,13 @@ export class PanelManager {
     private cachedBuilding: GameEntity | null = null;
     private lastAddedFunc: ((world: unknown) => GameEntity) | null = null;
 
+    // Move mode state
+    private moveMode: boolean = false;
+    private moveTarget: GameEntity | null = null;
+
+    // 扳手光标 SVG (用于移动模式)
+    private static readonly WRENCH_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'/%3E%3C/svg%3E") 12 12, pointer`;
+
     // RAF scheduling
     private pendingPanelRAF: number | null = null;
     private pendingPanelUpdate: (() => void) | null = null;
@@ -112,6 +124,15 @@ export class PanelManager {
         if (this.freshBtnInterval) {
             clearInterval(this.freshBtnInterval);
         }
+        // 恢复默认光标
+        this.setMoveCursor(false);
+    }
+
+    /**
+     * 设置/恢复移动模式光标
+     */
+    private setMoveCursor(enabled: boolean): void {
+        this.canvasEle.style.cursor = enabled ? PanelManager.WRENCH_CURSOR : '';
     }
 
     /**
@@ -362,17 +383,43 @@ export class PanelManager {
                 btn.setAttribute("data-price", b.price.toString());
                 btn.addEventListener("click", () => {
                     this.addedThingFunc = bFunc;
+                    // 清除移动模式状态
+                    this.moveMode = false;
+                    this.moveTarget = null;
+                    this.world.user.moveTarget = null;
+                    this.setMoveCursor(false);
                 });
                 panelEle.appendChild(btn);
             }
+            // 移动工具按钮
+            const moveBtn = document.createElement('button');
+            moveBtn.innerText = "移动工具\n" + MOVE_COST + "￥";
+            moveBtn.classList.add("towerBtn", "moveTool");
+            moveBtn.setAttribute("data-price", MOVE_COST.toString());
+            moveBtn.addEventListener("click", () => {
+                this.moveMode = true;
+                this.moveTarget = null;
+                this.world.user.moveTarget = null;
+                this.addedThingFunc = null;
+                this.world.user.putLoc.building = null;
+                this.cachedBuilding = null;
+                this.lastAddedFunc = null;
+                this.setMoveCursor(true);
+            });
+            panelEle.appendChild(moveBtn);
+
             const cancelBtn = document.createElement("button");
             cancelBtn.innerText = "取消放置模式";
             cancelBtn.id = "cancelSelect";
             cancelBtn.addEventListener("click", () => {
                 this.addedThingFunc = null;
+                this.moveMode = false;
+                this.moveTarget = null;
+                this.world.user.moveTarget = null;
                 this.world.user.putLoc.building = null;
                 this.cachedBuilding = null;
                 this.lastAddedFunc = null;
+                this.setMoveCursor(false);
                 this.callbacks.requestPauseRender();
             });
             panelEle.appendChild(cancelBtn);
@@ -630,6 +677,13 @@ export class PanelManager {
                 const screenPos = new Vector(e.clientX - rect.left, e.clientY - rect.top);
                 const clickPos = this.world.camera.screenToWorld(screenPos);
 
+                // 移动模式处理
+                if (this.moveMode) {
+                    this.handleMoveMode(clickPos, screenPos);
+                    this.callbacks.requestPauseRender();
+                    return;
+                }
+
                 if (this.addedThingFunc === null) {
                     for (const item of this.world.getAllBuildingArr()) {
                         if ((item as any).getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
@@ -731,13 +785,146 @@ export class PanelManager {
         }, { signal: this.eventSignal });
     }
 
+    /**
+     * 处理移动模式的点击逻辑
+     */
+    private handleMoveMode(clickPos: Vector, screenPos: Vector): void {
+        // 第一次点击：选择要移动的建筑
+        if (this.moveTarget === null) {
+            // 检查是否点击了建筑（不包括矿井）
+            for (const item of this.world.getAllBuildingArr()) {
+                if ((item as any).getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
+                    // 矿井不能移动
+                    if ((item as any).gameType === "Mine") {
+                        const et = new EffectText("矿井不能移动！");
+                        et.pos = clickPos.copy();
+                        this.world.addEffect(et as any);
+                        return;
+                    }
+                    // 检查是否在有效领地内（直接使用建筑的 inValidTerritory 属性）
+                    if ((item as any).inValidTerritory === false) {
+                        const et = new EffectText("只能移动有效领地内的建筑！");
+                        et.pos = clickPos.copy();
+                        this.world.addEffect(et as any);
+                        return;
+                    }
+                    // 选中建筑
+                    this.moveTarget = item as unknown as GameEntity;
+                    (item as any).selected = true;
+                    // 设置渲染器用的移动目标信息
+                    const bodyCircle = (item as any).getBodyCircle();
+                    this.world.user.moveTarget = {
+                        x: bodyCircle.x,
+                        y: bodyCircle.y,
+                        r: bodyCircle.r
+                    };
+                    const et = new EffectText("已选中，点击目标位置移动");
+                    et.pos = clickPos.copy();
+                    this.world.addEffect(et as any);
+                    return;
+                }
+            }
+            // 没有点击到建筑，取消选中
+            this.moveTarget = null;
+            this.world.user.moveTarget = null;
+            return;
+        }
+
+        // 第二次点击：移动到目标位置
+        const distance = this.moveTarget.pos.dis(clickPos);
+
+        // 检查距离
+        if (distance > MOVE_MAX_DISTANCE) {
+            const et = new EffectText(`距离太远！最大${MOVE_MAX_DISTANCE}像素`);
+            et.pos = clickPos.copy();
+            this.world.addEffect(et as any);
+            return;
+        }
+
+        // 检查目标位置是否在有效领地内
+        if (this.world.territory && !this.world.territory.isPositionInValidTerritory(clickPos)) {
+            const et = new EffectText("目标位置不在有效领地内！");
+            et.pos = clickPos.copy();
+            this.world.addEffect(et as any);
+            return;
+        }
+
+        // 检查碰撞：其他建筑
+        const originalCircle = this.moveTarget.getBodyCircle();
+        const targetCircle = new Circle(clickPos.x, clickPos.y, (originalCircle as any).r ?? this.moveTarget.r ?? 20);
+        for (const item of this.world.getAllBuildingArr()) {
+            if ((item as unknown) === (this.moveTarget as unknown)) continue; // 跳过自己
+            if (targetCircle.impact((item as any).getBodyCircle())) {
+                const et = new EffectText("目标位置有其他建筑！");
+                et.pos = clickPos.copy();
+                this.world.addEffect(et as any);
+                return;
+            }
+        }
+
+        // 检查碰撞：障碍物
+        for (const obs of this.world.obstacles) {
+            if (obs.intersectsCircle(targetCircle as any)) {
+                const et = new EffectText("目标位置有障碍物！");
+                et.pos = clickPos.copy();
+                this.world.addEffect(et as any);
+                return;
+            }
+        }
+
+        // 检查金币
+        if (this.world.user.money < MOVE_COST) {
+            const et = new EffectText(`金币不足！需要${MOVE_COST}元`);
+            et.pos = clickPos.copy();
+            this.world.addEffect(et as any);
+            return;
+        }
+
+        // 执行移动
+        // 1. 从领地系统移除
+        this.world.territory?.removeBuildingIncremental(this.moveTarget as any);
+        
+        // 2. 更新位置
+        this.moveTarget.pos = clickPos.copy();
+        
+        // 3. 重新添加到领地系统
+        this.world.territory?.addBuildingIncremental(this.moveTarget as any);
+        
+        // 4. 标记迷雾需要更新
+        this.world.fog?.markDirty();
+
+        // 5. 标记静态层需要重建（建筑位置已改变）
+        this.world.markStaticLayerDirty();
+
+        // 6. 扣除金币
+        this.world.user.money -= MOVE_COST;
+
+        // 7. 取消选中状态
+        (this.moveTarget as any).selected = false;
+
+        // 8. 显示成功提示
+        const et = new EffectText("移动成功！");
+        et.pos = clickPos.copy();
+        this.world.addEffect(et as any);
+
+        // 9. 退出移动模式
+        this.moveMode = false;
+        this.moveTarget = null;
+        this.world.user.moveTarget = null;
+        this.setMoveCursor(false);
+    }
+
     private setupRightClickHandler(): void {
         document.oncontextmenu = (e) => {
             if (e.button === 2) {
                 this.addedThingFunc = null;
+                this.moveMode = false;
+                this.moveTarget = null;
+                this.world.user.moveTarget = null;
                 this.world.user.putLoc.building = null;
                 this.cachedBuilding = null;
                 this.lastAddedFunc = null;
+                this.setMoveCursor(false);
                 this.callbacks.requestPauseRender();
                 return false;
             }

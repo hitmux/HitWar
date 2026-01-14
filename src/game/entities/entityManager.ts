@@ -78,7 +78,7 @@ export interface EffectLike {
 export interface EntityManagerContext {
     territory?: {
         addBuildingIncremental: (building: any) => void;
-        markDirty: () => void;
+        removeBuildingIncremental: (building: any) => void;
     };
 }
 
@@ -272,6 +272,8 @@ export class EntityManager {
                 this.batterys[writeIdx++] = t;
             } else {
                 towerRemoved = true;
+                // Incremental update for immediate territory response (no 100ms delay)
+                this._context.territory?.removeBuildingIncremental(t as any);
                 const e = EffectCircle.acquire(t.pos);
                 e.animationFunc = e.destroyAnimation;
                 this.addEffect(e as unknown as EffectLike);
@@ -287,6 +289,8 @@ export class EntityManager {
                 this.buildings[writeIdx++] = b;
             } else {
                 buildingRemoved = true;
+                // Incremental update for immediate territory response (no 100ms delay)
+                this._context.territory?.removeBuildingIncremental(b as any);
                 if (b.gameType === "Mine" && b.destroy) {
                     b.destroy(true);
                 }
@@ -297,9 +301,7 @@ export class EntityManager {
         // Mark spatial system dirty if needed
         if (towerRemoved || buildingRemoved) {
             this._spatialSystem.markBuildingQuadTreeDirty();
-            if (this._context.territory) {
-                this._context.territory.markDirty();
-            }
+            // Territory already updated incrementally above, no need for markDirty()
             callbacks?.onTowerRemoved?.();
             callbacks?.onBuildingRemoved?.();
         }
