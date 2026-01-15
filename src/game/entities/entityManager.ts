@@ -47,6 +47,8 @@ export interface MonsterLike extends SpatialEntity {
     updateState: () => void;  // 状态更新（死亡检查等）
     moveOnly: () => void;
     clashOnly: () => void;
+    // 边界检查
+    isOutScreen: () => boolean;
     // 上一帧位置（用于扫掠碰撞检测）
     prevX: number;
     prevY: number;
@@ -297,6 +299,13 @@ export class EntityManager {
             }
         }
         this.buildings.length = writeIdx;
+
+        // Clear monsters that are out of bounds (safety check)
+        for (const m of this.monsters) {
+            if (m.isOutScreen()) {
+                this.removeMonster(m);
+            }
+        }
 
         // Mark spatial system dirty if needed
         if (towerRemoved || buildingRemoved) {
