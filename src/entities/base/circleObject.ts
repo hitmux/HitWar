@@ -268,14 +268,33 @@ export class CircleObject {
     /**
      * Render
      */
-    render(ctx: CanvasRenderingContext2D): void {
+
+    /**
+     * 渲染实体主体（不含状态条）
+     * 子类可覆盖此方法自定义主体渲染
+     */
+    renderBody(ctx: CanvasRenderingContext2D): void {
         if (!this.isInScreen()) {
             return;
         }
 
         const c = this.getBodyCircle();
         c.render(ctx);
+    }
 
+    render(ctx: CanvasRenderingContext2D): void {
+        this.renderBody(ctx);
+        this.renderBars(ctx);
+    }
+
+    /**
+     * 渲染状态条（血条等）
+     * 子类可覆盖此方法添加额外的状态条
+     */
+    renderBars(ctx: CanvasRenderingContext2D): void {
+        if (!this.isInScreen()) {
+            return;
+        }
         if (this.maxHp > 0 && !this.isDead()) {
             const barH = this.hpBarHeight;
             const barX = this.pos.x - this.r;

@@ -40,6 +40,8 @@ interface CheatModeData {
 }
 
 interface RootBuildingData {
+    x: number;
+    y: number;
     hp: number;
     maxHp: number;
 }
@@ -293,6 +295,8 @@ export class SaveManager {
             },
 
             rootBuilding: {
+                x: world.rootBuilding.pos.x,
+                y: world.rootBuilding.pos.y,
                 hp: world.rootBuilding.hp,
                 maxHp: world.rootBuilding.maxHp,
             },
@@ -468,7 +472,12 @@ export class SaveManager {
                 world.gameSpeed = saveData.world.gameSpeed;
             }
 
-            // Restore rootBuilding HP
+            // Restore rootBuilding position and HP
+            // Position must be restored to avoid overlapping with other buildings
+            if (saveData.rootBuilding.x !== undefined && saveData.rootBuilding.y !== undefined) {
+                world.rootBuilding.pos.x = saveData.rootBuilding.x;
+                world.rootBuilding.pos.y = saveData.rootBuilding.y;
+            }
             world.rootBuilding.hp = saveData.rootBuilding.hp;
             world.rootBuilding.maxHp = saveData.rootBuilding.maxHp;
 

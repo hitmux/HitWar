@@ -161,8 +161,19 @@ export class TowerBoomerang extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
+        if (this.isDead()) {
+            return;
+        }
+        this.renderBody(ctx);
+        this.renderBars(ctx);
+    }
+
+    /**
+     * 渲染塔主体（不含状态条）
+     */
+    renderBody(ctx: CanvasRenderingContext2D): void {
         this.bar.render(ctx);
-        super.render(ctx);
+        super.renderBody(ctx);
         let line = new Line(this.pos, this.bar.getCenter());
         line.strokeWidth = 0.1;
         line.strokeColor = this.bar.strokeColor;

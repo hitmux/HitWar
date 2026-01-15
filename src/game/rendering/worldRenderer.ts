@@ -252,9 +252,17 @@ export class WorldRenderer {
         }
 
         // Render game objects (with view culling)
+        // 阶段1: 先渲染所有塔的主体
         for (const b of this._context.batterys) {
             if (this._isObjectVisible(b, this._visibleBounds)) {
-                b.render(ctx);
+                (b as any).renderBody(ctx);
+            }
+        }
+        // 阶段2: 再渲染所有塔的状态条（血条、蓄力条等）
+        // 这样状态条都在同一层级，避免塔A的蓄力条覆盖塔B的血条
+        for (const b of this._context.batterys) {
+            if (this._isObjectVisible(b, this._visibleBounds)) {
+                (b as any).renderBars(ctx);
             }
         }
 

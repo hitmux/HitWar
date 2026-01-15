@@ -367,7 +367,20 @@ export class Tower extends CircleObject {
         if (this.isDead()) {
             return;
         }
-        super.render(ctx);
+        this.renderBody(ctx);
+        this.renderBars(ctx);
+    }
+
+    /**
+     * 渲染塔主体（不含状态条）
+     */
+    renderBody(ctx: CanvasRenderingContext2D): void {
+        if (this.isDead()) {
+            return;
+        }
+        // 渲染基础圆形
+        const c = this.getBodyCircle();
+        c.render(ctx);
 
         const TOWERS_IMG = getTowersImg();
         let imgStartPos = this.getImgStartPosByIndex(this.imgIndex);

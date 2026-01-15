@@ -331,7 +331,19 @@ export class TowerLaser extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        super.render(ctx);
+        if (this.isDead()) {
+            return;
+        }
+        this.renderBody(ctx);
+        this.renderBars(ctx);
+    }
+
+    /**
+     * 渲染状态条（血条 + 冷却条 + 蓄力条）
+     */
+    renderBars(ctx: CanvasRenderingContext2D): void {
+        // 先渲染血条
+        super.renderBars(ctx);
 
         const barH = this.hpBarHeight;
         const barX = this.pos.x - this.r;

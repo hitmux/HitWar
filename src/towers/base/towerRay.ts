@@ -324,7 +324,18 @@ export class TowerRay extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        super.render(ctx);
+        if (this.isDead()) {
+            return;
+        }
+        this.renderBody(ctx);
+        this.renderBars(ctx);
+    }
+
+    /**
+     * 渲染塔主体（不含状态条）
+     */
+    renderBody(ctx: CanvasRenderingContext2D): void {
+        super.renderBody(ctx);
         for (let b of this.rayBullys) {
             b.render(ctx);
         }
