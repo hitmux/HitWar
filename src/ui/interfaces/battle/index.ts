@@ -7,6 +7,7 @@ import { World } from '../../../game/world';
 import { SaveManager } from '../../../systems/save/saveManager';
 import { SaveUI } from '../../../systems/save/saveUI';
 import { Sounds } from '../../../systems/sound/sounds';
+import { MonsterGroup } from '../../../monsters/monsterGroup';
 import { GameController } from './gameController';
 import { UIController } from './uiController';
 import { PanelManager } from './panelManager';
@@ -52,7 +53,7 @@ export function startBattleMode(mode: string, haveGroup: boolean = true, loadedS
 
     // If loaded from file import, apply save data directly
     if (loadedSaveData) {
-        SaveManager.deserialize(loadedSaveData as any, world as any, null);
+        SaveManager.deserialize(loadedSaveData as any, world as any, MonsterGroup);
         startGame();
         return;
     }
@@ -64,7 +65,7 @@ export function startBattleMode(mode: string, haveGroup: boolean = true, loadedS
             SaveUI.showContinueDialog(
                 saveData.timestamp,
                 () => {
-                    SaveManager.deserialize(saveData, world as any, null);
+                    SaveManager.deserialize(saveData, world as any, MonsterGroup);
                     startGame();
                 },
                 () => {
