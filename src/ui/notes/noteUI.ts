@@ -232,6 +232,8 @@ export class NoteUI {
             .replace(/\*(.+?)\*/g, "<em>$1</em>")
             // Code
             .replace(/`(.+?)`/g, "<code>$1</code>")
+            // Ordered list items (basic)
+            .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
             // List items
             .replace(/^- (.+)$/gm, "<li>$1</li>")
             // Paragraphs
@@ -239,9 +241,11 @@ export class NoteUI {
             // Line breaks
             .replace(/\n/g, "<br>");
 
-        // Wrap list items in ul
-        html = html.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
-        // Clean up multiple ul tags
+        // Wrap consecutive list items in ul (simple, but avoids spanning the whole document)
+        html = html.replace(/((?:<li>.*?<\/li>(?:<br>)?)+)/gs, "<ul>$1</ul>");
+        // Clean up list formatting artifacts
+        html = html.replace(/<ul><br>/g, "<ul>");
+        html = html.replace(/<br><\/ul>/g, "</ul>");
         html = html.replace(/<\/ul><br><ul>/g, "");
 
         return `<p>${html}</p>`;

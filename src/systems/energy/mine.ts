@@ -36,7 +36,7 @@ export class Mine extends CircleObject {
     // Repair related
     repairing: boolean = false;
     repairProgress: number = 0;
-    REPAIR_TIME: number = 1500;   // Repair time in ticks   // Repair time in ticks
+    REPAIR_TIME: number = 1000;   // Repair time in ticks   // Repair time in ticks
     REPAIR_COST: number = 50;    // Repair cost    // Repair cost
 
     // Territory penalty state

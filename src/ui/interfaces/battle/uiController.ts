@@ -144,12 +144,16 @@ export class UIController {
 
     /**
      * Add export button to UI
+     * Note: Always recreate the button to ensure it references the current world
      */
     addExportButton(): void {
         const rightTopArea = this.thisInterface.querySelector(".rightTopArea") as HTMLElement;
-        if (!rightTopArea.querySelector(".exportSaveBtn")) {
-            SaveUI.addExportButton(rightTopArea, () => this.world as any);
+        // Remove old button if exists (it may reference an old world instance)
+        const oldBtn = rightTopArea.querySelector(".exportSaveBtn");
+        if (oldBtn) {
+            oldBtn.remove();
         }
+        SaveUI.addExportButton(rightTopArea, () => this.world as any);
     }
 
     /**

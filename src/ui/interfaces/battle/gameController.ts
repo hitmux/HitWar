@@ -190,10 +190,14 @@ export class GameController {
         if (!this._isGamePause) {
             // Get current degradation parameters
             const [maxStepsMult, stepMult] = DEGRADATION_PARAMS[this.loopGuard.degradationLevel];
-            const step = (BASE_STEP_MS / Math.max(1, this.world.gameSpeed)) * stepMult;
+            // Allow real slow-motion speeds (e.g. x0.5). Still guard against zero/negative values.
+            const speed = Math.max(0.1, this.world.gameSpeed);
+            const step = (BASE_STEP_MS / speed) * stepMult;
             this.accumulator += delta;
             let steps = 0;
-            const baseMaxSteps = 8 * Math.max(1, this.world.gameSpeed);
+            // Max steps mainly matters when speed is high (catch-up). For slow speeds (<1),
+            // keeping the minimum at 1 avoids overly small ceilings while still preventing spiral of death.
+            const baseMaxSteps = 8 * Math.max(1, speed);
             const maxSteps = Math.max(2, Math.floor(baseMaxSteps * maxStepsMult));
 
             while (this.accumulator >= step && steps < maxSteps) {
