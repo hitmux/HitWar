@@ -134,7 +134,9 @@ export class World {
 
     // Wave properties (proxied to WaveManager)
     get monsterFlow(): MonsterFlow { return this._waveManager.monsterFlow; }
+    set monsterFlow(value: MonsterFlow) { this._waveManager.monsterFlow = value; }
     get monsterFlowNext(): MonsterFlow { return this._waveManager.monsterFlowNext; }
+    set monsterFlowNext(value: MonsterFlow) { this._waveManager.monsterFlowNext = value; }
     get haveFlow(): boolean { return this._waveManager.haveFlow; }
     set haveFlow(value: boolean) { this._waveManager.haveFlow = value; }
     get monsterAddFreezeTick(): number { return this._waveManager.monsterAddFreezeTick; }

@@ -179,7 +179,8 @@ interface WorldLike {
 }
 
 interface MonsterGroupClassLike {
-    getMonsterFlow: (world: WorldLike, level: number, mode: string) => unknown;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getMonsterFlow: (world: any, level: number, mode: any) => any;
 }
 
 export class SaveManager {
@@ -682,8 +683,8 @@ export class SaveManager {
 
             // Mark static layer dirty to rebuild building render cache
             // This ensures rootBuilding renders at the restored position
-            if (typeof world.markStaticLayerDirty === 'function') {
-                world.markStaticLayerDirty();
+            if (typeof (world as any).markStaticLayerDirty === 'function') {
+                (world as any).markStaticLayerDirty();
             }
 
             return true;
