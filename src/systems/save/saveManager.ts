@@ -607,7 +607,8 @@ export class SaveManager {
                 monster.speedFreezeNumb = monsterData.speedFreezeNumb;
                 monster.burnRate = monsterData.burnRate;
                 monster.colishDamage = monsterData.colishDamage;
-                monster.destination = world.rootBuilding.pos;
+                // Create a copy, not a reference! Otherwise monster AI will modify rootBuilding.pos
+                monster.destination = new Vector(world.rootBuilding.pos.x, world.rootBuilding.pos.y);
 
                 if (monsterData.laserDefendNum !== undefined) {
                     monster.laserDefendNum = monsterData.laserDefendNum;
@@ -677,6 +678,12 @@ export class SaveManager {
             // Rebuild fog vision cache after loading
             if ((world as any).fog) {
                 (world as any).fog.markDirty();
+            }
+
+            // Mark static layer dirty to rebuild building render cache
+            // This ensures rootBuilding renders at the restored position
+            if (typeof world.markStaticLayerDirty === 'function') {
+                world.markStaticLayerDirty();
             }
 
             return true;
