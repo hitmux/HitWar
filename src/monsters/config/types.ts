@@ -280,7 +280,12 @@ export interface ShooterMonsterConfig extends MonsterBaseConfig {
  */
 export interface MortisMonsterConfig extends MonsterBaseConfig {
     baseClass: 'MonsterMortis';
-    params?: MonsterParams & MortisParams;
+    params?: MonsterParams & MortisParams & {
+        /** Bullet dodge AI */
+        dodge?: DodgeParams;
+        /** Dynamic target selection AI */
+        targetSelection?: TargetSelectionParams;
+    };
 }
 
 /**
@@ -288,7 +293,12 @@ export interface MortisMonsterConfig extends MonsterBaseConfig {
  */
 export interface TerminatorMonsterConfig extends MonsterBaseConfig {
     baseClass: 'MonsterTerminator';
-    params?: MonsterParams & TerminatorParams;
+    params?: MonsterParams & TerminatorParams & {
+        /** Bullet dodge AI */
+        dodge?: DodgeParams;
+        /** Dynamic target selection AI */
+        targetSelection?: TargetSelectionParams;
+    };
 }
 
 /**

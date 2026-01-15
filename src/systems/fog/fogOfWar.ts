@@ -187,10 +187,13 @@ export class FogOfWar {
      */
     private _isCircleInStaticVision(x: number, y: number, radius: number): boolean {
         const sources = this.getStaticVisionSources();
+        // 100% fog boundary is at src.radius + outerGradientSize
+        const outerGradientSize = VISION_CONFIG.outerGradientSize;
         for (const src of sources) {
             const dx = x - src.x;
             const dy = y - src.y;
-            const combinedRadius = src.radius + radius;
+            // Include gradient zone - entity visible until fully in 100% fog
+            const combinedRadius = src.radius + outerGradientSize + radius;
             if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
                 return true;
             }

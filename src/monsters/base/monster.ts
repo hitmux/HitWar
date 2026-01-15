@@ -70,6 +70,7 @@ interface EffectCircleLike {
 
 interface BulletLike {
     pos: VectorLike;
+    speed: VectorLike;  // Required by bulletDodge AI
     r: number;
     laserDestoryAble?: boolean;
     bodyRadiusChange(dr: number): void;
@@ -80,9 +81,14 @@ interface BulletLike {
 
 interface BuildingLike {
     pos: VectorLike;
+    hp: number;         // Required by targetSelection AI
+    maxHp: number;      // Required by targetSelection AI
     getBodyCircle(): CircleLike;
     hpChange(delta: number): void;
     isDead(): boolean;
+    // Tower-specific (optional, for threat calculation)
+    damage?: number;
+    clock?: number;
 }
 
 interface TerritoryLike {
