@@ -450,7 +450,14 @@ export class Monster extends CircleObject {
     }
 
     move(): void {
-        // AI: 躲避子弹（在计算速度前）
+        // 每帧重置 changedSpeed，防止无限累加
+        this.changedSpeed.x = 0;
+        this.changedSpeed.y = 0;
+
+        // 特殊移动模式（swing, suddenly, exciting等）
+        this.changeSpeedFunc();
+
+        // AI: 躲避子弹（累加到 changedSpeed）
         this.selfDodgeMove();
 
         this._moveVec.x = this.destination.x - this.pos.x;
@@ -480,8 +487,7 @@ export class Monster extends CircleObject {
         this.acceleration.x = this._moveVec.x * this.accelerationV;
         this.acceleration.y = this._moveVec.y * this.accelerationV;
         this.speed.add(this.changedSpeed);
-        this.changeSpeedFunc();
-        this.changedSpeed.add(this.acceleration);
+        // 注意：不再累加 acceleration 到 changedSpeed，super.move() 已处理加速度
         super.move();
     }
 
