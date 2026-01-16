@@ -614,17 +614,19 @@ export class Territory {
      */
     private _updateNonProvidersNearRemovedBuilding(removedBuilding: BuildingLike): void {
         const radiusSq = this._territoryRadiusSq;
-        const allBuildings = this._getAllBuildings();
 
-        for (const b of allBuildings) {
-            // Skip providers (they are handled by split detection)
-            if (this._canProvideTerritory(b)) continue;
-            // Skip if not currently valid
-            if (!this.validBuildings.has(b)) continue;
-            // Skip if not near the removed building
-            if (b.pos.disSq(removedBuilding.pos) > radiusSq) continue;
+        // Collect candidates: non-providers in validBuildings near removed building
+        const toCheck: BuildingLike[] = [];
+        for (const b of this.validBuildings) {
+            if (!this._canProvideTerritory(b) && b.pos.disSq(removedBuilding.pos) <= radiusSq) {
+                toCheck.push(b);
+            }
+        }
 
-            // Check if still in range of any valid provider
+        if (toCheck.length === 0) return;
+
+        // Check each candidate
+        for (const b of toCheck) {
             let stillValid = false;
             for (const vb of this.validBuildings) {
                 if (this._canProvideTerritory(vb) && vb.pos.disSq(b.pos) <= radiusSq) {
@@ -633,7 +635,6 @@ export class Territory {
                 }
             }
 
-            // If no longer valid, move to invalid set and apply penalty
             if (!stillValid) {
                 this.validBuildings.delete(b);
                 this.invalidBuildings.add(b);
