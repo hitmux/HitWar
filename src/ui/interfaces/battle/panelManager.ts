@@ -245,7 +245,7 @@ export class PanelManager {
                 const towerName = target.dataset.towerName!;
                 if (this.world.user.money >= price) {
                     const pos = this.currentPanelEntity.pos.copy();
-                    this.world.user.money -= this.currentPanelEntity.price;
+                    this.world.user.money -= price;
                     const newThing = TowerRegistry.create(towerName, this.world) as GameEntity;
                     newThing.towerLevel = this.currentPanelEntity.towerLevel + 1;
                     newThing.pos = pos;
@@ -270,6 +270,15 @@ export class PanelManager {
                 const action = target.dataset.mineAction;
                 const price = parseInt(target.dataset.price || "0");
                 if (action === "upgrade" || action === "repair") {
+                    // Re-check territory validity (may have changed since panel opened)
+                    if (this.world.territory && !this.world.territory.isPositionInValidTerritory(this.currentPanelMine.pos)) {
+                        const et = new EffectText("不在有效领地，无法操作");
+                        et.pos = this.currentPanelMine.pos.copy();
+                        this.world.addEffect(et as any);
+                        this.hidePanel();
+                        this.callbacks.requestPauseRender();
+                        return;
+                    }
                     if (this.world.user.money >= price) {
                         this.world.user.money -= price;
                         if (action === "upgrade") {
