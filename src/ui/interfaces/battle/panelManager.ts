@@ -275,7 +275,7 @@ export class PanelManager {
                         const et = new EffectText("不在有效领地，无法操作");
                         et.pos = this.currentPanelMine.pos.copy();
                         this.world.addEffect(et as any);
-                        this.hidePanel();
+                        this.hideLevelUpPanel();
                         this.callbacks.requestPauseRender();
                         return;
                     }

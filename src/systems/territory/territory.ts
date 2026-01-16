@@ -165,13 +165,17 @@ export class Territory {
             }
         }
 
-        // Determine territory status for non-provider buildings (repair towers, gold mines)
+        // Determine territory status for non-provider buildings (repair towers, gold mines, mines)
+        // CRITICAL FIX: Only check against territory PROVIDERS, not all validBuildings
+        // This prevents non-providers from "providing" territory to each other
         for (const b of allBuildings) {
             if (this._canProvideTerritory(b)) continue; // Already processed
-            // Check if within range of any valid territory provider
+            // Check if within range of any valid territory PROVIDER
             let inValid = false;
             const radiusSq = this.territoryRadius * this.territoryRadius;
             for (const vb of this.validBuildings) {
+                // CRITICAL: Only providers can provide territory coverage
+                if (!this._canProvideTerritory(vb)) continue;
                 if (vb.pos.disSq(b.pos) <= radiusSq) {
                     inValid = true;
                     break;
@@ -214,6 +218,8 @@ export class Territory {
     /**
      * Check if a position is in valid territory
      * Optimized: Uses reference counting grid for O(1) lookup
+     * IMPORTANT: Only territory PROVIDERS (towers, not mines/gold mines/repair towers)
+     * can provide territory coverage
      */
     isPositionInValidTerritory(pos: Vector): boolean {
         const gx = Math.floor(pos.x / this._gridCellSize);
@@ -221,17 +227,18 @@ export class Territory {
         const key = this._getNumericKey(gx, gy);
 
         // O(1) lookup: if grid has count, position is in valid territory
+        // Grid only contains territory providers, so this is correct
         if (this._validGridRefCount.has(key)) {
             return true;
         }
 
         // Edge case: precise check for positions near grid boundaries
-        if (this.validBuildings.size === 0) {
-            return false;
-        }
-
+        // CRITICAL FIX: Only check territory PROVIDERS, not all validBuildings
+        // Non-providers (mines, gold mines, repair towers) cannot provide territory
         const radiusSq = this._territoryRadiusSq;
         for (const b of this.validBuildings) {
+            // Skip non-provider buildings - they cannot provide territory coverage
+            if (!this._canProvideTerritory(b)) continue;
             if (b.pos.disSq(pos) <= radiusSq) {
                 return true;
             }
@@ -481,11 +488,15 @@ export class Territory {
 
     /**
      * Check if position is within range of any valid territory provider
-     * Used for non-provider buildings (repair towers, gold mines)
+     * Used for non-provider buildings (repair towers, gold mines, mines)
+     * CRITICAL: Only checks territory PROVIDERS, not all validBuildings
      */
     private _isInValidTerritoryRange(pos: Vector): boolean {
         const radiusSq = this._territoryRadiusSq;
         for (const vb of this.validBuildings) {
+            // CRITICAL FIX: Only territory providers can provide coverage
+            // Non-providers (mines, gold mines, repair towers) cannot provide territory
+            if (!this._canProvideTerritory(vb)) continue;
             if (vb.pos.disSq(pos) <= radiusSq) {
                 return true;
             }
