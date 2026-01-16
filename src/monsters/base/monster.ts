@@ -607,6 +607,11 @@ export class Monster extends CircleObject {
             const gAreaRSq = this.gAreaR * this.gAreaR;
             for (let b of nearbyBuildings) {
                 if (this.pos.disSq(b.pos as Vector) < gAreaRSq) {
+                    // Power plants (Mine in buildings array) cannot be moved, take damage instead
+                    if ((b as any).gameType === "Mine") {
+                        b.hpChange(-Math.abs(this.gAreaNum) * 2);
+                        continue;
+                    }
                     // Use instance temp vector to avoid GC pressure
                     Vector.subTo(this.pos, b.pos as Vector, this._tempVec);
                     this._tempVec.normalizeInPlace().mulInPlace(this.gAreaNum);

@@ -271,7 +271,7 @@ export class PanelManager {
                 const price = parseInt(target.dataset.price || "0");
                 if (action === "upgrade" || action === "repair") {
                     // Re-check territory validity (may have changed since panel opened)
-                    if (this.world.territory && !this.world.territory.isPositionInValidTerritory(this.currentPanelMine.pos)) {
+                    if (!this.currentPanelMine.inValidTerritory) {
                         const et = new EffectText("不在有效领地，无法操作");
                         et.pos = this.currentPanelMine.pos.copy();
                         this.world.addEffect(et as any);
@@ -576,7 +576,8 @@ export class PanelManager {
     }
 
     showMinePanel(mine: Mine, screenPos: Vector): void {
-        if (this.world.territory && !this.world.territory.isPositionInValidTerritory(mine.pos)) {
+        // Check mine's own territory validity, not just position
+        if (!mine.inValidTerritory) {
             const et = new EffectText("不在有效领地，无法操作");
             et.pos = mine.pos.copy();
             this.world.addEffect(et as any);
