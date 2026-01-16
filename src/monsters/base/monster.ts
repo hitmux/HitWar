@@ -557,7 +557,7 @@ export class Monster extends CircleObject {
                             m.hpChange(m.maxHp * this.gainDetails.gainHpAddedRate);
                             m.hpChange(this.gainDetails.gainHpAddedNum);
                             m.maxHp += this.gainDetails.gainMaxHpAddedNum;
-                            if (m.r < 100 || m.r > 0) {
+                            if (m.r > 0 && m.r < 100) {
                                 m.r += this.gainDetails.gainR;
                             }
                             if (m.speedNumb < 2.5) {

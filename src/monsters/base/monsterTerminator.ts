@@ -69,7 +69,7 @@ export class MonsterTerminator extends Monster {
         } else if (damage < 3000) {
             super.hpChange(-500);
         } else {
-            super.hpChange(damage * 0.75);
+            super.hpChange(-damage * 0.75);
         }
     }
 

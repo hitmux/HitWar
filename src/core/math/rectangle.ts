@@ -18,8 +18,9 @@ export class Rectangle {
         this.width = w;
         this.height = h;
         this.strokeWidth = 2;
-        this._fillColor = MyColor.BLACK();
-        this._strokeColor = MyColor.BLACK();
+        // Create new instances to avoid mutating shared MyColor.BLACK_INSTANCE
+        this._fillColor = new MyColor(0, 0, 0, 1);
+        this._strokeColor = new MyColor(0, 0, 0, 1);
     }
 
     setStrokeWidth(n: number): void {

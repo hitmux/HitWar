@@ -1,6 +1,6 @@
 {
   "name": "cannon-war",
-  "version": "2.2.5",
+  "version": "2.2.6",
   "description": "A tower defense web game built with HTML5 Canvas",
   "type": "module",
   "scripts": {

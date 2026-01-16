@@ -57,7 +57,6 @@ import {
 import {
     BulletRegistry,
     Bully,
-    BulletLauncher,
     getBulletFuncArr,
     BullyFinallyCompat
 } from './bullets/index';
@@ -151,7 +150,6 @@ console.log('  - MONSTER_IMG_PRE_HEIGHT:', MONSTER_IMG_PRE_HEIGHT);
 console.log('');
 console.log('Bullet classes loaded:');
 console.log('  - Bully:', typeof Bully);
-console.log('  - BulletLauncher:', typeof BulletLauncher);
 console.log('  - BullyFinallyCompat:', typeof BullyFinallyCompat);
 
 console.log('');

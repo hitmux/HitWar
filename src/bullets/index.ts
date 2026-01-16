@@ -10,9 +10,6 @@ export { BulletRegistry } from './bulletRegistry';
 // Export base class
 export { Bully } from './bullet';
 
-// Export bullet launcher
-export { BulletLauncher } from './bulletLauncher';
-
 // Import variants to trigger registration (side effect)
 import './variants/index';
 

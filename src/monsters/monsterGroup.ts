@@ -107,6 +107,7 @@ export class MonsterGroup {
     }
 
     updateCount(): void {
+        this.monsterCount = 0;
         for (let n of this.kindCount) {
             this.monsterCount += n;
         }
