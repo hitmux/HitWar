@@ -98,7 +98,7 @@ import {
 import { NoteManager, NoteUI } from './ui/notes/index';
 
 // Test imports from game module (Phase 9)
-import { World, Game } from './game/index';
+import { World } from './game/index';
 
 // Verification
 console.log('HitWar ES Modules - Phase 9 Complete');
@@ -318,7 +318,6 @@ console.log('=== Phase 9: Game Core ===');
 console.log('');
 console.log('Game Module:');
 console.log('  - World:', typeof World);
-console.log('  - Game:', typeof Game);
 console.log('  - World.FONT_16:', World.FONT_16);
 
 console.log('');

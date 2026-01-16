@@ -43,6 +43,25 @@ export class EnergyRenderer {
         ctx.fillRect(0, 0, bw, h);                      // Left (full height)
         ctx.fillRect(w - bw, 0, bw, h);                 // Right (full height)
 
+        // Warning text at bottom center
+        const warningText = "能源不足! 将面临惩罚! 快点击黑色三角形(矿井)来建造发电厂吧!";
+        ctx.font = "bold 18px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        
+        // Text background for better readability
+        const textWidth = ctx.measureText(warningText).width;
+        const textHeight = 30;
+        const textX = w / 2;
+        const textY = h - 60;
+        
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(textX - textWidth / 2 - 10, textY - textHeight / 2, textWidth + 20, textHeight);
+        
+        // Flashing text (sync with edge flash)
+        ctx.fillStyle = `rgba(255, ${Math.floor(200 * (1 - this.flashAlpha / 0.3))}, 0, 1)`;
+        ctx.fillText(warningText, textX, textY);
+
         ctx.restore();
     }
 }
