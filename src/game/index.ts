@@ -3,7 +3,6 @@
  */
 
 export { World } from './world';
-export { Game } from './game';
 
 // New manager modules
 export { SpatialQuerySystem } from './spatial';
