@@ -245,7 +245,7 @@ export class PanelManager {
                 const towerName = target.dataset.towerName!;
                 if (this.world.user.money >= price) {
                     const pos = this.currentPanelEntity.pos.copy();
-                    this.world.user.money -= this.currentPanelEntity.price;
+                    this.world.user.money -= price;
                     const newThing = TowerRegistry.create(towerName, this.world) as GameEntity;
                     newThing.towerLevel = this.currentPanelEntity.towerLevel + 1;
                     newThing.pos = pos;

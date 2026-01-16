@@ -122,7 +122,11 @@ export class Energy {
 
         const balance = this.getBalance();
         if (balance < 0 && this.world.time % this.PENALTY_INTERVAL === 0) {
-            this.world.user.money -= this.PENALTY_COST;
+            if (this.world.user.money >= this.PENALTY_COST) {
+                this.world.user.money -= this.PENALTY_COST;
+            } else {
+                this.world.user.money = 0;
+            }
         }
         
         // Energy surplus bonus: +1 gold per surplus energy every BONUS_INTERVAL ticks
