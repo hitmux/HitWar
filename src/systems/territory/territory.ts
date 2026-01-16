@@ -534,9 +534,10 @@ export class Territory {
      */
     removeBuildingIncremental(building: BuildingLike): void {
         const wasValid = this.validBuildings.has(building);
+        const wasProvider = this._canProvideTerritory(building);
 
         // 1. Remove from grid (only for valid provider buildings)
-        if (wasValid && this._canProvideTerritory(building)) {
+        if (wasValid && wasProvider) {
             this._removeBuildingFromGrid(building);
         }
 
@@ -545,11 +546,16 @@ export class Territory {
         this.invalidBuildings.delete(building);
 
         // 3. Check for split (only for valid provider buildings)
-        if (wasValid && this._canProvideTerritory(building)) {
+        if (wasValid && wasProvider) {
             this._handlePotentialSplit(building);
         }
 
-        // 4. Notify renderer and fog system
+        // 4. Update non-provider buildings that may have lost territory coverage
+        if (wasValid && wasProvider) {
+            this._updateNonProvidersNearRemovedBuilding(building);
+        }
+
+        // 5. Notify renderer and fog system
         this.renderer.invalidateCache();
         this.world.fog?.markDirty();
     }
@@ -598,6 +604,41 @@ export class Territory {
                 this.dirty = true;
                 this.recalculate();
                 return;
+            }
+        }
+    }
+
+    /**
+     * Update non-provider buildings near a removed provider building
+     * Check if they are still in valid territory, apply penalty if not
+     */
+    private _updateNonProvidersNearRemovedBuilding(removedBuilding: BuildingLike): void {
+        const radiusSq = this._territoryRadiusSq;
+
+        // Collect candidates: non-providers in validBuildings near removed building
+        const toCheck: BuildingLike[] = [];
+        for (const b of this.validBuildings) {
+            if (!this._canProvideTerritory(b) && b.pos.disSq(removedBuilding.pos) <= radiusSq) {
+                toCheck.push(b);
+            }
+        }
+
+        if (toCheck.length === 0) return;
+
+        // Check each candidate
+        for (const b of toCheck) {
+            let stillValid = false;
+            for (const vb of this.validBuildings) {
+                if (this._canProvideTerritory(vb) && vb.pos.disSq(b.pos) <= radiusSq) {
+                    stillValid = true;
+                    break;
+                }
+            }
+
+            if (!stillValid) {
+                this.validBuildings.delete(b);
+                this.invalidBuildings.add(b);
+                this._applyInvalidPenalty(b);
             }
         }
     }
