@@ -1,6 +1,6 @@
 # ⚔️ HITWAR: 炮塔战争
 
-注意：2.2.x版本为预览版。可能存在Bug！如遇，请反馈给 ck@hitmux.org or caokai674@gmail.com 或者提交issue
+注意：2.2.x版本为预览版。**可能存在Bug！**如遇，请反馈给 ck@hitmux.org or caokai674@gmail.com 或者提交issue
 
 ## **官方预览**: [Hitmux Game](https://game.hitmux.org)
 
