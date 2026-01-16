@@ -14,6 +14,9 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
     private invCellSize: number;
     private cols: number;
     private cells: Map<number, Set<T>> = new Map();
+    // Offset to handle negative coordinates (ensures hash is always positive)
+    private offsetX: number;
+    private offsetY: number;
 
     // Set object pool to reduce GC pressure
     private _setPool: Set<number>[] = [];
@@ -21,8 +24,19 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
     constructor(width: number, height: number, cellSize: number = 64) {
         this.cellSize = cellSize;
         this.invCellSize = 1 / cellSize;
-        // Extra margin for objects outside bounds
-        this.cols = Math.ceil(width / cellSize) + 4;
+        // Support negative coordinates: margin based on max spawn radius (0.7 * max dimension)
+        const margin = Math.ceil(Math.max(width, height) * 0.7 / cellSize);
+        this.offsetX = margin;
+        this.offsetY = margin;
+        // Total columns = world cells + margin on both sides
+        this.cols = Math.ceil(width / cellSize) + margin * 2;
+    }
+
+    /**
+     * Compute hash for cell coordinates with offset to handle negative values
+     */
+    private _hash(cx: number, cy: number): number {
+        return (cy + this.offsetY) * this.cols + (cx + this.offsetX);
     }
 
     /**
@@ -122,7 +136,7 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
 
         for (let cy = minCY; cy <= maxCY; cy++) {
             for (let cx = minCX; cx <= maxCX; cx++) {
-                const hash = cy * this.cols + cx;
+                const hash = this._hash(cx, cy);
                 const bucket = this.cells.get(hash);
                 if (bucket) {
                     for (const obj of bucket) {
@@ -155,7 +169,7 @@ export class SpatialHashGrid<T extends SpatialGridObject> {
 
         for (let cy = minCY; cy <= maxCY; cy++) {
             for (let cx = minCX; cx <= maxCX; cx++) {
-                result.add(cy * this.cols + cx);
+                result.add(this._hash(cx, cy));
             }
         }
     }
