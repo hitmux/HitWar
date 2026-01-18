@@ -34,6 +34,13 @@ interface BulletLike {
     goStep(): void;
     render(ctx: CanvasRenderingContext2D): void;
     remove(): void;
+    // Two-phase update methods
+    move(): void;
+    rChange(): void;
+    getTarget(): void;
+    collide(world: WorldLike): void;
+    split(): void;
+    outTowerViewRange(): boolean;
 }
 
 interface BuildingLike {
@@ -92,12 +99,57 @@ export class MonsterShooter extends Monster {
     }
 
     goStep(): void {
+        // Backward compatibility: if called directly, execute full update
         this.getTarget();
         super.goStep();
         this.attackAction();
 
-        for (let bully of this.bullys) {
+        for (const bully of this.bullys) {
             bully.goStep();
+        }
+    }
+
+    /**
+     * Phase 1: Movement only (called by EntityManager)
+     */
+    moveOnly(): void {
+        this.getTarget();
+        super.moveOnly();
+
+        // Bullet movement (following Tower.goStepMove pattern)
+        for (const b of this.bullys) {
+            b.move();
+            b.rChange();
+            b.getTarget();
+        }
+    }
+
+    /**
+     * Phase 2: Collision only (called by EntityManager)
+     */
+    clashOnly(): void {
+        super.clashOnly();
+        this.attackAction();
+
+        // Remove out-of-range bullets first
+        this.removeOutRangeBullys();
+
+        // Bullet collision (following Tower.goStepCollide pattern)
+        for (const b of this.bullys) {
+            b.collide(this.world);
+            b.split();
+        }
+    }
+
+    /**
+     * Remove bullets that are out of range
+     */
+    private removeOutRangeBullys(): void {
+        for (const b of this.bullys) {
+            if (b.outTowerViewRange()) {
+                b.remove();
+                this.bullys.delete(b);
+            }
         }
     }
 
