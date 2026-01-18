@@ -84,9 +84,6 @@ export class MonsterGroup {
         this.kindCount = [];
         this.monsterCount = 0;
         this.level = 0;
-        for (let n of this.kindCount) {
-            this.monsterCount += n;
-        }
         this.delayTick = 200;
         this.state = 0;
     }

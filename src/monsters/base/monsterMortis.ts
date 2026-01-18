@@ -90,33 +90,6 @@ export class MonsterMortis extends Monster {
         this.bumpSpeedVector = (this.target.pos as Vector).sub(this.pos).to1().mul(this.bumpV);
     }
 
-    bump(): void {
-        if (this.haveTarget()) {
-            if (this.bumpEndPoint === null) {
-                this.setEndPoint();
-            }
-            if (this.bumpEndPoint && new Circle(this.bumpEndPoint.x, this.bumpEndPoint.y, 12).pointIn(this.pos.x, this.pos.y)) {
-                if (this.haveTarget()) {
-                    this.setEndPoint();
-                } else {
-                    this.bumpEndPoint = null;
-                    this.bumpSpeedVector = Vector.zero();
-                }
-            } else {
-                if (typeof EffectCircle !== 'undefined' && EffectCircle.acquire) {
-                    let ec = EffectCircle.acquire(this.pos.copy());
-                    ec.circle.r = this.r;
-                    ec.initCircleStyle(this.bodyColor, this.bodyStrokeColor, 0);
-                    ec.animationFunc = ec.flashAnimation;
-                    this.world.addEffect(ec);
-                }
-                this.pos.add(this.bumpSpeedVector);
-            }
-        } else {
-            this.bumpEndPoint = null;
-        }
-    }
-
     haveTarget(): boolean {
         return !(this.target === null || this.target === undefined || this.target.isDead());
     }
@@ -132,9 +105,62 @@ export class MonsterMortis extends Monster {
     }
 
     goStep(): void {
+        // Backward compatibility: delegate to two-phase methods
+        this.moveOnly();
+        this.clashOnly();
+    }
+
+    /**
+     * Movement phase: handle bump movement with proper prevX/prevY tracking
+     */
+    moveOnly(): void {
         this.refreshTarget();
-        this.bump();
-        super.goStep();
+        
+        if (this.haveTarget()) {
+            // Save previous position for sweep collision detection
+            this.prevX = this.pos.x;
+            this.prevY = this.pos.y;
+            
+            // Initialize bump if needed
+            if (this.bumpEndPoint === null) {
+                this.setEndPoint();
+            }
+            
+            // Check if reached endpoint
+            if (this.bumpEndPoint && new Circle(this.bumpEndPoint.x, this.bumpEndPoint.y, 12).pointIn(this.pos.x, this.pos.y)) {
+                if (this.haveTarget()) {
+                    this.setEndPoint();
+                } else {
+                    this.bumpEndPoint = null;
+                    this.bumpSpeedVector = Vector.zero();
+                }
+            } else {
+                // Visual effect
+                if (typeof EffectCircle !== 'undefined' && EffectCircle.acquire) {
+                    let ec = EffectCircle.acquire(this.pos.copy());
+                    ec.circle.r = this.r;
+                    ec.initCircleStyle(this.bodyColor, this.bodyStrokeColor, 0);
+                    ec.animationFunc = ec.flashAnimation;
+                    this.world.addEffect(ec);
+                }
+                // Execute bump movement
+                this.pos.add(this.bumpSpeedVector);
+            }
+            
+            // Update spatial index
+            this._markMovement(this.prevX, this.prevY);
+            
+            // Handle burn damage (copied from Monster.moveOnly since we skip super call)
+            if (this.burnRate > this.maxBurnRate) {
+                this.burnRate = this.maxBurnRate;
+            }
+            if (this.burnRate !== 0) {
+                this.hpChange(-this.burnRate * this.maxHp);
+            }
+        } else {
+            this.bumpEndPoint = null;
+            super.moveOnly();
+        }
     }
 
     clash(): void {
