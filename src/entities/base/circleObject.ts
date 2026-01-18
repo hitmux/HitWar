@@ -4,7 +4,7 @@
  */
 import { Vector } from '../../core/math/vector';
 import { Circle } from '../../core/math/circle';
-import { MyColor } from '../myColor';
+import { MyColor, ReadonlyColor } from '../myColor';
 import {
     renderStatusBar,
     createStatusBarCache,
@@ -46,7 +46,7 @@ export class CircleObject {
     hpColor: MyColor;
     bodyColor: MyColor;
     bodyStrokeWidth: number;
-    bodyStrokeColor: MyColor;
+    bodyStrokeColor: ReadonlyColor;
     hpBarHeight: number;
 
     comment: string;

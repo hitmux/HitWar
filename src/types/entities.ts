@@ -3,7 +3,7 @@
  */
 
 import type { RenderContext, GameType, IRegistry } from './common';
-import type { IVector, ICircle, IColor, IRectangle } from './geometry';
+import type { IVector, ICircle, IColor, IReadonlyColor, IRectangle } from './geometry';
 
 // Forward declaration for World (defined in game.ts)
 export interface IWorld {
@@ -40,7 +40,7 @@ export interface ICircleObject extends IGameObject {
   hpColor: IColor;
   bodyColor: IColor;
   bodyStrokeWidth: number;
-  bodyStrokeColor: IColor;
+  bodyStrokeColor: IReadonlyColor;
   hpBarHeight: number;
 
   comment: string;

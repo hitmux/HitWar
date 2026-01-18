@@ -86,21 +86,31 @@ export interface IRectangle {
   setStrokeWidth(width: number): void;
 }
 
-// Color interface (MyColor class)
-export interface IColor {
+// Readonly color interface (for shared immutable instances)
+export interface IReadonlyColor {
+  readonly r: number;
+  readonly g: number;
+  readonly b: number;
+  readonly a: number;
+
+  // Read-only methods
+  toStringRGBA(): string;
+  toStringRGB(): string;
+  toArr(): [number, number, number, number];
+}
+
+// Mutable color interface (MyColor class)
+export interface IColor extends IReadonlyColor {
   r: number;
   g: number;
   b: number;
   a: number;
 
-  // Methods
-  toStringRGBA(): string;
-  toStringRGB(): string;
+  // Mutation methods
   setRGB(r: number, g: number, b: number): void;
   setRGBA(r: number, g: number, b: number, a: number): void;
   change(dr: number, dg: number, db: number, da: number): void;
   changeAlpha(newAlpha: number): void;
-  toArr(): [number, number, number, number];
 }
 
 // Constructor types for geometry classes

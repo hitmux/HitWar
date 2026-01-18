@@ -2,7 +2,19 @@
  * Color utility class
  * by littlefean
  */
-export class MyColor {
+
+/** Readonly color interface - for type constraints on shared instances */
+export interface ReadonlyColor {
+    readonly r: number;
+    readonly g: number;
+    readonly b: number;
+    readonly a: number;
+    toStringRGB(): string;
+    toStringRGBA(): string;
+    toArr(): [number, number, number, number];
+}
+
+export class MyColor implements ReadonlyColor {
     r: number;
     g: number;
     b: number;
@@ -94,21 +106,47 @@ export class MyColor {
         return [this.r, this.g, this.b, this.a];
     }
 
-    // 静态常量对象，避免频繁创建
-    static readonly BLACK_INSTANCE = new MyColor(0, 0, 0, 1);
-    static readonly GRAY_INSTANCE = new MyColor(60, 63, 65, 1);
-    static readonly TRANSPARENT_INSTANCE = new MyColor(0, 0, 0, 0);
+    // Frozen shared instances (immutable, safe to share)
+    private static readonly _BLACK = Object.freeze(new MyColor(0, 0, 0, 1));
+    private static readonly _GRAY = Object.freeze(new MyColor(60, 63, 65, 1));
+    private static readonly _TRANSPARENT = Object.freeze(new MyColor(0, 0, 0, 0));
 
-    static BLACK(): MyColor {
-        return MyColor.BLACK_INSTANCE;
+    /**
+     * Returns readonly black instance (shared, immutable)
+     * Use for: bodyStrokeColor and other read-only scenarios
+     */
+    static BLACK(): ReadonlyColor {
+        return MyColor._BLACK;
     }
 
-    static GRAY(): MyColor {
-        return MyColor.GRAY_INSTANCE;
+    /**
+     * Returns readonly gray instance (shared, immutable)
+     */
+    static GRAY(): ReadonlyColor {
+        return MyColor._GRAY;
     }
 
-    static Transparent(): MyColor {
-        return MyColor.TRANSPARENT_INSTANCE;
+    /**
+     * Returns readonly transparent instance (shared, immutable)
+     */
+    static Transparent(): ReadonlyColor {
+        return MyColor._TRANSPARENT;
+    }
+
+    /**
+     * Creates a mutable black instance
+     * Use for: scenarios requiring setRGB/setRGBA calls
+     */
+    static createBlack(): MyColor {
+        return new MyColor(0, 0, 0, 1);
+    }
+
+    static createGray(): MyColor {
+        return new MyColor(60, 63, 65, 1);
+    }
+
+    static createTransparent(): MyColor {
+        return new MyColor(0, 0, 0, 0);
     }
 
     static arrTo(arr: [number, number, number, number]): MyColor {
