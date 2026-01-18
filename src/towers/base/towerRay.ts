@@ -6,7 +6,7 @@
 import { Vector } from '../../core/math/vector';
 import { Line } from '../../core/math/line';
 import { Circle } from '../../core/math/circle';
-import { MyColor } from '../../entities/myColor';
+import { MyColor, ReadonlyColor } from '../../entities/myColor';
 import { LineObject } from '../../entities/base/lineObject';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
@@ -72,7 +72,7 @@ export class TowerRay extends Tower {
     rayBullys: Set<LineObject>;
     rayThrowAble: boolean;
     rayRepel: number;
-    rayColor: MyColor;
+    rayColor: ReadonlyColor;
     rayWidth: number;
 
     declare attackFunc: RayAttackFunc;

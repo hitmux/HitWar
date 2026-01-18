@@ -148,11 +148,10 @@ export class TowerLaser extends Tower {
     }
 
     /**
-     * 碰撞阶段：处理激光塔攻击
+     * 碰撞阶段：继承父类实现（父类已调用 attackFunc）
      */
     goStepCollide(): void {
         super.goStepCollide();
-        this.attackFunc();
     }
 
     zapAttack(): void {
@@ -297,6 +296,10 @@ export class TowerLaser extends Tower {
     }
 
     getTarget(): void {
+        // 先检查当前目标是否仍然有效，避免每帧重新查找导致目标频繁切换
+        if (this.haveTarget()) {
+            return;
+        }
         const target = this.findFirstTarget();
         if (target) {
             this.target = target;

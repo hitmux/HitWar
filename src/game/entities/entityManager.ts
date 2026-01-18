@@ -106,6 +106,7 @@ export class EntityManager {
 
     // Per-frame render caches
     private _monsterRenderList: MonsterLike[] = [];
+    private _monsterRenderListDirty = false;
 
     // References
     private readonly _spatialSystem: SpatialQuerySystem;
@@ -139,13 +140,11 @@ export class EntityManager {
 
     /**
      * Remove a monster from the world
+     * Uses lazy rebuild for O(1) removal instead of O(n) indexOf+splice
      */
     removeMonster(monster: MonsterLike): void {
         if (this.monsters.delete(monster)) {
-            const idx = this._monsterRenderList.indexOf(monster);
-            if (idx !== -1) {
-                this._monsterRenderList.splice(idx, 1);
-            }
+            this._monsterRenderListDirty = true;
         }
         this._spatialSystem.removeMonster(monster);
     }
@@ -229,21 +228,25 @@ export class EntityManager {
     }
 
     /**
-     * Get monsters render list
+     * Get monsters render list (lazy rebuild on dirty)
      */
     getMonsterRenderList(): MonsterLike[] {
+        if (this._monsterRenderListDirty) {
+            this._monsterRenderList.length = 0;
+            for (const monster of this.monsters) {
+                this._monsterRenderList.push(monster);
+            }
+            this._monsterRenderListDirty = false;
+        }
         return this._monsterRenderList;
     }
 
     /**
-     * Sync monster render list from set
+     * Force sync monster render list from set
      */
     syncMonsterRenderListFromSet(): MonsterLike[] {
-        this._monsterRenderList.length = 0;
-        for (const monster of this.monsters) {
-            this._monsterRenderList.push(monster);
-        }
-        return this._monsterRenderList;
+        this._monsterRenderListDirty = true;
+        return this.getMonsterRenderList();
     }
 
     /**

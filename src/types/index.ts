@@ -29,6 +29,7 @@ export type {
   ICircle,
   ILine,
   IRectangle,
+  IReadonlyColor,
   IColor,
   VectorConstructor,
   CircleConstructor,
