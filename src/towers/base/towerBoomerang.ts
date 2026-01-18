@@ -41,6 +41,9 @@ interface WorldLike {
     removeBully(bully: unknown): void;
 }
 
+// 碰撞冷却帧数（约0.5秒 @ 60fps，考虑速度缩放）
+const HIT_COOLDOWN_FRAMES = 30;
+
 export class TowerBoomerang extends Tower {
     damage: number;
     barLen: number;
@@ -49,6 +52,8 @@ export class TowerBoomerang extends Tower {
     barRotateSelfSpeed: number;
     barDirect: Vector;
     bar: Line;
+    // 记录每个怪物的最后受击帧，用于冷却判定
+    private hitCooldown: WeakMap<object, number> = new WeakMap();
 
     constructor(x: number, y: number, world: any) {
         super(x, y, world);
@@ -154,8 +159,14 @@ export class TowerBoomerang extends Tower {
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
+            // 检查冷却，避免同一怪物每帧都受伤害
+            const lastHit = this.hitCooldown.get(m) ?? -HIT_COOLDOWN_FRAMES;
+            if (this.liveTime - lastHit < HIT_COOLDOWN_FRAMES) {
+                continue;
+            }
             if (this.bar.intersectWithCircle(mc as any)) {
                 m.hpChange(-actualDamage);
+                this.hitCooldown.set(m, this.liveTime);
             }
         }
     }

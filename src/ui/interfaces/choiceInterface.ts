@@ -6,6 +6,7 @@ import { gotoPage } from '../navigation/router';
 import { SaveUI } from '../../systems/save/saveUI';
 import { endlessMode } from './endlessMode';
 import { setupBackButton } from '../components/backButton';
+import { withInitGuard } from '../utils/initGuard';
 
 /**
  * Mode choice interface logic
@@ -13,42 +14,41 @@ import { setupBackButton } from '../components/backButton';
 export function choiceInterface(): void {
     const thisInterface = document.querySelector(".modeChoice-interface") as HTMLElement;
 
-    thisInterface.querySelector(".endlessMode-easy")!.addEventListener("click", () => {
-        gotoPage("war-interface");
-        requestAnimationFrame(() => {
-            endlessMode("easy");
+    withInitGuard('modeChoice-interface', () => {
+        thisInterface.querySelector(".endlessMode-easy")!.addEventListener("click", () => {
+            gotoPage("war-interface");
+            requestAnimationFrame(() => {
+                endlessMode("easy");
+            });
         });
-    });
-    thisInterface.querySelector(".endlessMode-normal")!.addEventListener("click", () => {
-        gotoPage("war-interface");
-        requestAnimationFrame(() => {
-            endlessMode("normal");
+        thisInterface.querySelector(".endlessMode-normal")!.addEventListener("click", () => {
+            gotoPage("war-interface");
+            requestAnimationFrame(() => {
+                endlessMode("normal");
+            });
         });
-    });
-    thisInterface.querySelector(".endlessMode-hard")!.addEventListener("click", () => {
-        gotoPage("war-interface");
-        requestAnimationFrame(() => {
-            endlessMode("hard");
+        thisInterface.querySelector(".endlessMode-hard")!.addEventListener("click", () => {
+            gotoPage("war-interface");
+            requestAnimationFrame(() => {
+                endlessMode("hard");
+            });
         });
-    });
-    // Infinite time mode
-    thisInterface.querySelector(".infiniteTimeMode-easy")!.addEventListener("click", () => {
-        gotoPage("war-interface");
-        requestAnimationFrame(() => {
-            endlessMode("easy", false);
+        // Infinite time mode
+        thisInterface.querySelector(".infiniteTimeMode-easy")!.addEventListener("click", () => {
+            gotoPage("war-interface");
+            requestAnimationFrame(() => {
+                endlessMode("easy", false);
+            });
         });
-    });
-    thisInterface.querySelector(".infiniteTimeMode-hard")!.addEventListener("click", () => {
-        gotoPage("war-interface");
-        requestAnimationFrame(() => {
-            endlessMode("hard", false);
+        thisInterface.querySelector(".infiniteTimeMode-hard")!.addEventListener("click", () => {
+            gotoPage("war-interface");
+            requestAnimationFrame(() => {
+                endlessMode("hard", false);
+            });
         });
-    });
 
-    setupBackButton(thisInterface, "main-interface");
+        setupBackButton(thisInterface, "main-interface");
 
-    // Add import save button if not already added
-    if (!thisInterface.querySelector(".importSaveBtn")) {
         const btnList = thisInterface.querySelector(".btnList") as HTMLElement;
         SaveUI.addImportButton(btnList, (saveData: unknown) => {
             const data = saveData as { mode: string; haveFlow: boolean };
@@ -58,5 +58,5 @@ export function choiceInterface(): void {
                 endlessMode(data.mode, data.haveFlow, saveData);
             });
         });
-    }
+    });
 }

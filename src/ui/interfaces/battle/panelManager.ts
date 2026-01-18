@@ -120,9 +120,11 @@ export class PanelManager {
     destroy(): void {
         if (this.refreshPanelInterval) {
             clearInterval(this.refreshPanelInterval);
+            this.refreshPanelInterval = null;
         }
         if (this.freshBtnInterval) {
             clearInterval(this.freshBtnInterval);
+            this.freshBtnInterval = null;
         }
         // 恢复默认光标
         this.setMoveCursor(false);
@@ -943,19 +945,16 @@ export class PanelManager {
     }
 
     private startIntervals(): void {
-        // Refresh panel interval
+        // Refresh panel interval - 由 destroy() 统一清理
         this.refreshPanelInterval = setInterval(() => {
             if (this.addedThingFunc === null && this.selectedThing === null) {
                 this.showInitPanel();
             } else if (this.selectedThing !== null) {
                 this.showSelectedPanel(false);
             }
-            if (this.callbacks.getGameEnd()) {
-                clearInterval(this.refreshPanelInterval!);
-            }
         }, 100);
 
-        // Button state update interval
+        // Button state update interval - 由 destroy() 统一清理
         this.freshBtnInterval = setInterval(() => {
             const towerBtnArr = document.getElementsByClassName("towerBtn");
 
@@ -971,9 +970,6 @@ export class PanelManager {
                 } else {
                     btn.setAttribute("disabled", "disabled");
                 }
-            }
-            if (this.callbacks.getGameEnd()) {
-                clearInterval(this.freshBtnInterval!);
             }
             const cancelSelectBtn = document.getElementById("cancelSelect");
             if (cancelSelectBtn) {

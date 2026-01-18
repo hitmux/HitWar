@@ -60,7 +60,7 @@ export class TowerHell extends Tower {
     constructor(x: number, y: number, world: any) {
         super(x, y, world);
         this.name = "地狱塔";
-        this.clock = 1.1;
+        this.clock = 1; // 改为整数，虽然地狱塔不用 clock 控制攻击
 
         this.target = null;
         this.rangeR = 200;
@@ -74,6 +74,9 @@ export class TowerHell extends Tower {
         // Inherit laser properties for compatibility
         this.laserFreezeNow = 0;
         this.laserFreezeMax = 0;
+
+        // 地狱塔使用自定义 attack()，禁用父类的 normalAttack
+        this.attackFunc = () => {};
     }
 
     getTarget(): void {

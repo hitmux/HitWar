@@ -42,12 +42,17 @@ interface WorldLike {
     removeBully(bully: unknown): void;
 }
 
+// 碰撞冷却帧数（约0.5秒 @ 60fps，考虑速度缩放）
+const HIT_COOLDOWN_FRAMES = 30;
+
 export class TowerHammer extends Tower {
     itemRange: number;
     itemRidus: number;
     itemDamage: number;
     itemSpeed: number;
     additionItem: CircleObject;
+    // 记录每个怪物的最后受击帧，用于冷却判定
+    private hitCooldown: WeakMap<object, number> = new WeakMap();
 
     constructor(x: number, y: number, world: any) {
         super(x, y, world);
@@ -171,8 +176,14 @@ export class TowerHammer extends Tower {
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
+            // 检查冷却，避免同一怪物每帧都受伤害
+            const lastHit = this.hitCooldown.get(m) ?? -HIT_COOLDOWN_FRAMES;
+            if (this.liveTime - lastHit < HIT_COOLDOWN_FRAMES) {
+                continue;
+            }
             if (Circle.collides(itemCircle.x, itemCircle.y, itemCircle.r, mc.x, mc.y, mc.r)) {
                 m.hpChange(-actualDamage);
+                this.hitCooldown.set(m, this.liveTime);
             }
         }
     }
