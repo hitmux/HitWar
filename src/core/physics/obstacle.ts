@@ -84,12 +84,12 @@ export class Obstacle {
     /**
      * Generate random obstacles
      */
-    static generateRandom(world: WorldLike, minCount: number = 40, maxCount: number = 80): Obstacle[] {
+    static generateRandom(world: WorldLike, minCount: number = 70, maxCount: number = 80): Obstacle[] {
         const obstacles: Obstacle[] = [];
         const count = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
 
         const rootPos = world.rootBuilding.pos;
-        const minDistance = Math.min(world.width, world.height) * 0.20;
+        const minDistance = Math.min(world.width, world.height) * 0.15;
 
         let attempts = 0;
         const maxAttempts = count * 100;

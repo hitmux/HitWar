@@ -175,7 +175,7 @@ interface WorldLike {
     monsters: Set<unknown>;
     mines: Set<unknown>;
     territory?: { markDirty: () => void; recalculate: () => void };
-    _rebuildObstacleCache: () => void;
+    markStaticLayerDirty: () => void;
 }
 
 interface MonsterGroupClassLike {
@@ -511,7 +511,7 @@ export class SaveManager {
             // Restore obstacles
             if (saveData.obstacles) {
                 world.obstacles = saveData.obstacles.map(data => Obstacle.deserialize(data as any));
-                world._rebuildObstacleCache();
+                world.markStaticLayerDirty();
             }
 
             // Clear existing entities (except rootBuilding)

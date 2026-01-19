@@ -18,6 +18,9 @@ import { Monster } from '../../monsters/base/monster';
 import type { TowerLike, BuildingLike, MonsterLike, BullyLike, EffectLike } from '../entities';
 import type { Mine } from '../../systems/energy/mine';
 
+/** Buffer expansion ratio: Canvas covers 1.5x viewport area to reduce rebuild frequency */
+const BUFFER_RATIO = 1.5;
+
 // === 渲染器需要的上下文接口 ===
 
 /**
@@ -111,19 +114,23 @@ export class WorldRenderer {
     private _canvas: HTMLCanvasElement | null = null;
     private _ctx: CanvasRenderingContext2D | null = null;
 
-    // Obstacle cache
-    private _obstacleCanvas: HTMLCanvasElement | null = null;
-    private _obstacleCtx: CanvasRenderingContext2D | null = null;
-    private _obstacleCacheValid: boolean = false;
-
     // Static layer cache (obstacles + static buildings)
     private _staticLayerCanvas: HTMLCanvasElement | null = null;
     private _staticLayerCtx: CanvasRenderingContext2D | null = null;
     private _staticLayerDirty: boolean = true;
 
-    // UI layer cache
-    private _uiCanvas: HTMLCanvasElement | null = null;
-    private _uiCtx: CanvasRenderingContext2D | null = null;
+    // Static layer buffer tracking (viewport-level caching)
+    private _lastCameraX = 0;
+    private _lastCameraY = 0;
+    private _lastZoom = 1;
+    private _bufferLeft = 0;        // Buffer world area left boundary
+    private _bufferTop = 0;         // Buffer world area top boundary
+    private _bufferWorldWidth = 0;  // Buffer world width
+    private _bufferWorldHeight = 0; // Buffer world height
+    private _canvasWidth = 0;       // Canvas logical width
+    private _canvasHeight = 0;      // Canvas logical height
+
+    // UI layer state cache (dirty flag detects state changes)
     private _uiDirty: boolean = true;
     private _uiStateCache: UiStateCache = {
         money: -1,
@@ -180,35 +187,6 @@ export class WorldRenderer {
     }
 
     /**
-     * Rebuild obstacle offscreen cache
-     */
-    rebuildObstacleCache(): void {
-        if (!this._obstacleCanvas) {
-            this._obstacleCanvas = document.createElement('canvas');
-            this._obstacleCtx = this._obstacleCanvas.getContext('2d');
-        }
-
-        this._obstacleCanvas.width = this._context.width;
-        this._obstacleCanvas.height = this._context.height;
-
-        const ctx = this._obstacleCtx!;
-        ctx.clearRect(0, 0, this._context.width, this._context.height);
-
-        for (const obs of this._context.obstacles) {
-            ctx.beginPath();
-            ctx.arc(obs.pos.x, obs.pos.y, obs.radius, 0, Math.PI * 2);
-            ctx.fillStyle = obs.color;
-            ctx.fill();
-            ctx.strokeStyle = obs.borderColor;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.closePath();
-        }
-
-        this._obstacleCacheValid = true;
-    }
-
-    /**
      * Main render method
      */
     render(canvasEle?: HTMLCanvasElement): void {
@@ -233,7 +211,13 @@ export class WorldRenderer {
 
         // Render static layer (obstacles + static buildings) once per invalidation
         if (this._staticLayerCanvas) {
-            ctx.drawImage(this._staticLayerCanvas, 0, 0);
+            // 9-parameter form: source region → target region
+            ctx.drawImage(
+                this._staticLayerCanvas,
+                0, 0, this._canvasWidth * PR, this._canvasHeight * PR,  // Source: entire canvas (pixel size)
+                this._bufferLeft, this._bufferTop,
+                this._bufferWorldWidth, this._bufferWorldHeight  // Target: world coordinates
+            );
         }
 
         // Render territory
@@ -338,14 +322,9 @@ export class WorldRenderer {
         // Calculate FPS and TPS
         this._updateFpsTps();
 
-        // UI layer (fixed on screen) with dirty flag
+        // UI layer (fixed on screen) - direct render without offscreen canvas
         this._updateUiState();
-        if (this._uiDirty) {
-            this._renderUiLayer();
-        }
-        if (this._uiCanvas) {
-            ctx.drawImage(this._uiCanvas, 0, 0);
-        }
+        this._renderUiLayer(ctx);
 
         // Energy shortage screen edge flashing
         if (this._context.energyRenderer) {
@@ -442,6 +421,28 @@ export class WorldRenderer {
         this._styleGroupKeysUsed.clear();
     }
 
+
+    /**
+     * Check if static layer rebuild is needed due to camera movement or zoom change
+     */
+    private _shouldRebuildForCamera(camera: Camera): boolean {
+        // Zoom shrink detection: must rebuild when zooming out
+        if (camera.zoom < this._lastZoom * 0.9) {
+            return true;
+        }
+
+        // Position change detection
+        const viewWorldWidth = camera.viewWidth / camera.zoom;
+        const viewWorldHeight = camera.viewHeight / camera.zoom;
+        const thresholdX = viewWorldWidth * 0.25;
+        const thresholdY = viewWorldHeight * 0.25;
+
+        const dx = Math.abs(camera.x - this._lastCameraX);
+        const dy = Math.abs(camera.y - this._lastCameraY);
+
+        return dx > thresholdX || dy > thresholdY;
+    }
+
     private _ensureStaticLayerCache(): void {
         if (!this._staticLayerCanvas) {
             this._staticLayerCanvas = document.createElement('canvas');
@@ -452,19 +453,26 @@ export class WorldRenderer {
             return;
         }
 
-        const { width, height } = this._context;
-        // Use PR for high-resolution rendering
-        const targetWidth = width;
-        const targetHeight = height;
-        
-        if (this._staticLayerCanvas.width !== targetWidth || this._staticLayerCanvas.height !== targetHeight) {
-            this._staticLayerCanvas.width = targetWidth;
-            this._staticLayerCanvas.height = targetHeight;
+        const { viewWidth, viewHeight, camera } = this._context;
+        const pr = PR;
+        // Viewport-level buffer size (logical size)
+        const targetWidth = viewWidth * BUFFER_RATIO;
+        const targetHeight = viewHeight * BUFFER_RATIO;
+        // Canvas pixel size = logical size × PR
+        const targetPixelWidth = targetWidth * pr;
+        const targetPixelHeight = targetHeight * pr;
+
+        if (this._staticLayerCanvas.width !== targetPixelWidth || this._staticLayerCanvas.height !== targetPixelHeight) {
+            this._staticLayerCanvas.width = targetPixelWidth;
+            this._staticLayerCanvas.height = targetPixelHeight;
+            this._canvasWidth = targetWidth;
+            this._canvasHeight = targetHeight;
             this._staticLayerDirty = true;
         }
 
-        if (!this._obstacleCacheValid) {
-            this.rebuildObstacleCache();
+        // Check camera movement or zoom
+        if (this._shouldRebuildForCamera(camera)) {
+            this._staticLayerDirty = true;
         }
 
         if (this._staticLayerDirty) {
@@ -477,31 +485,66 @@ export class WorldRenderer {
             return;
         }
         const ctx = this._staticLayerCtx;
-        const { width, height, obstacles, buildings } = this._context;
-        ctx.clearRect(0, 0, width, height);
+        const { width: worldWidth, height: worldHeight, obstacles, buildings, camera } = this._context;
+        const pr = PR;
 
-        if (this._obstacleCanvas && this._obstacleCacheValid) {
-            ctx.drawImage(this._obstacleCanvas, 0, 0);
-        } else {
-            for (const obs of obstacles) {
-                ctx.beginPath();
-                ctx.arc(obs.pos.x, obs.pos.y, obs.radius, 0, Math.PI * 2);
-                ctx.fillStyle = obs.color;
-                ctx.fill();
-                ctx.strokeStyle = obs.borderColor;
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.closePath();
+        // Calculate viewport world size (affected by zoom)
+        const viewWorldWidth = camera.viewWidth / camera.zoom;
+        const viewWorldHeight = camera.viewHeight / camera.zoom;
+
+        // Buffer world range
+        this._bufferWorldWidth = viewWorldWidth * BUFFER_RATIO;
+        this._bufferWorldHeight = viewWorldHeight * BUFFER_RATIO;
+
+        // Calculate camera center (world coordinates)
+        // Note: camera.x, camera.y is viewport top-left, not center!
+        const cameraCenterX = camera.x + viewWorldWidth / 2;
+        const cameraCenterY = camera.y + viewWorldHeight / 2;
+
+        // Buffer world area boundaries (with world boundary clipping)
+        this._bufferLeft = Math.max(0, cameraCenterX - this._bufferWorldWidth / 2);
+        this._bufferTop = Math.max(0, cameraCenterY - this._bufferWorldHeight / 2);
+        const bufferRight = Math.min(worldWidth, this._bufferLeft + this._bufferWorldWidth);
+        const bufferBottom = Math.min(worldHeight, this._bufferTop + this._bufferWorldHeight);
+
+        // Update world size based on actual clipping
+        this._bufferWorldWidth = bufferRight - this._bufferLeft;
+        this._bufferWorldHeight = bufferBottom - this._bufferTop;
+
+        // Coordinate transform: map world coordinates to canvas pixels (with PR)
+        const scaleX = (this._canvasWidth * pr) / this._bufferWorldWidth;
+        const scaleY = (this._canvasHeight * pr) / this._bufferWorldHeight;
+        ctx.setTransform(scaleX, 0, 0, scaleY, -this._bufferLeft * scaleX, -this._bufferTop * scaleY);
+
+        ctx.clearRect(this._bufferLeft, this._bufferTop, this._bufferWorldWidth, this._bufferWorldHeight);
+
+        // Render obstacles within buffer
+        for (const obs of obstacles) {
+            // Skip obstacles outside buffer
+            if (obs.pos.x + obs.radius < this._bufferLeft || obs.pos.x - obs.radius > bufferRight ||
+                obs.pos.y + obs.radius < this._bufferTop || obs.pos.y - obs.radius > bufferBottom) {
+                continue;
             }
+            ctx.beginPath();
+            ctx.arc(obs.pos.x, obs.pos.y, obs.radius, 0, Math.PI * 2);
+            ctx.fillStyle = obs.color;
+            ctx.fill();
+            ctx.strokeStyle = obs.borderColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.closePath();
         }
 
-        // Only render static parts of buildings (body, not HP bar)
+        // Only render static parts of buildings (body, not HP bar) within buffer
         for (const b of buildings) {
             if ((b as any).gameType === "Mine") continue;
-            // DEBUG: Log headquarters position during static layer rebuild
-            // if ((b as any).name === "Headquarters") {
-            //     console.log('[DEBUG] Rebuilding static layer - Headquarters pos:', (b as any).pos?.x, (b as any).pos?.y);
-            // }
+            const pos = (b as any).pos;
+            const r = (b as any).r || 50;
+            // Skip buildings outside buffer
+            if (pos.x + r < this._bufferLeft || pos.x - r > bufferRight ||
+                pos.y + r < this._bufferTop || pos.y - r > bufferBottom) {
+                continue;
+            }
             if (typeof (b as any).renderStatic === 'function') {
                 (b as any).renderStatic(ctx);
             } else {
@@ -509,6 +552,10 @@ export class WorldRenderer {
             }
         }
 
+        // Record camera state
+        this._lastCameraX = camera.x;
+        this._lastCameraY = camera.y;
+        this._lastZoom = camera.zoom;
         this._staticLayerDirty = false;
     }
 
@@ -692,25 +739,6 @@ export class WorldRenderer {
         }
     }
 
-    private _ensureUiCanvas(): void {
-        const { viewWidth, viewHeight } = this._context;
-        if (!this._uiCanvas) {
-            this._uiCanvas = document.createElement("canvas");
-            this._uiCtx = this._uiCanvas.getContext("2d");
-            this._uiDirty = true;
-        }
-        if (!this._uiCanvas || !this._uiCtx) {
-            return;
-        }
-        const targetWidth = viewWidth * PR;
-        const targetHeight = viewHeight * PR;
-        if (this._uiCanvas.width !== targetWidth || this._uiCanvas.height !== targetHeight) {
-            this._uiCanvas.width = targetWidth;
-            this._uiCanvas.height = targetHeight;
-            this._uiDirty = true;
-        }
-    }
-
     private _updateUiState(): void {
         const { user, monsters, batterys, camera, energy, monsterFlow } = this._context;
         const nextState: UiStateCache = {
@@ -740,14 +768,10 @@ export class WorldRenderer {
         }
     }
 
-    private _renderUiLayer(): void {
-        this._ensureUiCanvas();
-        if (!this._uiCanvas || !this._uiCtx) {
-            return;
-        }
-        const ctx = this._uiCtx;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, this._uiCanvas.width, this._uiCanvas.height);
+    /**
+     * Render UI layer directly to the main canvas (no offscreen buffer needed for simple text)
+     */
+    private _renderUiLayer(ctx: CanvasRenderingContext2D): void {
         ctx.save();
         ctx.scale(PR, PR);
 

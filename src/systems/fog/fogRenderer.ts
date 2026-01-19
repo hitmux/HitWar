@@ -7,6 +7,9 @@ import { FogOfWar } from './fogOfWar';
 import { VISION_CONFIG, RadarSweepArea, VisionType } from './visionConfig';
 import { PR } from '@/core/staticInitData';
 
+/** Buffer expansion ratio: Canvas covers 1.5x viewport area to reduce rebuild frequency on camera movement */
+const BUFFER_RATIO = 1.5;
+
 export class FogRenderer {
     private _fog: FogOfWar;
 
@@ -33,6 +36,15 @@ export class FogRenderer {
     private _holeMaskCanvas: HTMLCanvasElement | null = null;
     private _holeMaskSize: number = 0;
 
+    // Buffer-based viewport caching (viewport-level instead of world-level)
+    private _lastCameraX: number = 0;
+    private _lastCameraY: number = 0;
+    private _lastZoom: number = 1;
+    private _bufferLeft: number = 0;      // Buffer world area left boundary
+    private _bufferTop: number = 0;       // Buffer world area top boundary
+    private _bufferWorldWidth: number = 0;  // Buffer world width
+    private _bufferWorldHeight: number = 0; // Buffer world height
+
     constructor(fog: FogOfWar) {
         this._fog = fog;
     }
@@ -58,10 +70,10 @@ export class FogRenderer {
     /**
      * Main render method
      *
-     * Key design:
-     * 1. Offscreen canvas contains fog for entire world (worldWidth x worldHeight)
-     * 2. Draw with Camera transform preserved, from world coordinates (0,0)
-     * 3. Camera will auto-clip to visible area
+     * Key design (viewport-level caching):
+     * 1. Offscreen canvas covers viewport + buffer area (1.5x viewport)
+     * 2. Camera movement triggers buffer rebuild when exceeding threshold
+     * 3. Draw to world coordinates using 9-parameter drawImage
      *
      * Performance optimization:
      * - No radar towers: use static cache directly, skip composite layer copy
@@ -70,30 +82,43 @@ export class FogRenderer {
         if (!this._fog.enabled) return;
 
         const pr = PR;
+        const world = this._fog.world;
+        const viewWidth = world.viewWidth;
+        const viewHeight = world.viewHeight;
 
-        // Check dimension changes, reinitialize canvas
-        if (worldWidth !== this._cachedWidth || worldHeight !== this._cachedHeight || pr !== this._cachedPR) {
-            this._initCanvases(worldWidth, worldHeight, pr);
+        // Check pixel size change (viewport resize)
+        const targetWidth = viewWidth * BUFFER_RATIO;
+        const targetHeight = viewHeight * BUFFER_RATIO;
+
+        if (targetWidth !== this._cachedWidth || targetHeight !== this._cachedHeight || pr !== this._cachedPR) {
+            this._initCanvases(viewWidth, viewHeight, pr);
+        }
+
+        // Check if camera movement or zoom exceeds buffer range
+        if (this._shouldRebuildForCamera()) {
+            this._staticCacheValid = false;
         }
 
         // 1. Ensure static cache is valid
         if (!this._staticCacheValid) {
-            this._rebuildStaticCache(worldWidth, worldHeight, pr);
+            this._rebuildStaticCache(this._cachedWidth, this._cachedHeight, pr);
         }
 
         // 2. Choose render path: with radar use composite layer, without use static directly
+        // Draw to main canvas (using world coordinates and world size)
         if (this._fog.hasRadarTowers()) {
             // Compose final fog layer (static layer + radar sweep holes)
             if (this._dynamicDirty) {
-                this._composeFrame(worldWidth, worldHeight, pr);
+                this._composeFrame(this._cachedWidth, this._cachedHeight, pr);
                 this._dynamicDirty = false;
             }
             // Draw composed fog layer
             if (this._compositeCanvas) {
                 ctx.drawImage(
                     this._compositeCanvas,
-                    0, 0, worldWidth * pr, worldHeight * pr,
-                    0, 0, worldWidth, worldHeight
+                    0, 0, this._cachedWidth * pr, this._cachedHeight * pr,
+                    this._bufferLeft, this._bufferTop,
+                    this._bufferWorldWidth, this._bufferWorldHeight
                 );
             }
         } else {
@@ -101,19 +126,24 @@ export class FogRenderer {
             if (this._staticCanvas) {
                 ctx.drawImage(
                     this._staticCanvas,
-                    0, 0, worldWidth * pr, worldHeight * pr,
-                    0, 0, worldWidth, worldHeight
+                    0, 0, this._cachedWidth * pr, this._cachedHeight * pr,
+                    this._bufferLeft, this._bufferTop,
+                    this._bufferWorldWidth, this._bufferWorldHeight
                 );
             }
         }
     }
 
     /**
-     * Initialize offscreen canvases
+     * Initialize offscreen canvases (viewport-level instead of world-level)
      */
-    private _initCanvases(width: number, height: number, pr: number): void {
-        this._cachedWidth = width;
-        this._cachedHeight = height;
+    private _initCanvases(viewWidth: number, viewHeight: number, pr: number): void {
+        // Canvas pixel size (not affected by zoom)
+        const canvasWidth = viewWidth * BUFFER_RATIO;
+        const canvasHeight = viewHeight * BUFFER_RATIO;
+
+        this._cachedWidth = canvasWidth;
+        this._cachedHeight = canvasHeight;
         this._cachedPR = pr;
 
         // Static cache canvas
@@ -121,16 +151,16 @@ export class FogRenderer {
             this._staticCanvas = document.createElement('canvas');
             this._staticCtx = this._staticCanvas.getContext('2d');
         }
-        this._staticCanvas.width = width * pr;
-        this._staticCanvas.height = height * pr;
+        this._staticCanvas.width = canvasWidth * pr;
+        this._staticCanvas.height = canvasHeight * pr;
 
         // Composite canvas
         if (!this._compositeCanvas) {
             this._compositeCanvas = document.createElement('canvas');
             this._compositeCtx = this._compositeCanvas.getContext('2d');
         }
-        this._compositeCanvas.width = width * pr;
-        this._compositeCanvas.height = height * pr;
+        this._compositeCanvas.width = canvasWidth * pr;
+        this._compositeCanvas.height = canvasHeight * pr;
 
         // Initialize pre-rendered hole mask
         this._initHoleMask();
@@ -183,29 +213,93 @@ export class FogRenderer {
     }
 
     /**
-     * Rebuild static fog cache
+     * Check if camera movement or zoom requires buffer rebuild
+     */
+    private _shouldRebuildForCamera(): boolean {
+        const camera = this._fog.world.camera;
+
+        // Zoom change detection (must rebuild when zoom out, can reuse when zoom in)
+        if (camera.zoom < this._lastZoom * 0.9) {
+            return true;
+        }
+
+        // Position change detection
+        const viewWorldWidth = camera.viewWidth / camera.zoom;
+        const viewWorldHeight = camera.viewHeight / camera.zoom;
+        const thresholdX = viewWorldWidth * 0.25;
+        const thresholdY = viewWorldHeight * 0.25;
+
+        const dx = Math.abs(camera.x - this._lastCameraX);
+        const dy = Math.abs(camera.y - this._lastCameraY);
+
+        return dx > thresholdX || dy > thresholdY;
+    }
+
+    /**
+     * Rebuild static fog cache (viewport-level buffer)
      * On offscreen canvas: fill fog -> destination-out carve out static vision areas
      */
-    private _rebuildStaticCache(width: number, height: number, pr: number): void {
+    private _rebuildStaticCache(canvasWidth: number, canvasHeight: number, pr: number): void {
         const ctx = this._staticCtx!;
-        ctx.setTransform(pr, 0, 0, pr, 0, 0);
+        const camera = this._fog.world.camera;
+        const world = this._fog.world;
+
+        // Calculate viewport world size (affected by zoom)
+        const viewWorldWidth = camera.viewWidth / camera.zoom;
+        const viewWorldHeight = camera.viewHeight / camera.zoom;
+
+        // Buffer covers world area
+        this._bufferWorldWidth = viewWorldWidth * BUFFER_RATIO;
+        this._bufferWorldHeight = viewWorldHeight * BUFFER_RATIO;
+
+        // Calculate camera center (world coordinates)
+        const cameraCenterX = camera.x + viewWorldWidth / 2;
+        const cameraCenterY = camera.y + viewWorldHeight / 2;
+
+        // Buffer world area boundaries (clipped to world bounds)
+        this._bufferLeft = Math.max(0, cameraCenterX - this._bufferWorldWidth / 2);
+        this._bufferTop = Math.max(0, cameraCenterY - this._bufferWorldHeight / 2);
+        const bufferRight = Math.min(world.width, this._bufferLeft + this._bufferWorldWidth);
+        const bufferBottom = Math.min(world.height, this._bufferTop + this._bufferWorldHeight);
+        // Update world size based on actual clipped bounds
+        this._bufferWorldWidth = bufferRight - this._bufferLeft;
+        this._bufferWorldHeight = bufferBottom - this._bufferTop;
+
+        // Coordinate transform: map world coordinates to canvas pixels
+        // Scale factor = canvas pixel size / world size
+        const scaleX = (canvasWidth * pr) / this._bufferWorldWidth;
+        const scaleY = (canvasHeight * pr) / this._bufferWorldHeight;
+        ctx.setTransform(scaleX, 0, 0, scaleY, -this._bufferLeft * scaleX, -this._bufferTop * scaleY);
 
         // Clear and fill fog
-        ctx.clearRect(0, 0, width, height);
+        ctx.clearRect(this._bufferLeft, this._bufferTop, this._bufferWorldWidth, this._bufferWorldHeight);
         const { fogColor } = VISION_CONFIG;
         ctx.fillStyle = `rgba(${fogColor.r}, ${fogColor.g}, ${fogColor.b}, ${fogColor.a})`;
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(this._bufferLeft, this._bufferTop, this._bufferWorldWidth, this._bufferWorldHeight);
 
         // Use destination-out to carve out visible areas (safe on offscreen canvas)
         ctx.globalCompositeOperation = 'destination-out';
         const sources = this._fog.getStaticVisionSources();
 
+        // Only render vision sources within buffer range
         for (const src of sources) {
+            if (src.x + src.radius < this._bufferLeft || src.x - src.radius > bufferRight ||
+                src.y + src.radius < this._bufferTop || src.y - src.radius > bufferBottom) {
+                continue;
+            }
             this._drawVisionHole(ctx, src.x, src.y, src.radius);
         }
 
         ctx.globalCompositeOperation = 'source-over';
+
+        // Record current camera state
+        this._lastCameraX = camera.x;
+        this._lastCameraY = camera.y;
+        this._lastZoom = camera.zoom;
         this._staticCacheValid = true;
+
+        // Clear old radar data (buffer rebuild invalidates coordinates)
+        this._lastRadarAreas = [];
     }
 
     /**
@@ -245,11 +339,11 @@ export class FogRenderer {
     }
 
     /**
-     * Compose each frame's final fog layer
+     * Compose each frame's final fog layer (using buffer coordinate system)
      * 1. Copy static cache to composite canvas
      * 2. Carve out radar sweep areas on composite canvas
      */
-    private _composeFrame(width: number, height: number, pr: number): void {
+    private _composeFrame(canvasWidth: number, canvasHeight: number, pr: number): void {
         const { areas, count } = this._fog.getRadarSweepAreas();
 
         // Check if composition can be skipped (optimization: avoid expensive canvas operations)
@@ -259,19 +353,73 @@ export class FogRenderer {
 
         const ctx = this._compositeCtx!;
 
-        // 1. Copy static cache (full copy, preserve high DPI)
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, width * pr, height * pr);
-        if (this._staticCanvas) {
-            ctx.drawImage(this._staticCanvas, 0, 0);
+        // Calculate scale factor (consistent with _rebuildStaticCache)
+        const scaleX = (canvasWidth * pr) / this._bufferWorldWidth;
+        const scaleY = (canvasHeight * pr) / this._bufferWorldHeight;
+
+        // Determine if full copy is needed:
+        // 1. Static cache just rebuilt (_lastRadarAreas was cleared)
+        // 2. First time having radar towers (transition from 0 to N)
+        const needFullCopy = this._lastRadarAreas.length === 0 || (this._lastRadarCount === 0 && count > 0);
+
+        if (needFullCopy) {
+            // Full copy: entire static cache to composite layer
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvasWidth * pr, canvasHeight * pr);
+            if (this._staticCanvas) {
+                ctx.drawImage(this._staticCanvas, 0, 0);
+            }
+        } else {
+            // Incremental update: only restore previous frame's radar areas from static cache
+            ctx.setTransform(scaleX, 0, 0, scaleY, -this._bufferLeft * scaleX, -this._bufferTop * scaleY);
+
+            const bufferRight = this._bufferLeft + this._bufferWorldWidth;
+            const bufferBottom = this._bufferTop + this._bufferWorldHeight;
+
+            for (const lastArea of this._lastRadarAreas) {
+                // Padding to ensure complete coverage of radar sweep area
+                const padding = 50;
+                const r = lastArea.radius + padding;
+
+                // Skip areas outside current buffer range
+                if (lastArea.x + r < this._bufferLeft || lastArea.x - r > bufferRight ||
+                    lastArea.y + r < this._bufferTop || lastArea.y - r > bufferBottom) {
+                    continue;
+                }
+
+                const x = lastArea.x - r;
+                const y = lastArea.y - r;
+                const size = r * 2;
+
+                // Convert to canvas pixel coordinates for source region
+                const srcX = (x - this._bufferLeft) * scaleX;
+                const srcY = (y - this._bufferTop) * scaleY;
+                const srcW = size * scaleX;
+                const srcH = size * scaleY;
+
+                // Draw from static canvas (source: pixel coords) to composite (target: world coords)
+                ctx.drawImage(
+                    this._staticCanvas!,
+                    srcX, srcY, srcW, srcH,
+                    x, y, size, size
+                );
+            }
         }
 
-        // 2. Carve out radar sweep areas on composite layer
-        ctx.setTransform(pr, 0, 0, pr, 0, 0);
+        // 2. Carve out current radar sweep areas on composite layer
+        ctx.setTransform(scaleX, 0, 0, scaleY, -this._bufferLeft * scaleX, -this._bufferTop * scaleY);
         ctx.globalCompositeOperation = 'destination-out';
+
+        const bufferRight = this._bufferLeft + this._bufferWorldWidth;
+        const bufferBottom = this._bufferTop + this._bufferWorldHeight;
 
         for (let i = 0; i < count; i++) {
             const area = areas[i];
+            // Skip radar areas outside buffer range
+            if (area.x + area.radius < this._bufferLeft || area.x - area.radius > bufferRight ||
+                area.y + area.radius < this._bufferTop || area.y - area.radius > bufferBottom) {
+                continue;
+            }
             this._drawRadarSweepHole(ctx, area);
         }
 
