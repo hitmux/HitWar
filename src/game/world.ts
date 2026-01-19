@@ -266,8 +266,7 @@ export class World {
         // 4. World Renderer (depends on all other systems)
         this._renderer = new WorldRenderer(this._createRendererContext());
 
-        // Initial obstacle cache rebuild
-        this._renderer.rebuildObstacleCache();
+        // Initial static layer rebuild
         this._renderer.markStaticLayerDirty();
     }
 
@@ -620,55 +619,12 @@ export class World {
     _canvas: HTMLCanvasElement | null = null;
     _ctx: CanvasRenderingContext2D | null = null;
 
-    // Obstacle cache (deprecated - use renderer)
-    _obstacleCanvas: HTMLCanvasElement | null = null;
-    _obstacleCtx: CanvasRenderingContext2D | null = null;
-    _obstacleCacheValid: boolean = false;
-
     // Static layer cache (deprecated - use renderer)
     private _staticLayerCanvas: HTMLCanvasElement | null = null;
     private _staticLayerCtx: CanvasRenderingContext2D | null = null;
     private _staticLayerDirty: boolean = true;
 
-    // UI layer cache (deprecated - use renderer)
-    private _uiCanvas: HTMLCanvasElement | null = null;
-    private _uiCtx: CanvasRenderingContext2D | null = null;
-    private _uiDirty: boolean = true;
-    private _uiStateCache: {
-        money: number;
-        monsterCount: number;
-        batteryCount: number;
-        nextWave: string;
-        wave: number;
-        countdown: number;
-        zoom: number;
-        tps: number;
-        fps: number;
-        energyProd: number;
-        energyCons: number;
-    } = {
-        money: -1,
-        monsterCount: -1,
-        batteryCount: -1,
-        nextWave: "",
-        wave: -1,
-        countdown: -1,
-        zoom: -1,
-        tps: -1,
-        fps: -1,
-        energyProd: -1,
-        energyCons: -1
-    };
-
     // Preview circles cache (deprecated - use renderer)
     _previewBodyCircle: Circle | null = null;
     _previewRangeCircle: Circle | null = null;
-
-    /**
-     * Rebuild obstacle offscreen cache
-     * @deprecated Use renderer.rebuildObstacleCache() instead
-     */
-    _rebuildObstacleCache(): void {
-        this._renderer.rebuildObstacleCache();
-    }
 }

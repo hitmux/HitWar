@@ -48,8 +48,8 @@ export const VISION_CONFIG = {
 
     // Fog appearance
     fogColor: { r: 40, g: 40, b: 45, a: 1.0 },  // Dark gray fog (100% opacity - fully opaque)
-    edgeGradientRatio: 0.1,          // Edge gradient as ratio of radar radius (10%, 0% -> 100% fog)
-    outerGradientSize: 40,           // Outer gradient width for static vision (extends beyond visible radius)
+    edgeGradientRatio: 0.15,         // Edge gradient as ratio of radar radius (15%, 0% -> 100% fog)
+    outerGradientSize: 80,           // Outer gradient width for static vision (extends beyond visible radius)
     innerEdgeFogOpacity: 0.25,       // Fog opacity at gradient inner edge (25%)
 
     // Performance: visibility grid

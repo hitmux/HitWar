@@ -4,7 +4,7 @@
  */
 import { Vector } from '../../core/math/vector';
 import { Circle } from '../../core/math/circle';
-import { MyColor } from '../../entities/myColor';
+import { MyColor, ReadonlyColor } from '../../entities/myColor';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
 import { scaleSpeed } from '../../core/speedScale';
@@ -32,7 +32,7 @@ interface EffectCircleLike {
     circle: { r: number };
     animationFunc: () => void;
     flashAnimation: () => void;
-    initCircleStyle(fillColor: MyColor, strokeColor: MyColor, strokeWidth: number): void;
+    initCircleStyle(fillColor: ReadonlyColor, strokeColor: ReadonlyColor, strokeWidth: number): void;
 }
 
 interface BuildingLike {

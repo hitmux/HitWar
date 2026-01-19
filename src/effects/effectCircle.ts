@@ -5,7 +5,7 @@
  */
 import { Effect } from './effect';
 import { Circle } from '../core/math/circle';
-import { MyColor } from '../entities/myColor';
+import { MyColor, ReadonlyColor } from '../entities/myColor';
 import { Functions } from '../core/functions';
 
 interface VectorLike {
@@ -68,10 +68,10 @@ export class EffectCircle extends Effect {
         this.animationFunc = this.flashFireAnimation;
     }
 
-    initCircleStyle(fillColor: MyColor, strokeColor: MyColor, width: number): void {
+    initCircleStyle(fillColor: ReadonlyColor, strokeColor: ReadonlyColor, width: number): void {
         this.circle.strokeWidth = width;
-        this.circle.strokeColor = strokeColor;
-        this.circle.fillColor = fillColor;
+        this.circle.setStrokeColor(strokeColor);
+        this.circle.setFillColor(fillColor);
     }
 
     /**

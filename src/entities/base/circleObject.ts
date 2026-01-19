@@ -221,8 +221,8 @@ export class CircleObject {
         res.r = this.r;
         res.pos.x = this.pos.x;
         res.pos.y = this.pos.y;
-        res.fillColor = this.bodyColor;
-        res.strokeColor = this.bodyStrokeColor;
+        res.setFillColor(this.bodyColor);
+        res.setStrokeColor(this.bodyStrokeColor);
         let hpRate = this.hp / this.maxHp;
         res.setStrokeWidth(this.bodyStrokeWidth * hpRate);
         return res;
