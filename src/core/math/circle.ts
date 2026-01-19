@@ -3,7 +3,7 @@
  * by littlefean
  */
 import { Vector } from './vector';
-import { MyColor } from '../../entities/myColor';
+import { MyColor, ReadonlyColor } from '../../entities/myColor';
 
 export class Circle {
     // Precomputed constant
@@ -145,6 +145,22 @@ export class Circle {
     setStrokeWidth(n: number): void {
         this.strokeWidth = n;
         this._styleKeyCache = null;  // 使缓存失效
+    }
+
+    /**
+     * Set fill color from a ReadonlyColor (copies values)
+     */
+    setFillColor(color: ReadonlyColor): void {
+        this.fillColor.setRGBA(color.r, color.g, color.b, color.a);
+        this._styleKeyCache = null;
+    }
+
+    /**
+     * Set stroke color from a ReadonlyColor (copies values)
+     */
+    setStrokeColor(color: ReadonlyColor): void {
+        this.strokeColor.setRGBA(color.r, color.g, color.b, color.a);
+        this._styleKeyCache = null;
     }
 
     /**

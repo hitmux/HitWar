@@ -31,7 +31,7 @@ interface CircleLike {
 
 interface EffectLineLike {
     duration: number;
-    initLineStyle(color: MyColor, width: number): void;
+    initLineStyle(color: ReadonlyColor, width: number): void;
     initDamage(world: unknown, damage: number): void;
 }
 
@@ -200,7 +200,7 @@ export class TowerRay extends Tower {
                         let line = new Line(this.pos.copy(), this.pos.plus(bDir.mul(this.rayLen)));
                         let rayBully = new LineObject(line, this.world as any);
                         rayBully.speed = bDir.mul(this.rayMoveSpeed);
-                        rayBully.strokeColor = this.rayColor;
+                        rayBully.strokeColor.setRGBA(this.rayColor.r, this.rayColor.g, this.rayColor.b, this.rayColor.a);
                         rayBully.strokeWidth = this.rayWidth;
                         this.rayBullys.add(rayBully);
                     }
@@ -232,7 +232,7 @@ export class TowerRay extends Tower {
                         let line = new Line(this.pos.plus(x1), this.pos.plus(x2));
                         let rayBully = new LineObject(line, this.world as any);
                         rayBully.speed = bDir.mul(this.rayMoveSpeed);
-                        rayBully.strokeColor = this.rayColor;
+                        rayBully.strokeColor.setRGBA(this.rayColor.r, this.rayColor.g, this.rayColor.b, this.rayColor.a);
                         rayBully.strokeWidth = this.rayWidth;
                         this.rayBullys.add(rayBully);
                     }

@@ -107,18 +107,18 @@ export class MyColor implements ReadonlyColor {
     }
 
     // Helper to create frozen instance with pre-filled cache
-    private static createFrozen(r: number, g: number, b: number, a: number): MyColor {
+    private static createFrozen(r: number, g: number, b: number, a: number): ReadonlyColor {
         const color = new MyColor(r, g, b, a);
         // Pre-fill cache before freezing to avoid lazy-init write errors
         color.toStringRGB();
         color.toStringRGBA();
-        return Object.freeze(color);
+        return Object.freeze(color) as ReadonlyColor;
     }
 
     // Frozen shared instances (immutable, safe to share)
-    private static readonly _BLACK = MyColor.createFrozen(0, 0, 0, 1);
-    private static readonly _GRAY = MyColor.createFrozen(60, 63, 65, 1);
-    private static readonly _TRANSPARENT = MyColor.createFrozen(0, 0, 0, 0);
+    private static readonly _BLACK: ReadonlyColor = MyColor.createFrozen(0, 0, 0, 1);
+    private static readonly _GRAY: ReadonlyColor = MyColor.createFrozen(60, 63, 65, 1);
+    private static readonly _TRANSPARENT: ReadonlyColor = MyColor.createFrozen(0, 0, 0, 0);
 
     /**
      * Returns readonly black instance (shared, immutable)

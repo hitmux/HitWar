@@ -103,6 +103,11 @@ interface RootBuildingLike {
     pos: Vector;
 }
 
+interface FogLike {
+    enabled: boolean;
+    isCircleVisible(x: number, y: number, radius: number): boolean;
+}
+
 interface WorldLike {
     width: number;
     height: number;
@@ -116,6 +121,7 @@ interface WorldLike {
     rootBuilding: RootBuildingLike;
     user: UserLike;
     territory?: TerritoryLike;
+    fog?: FogLike;
     cheatMode?: { enabled: boolean; infiniteHp: boolean };
     getMonstersInRange(x: number, y: number, range: number): Monster[];
     getBullysInRange(x: number, y: number, range: number): BulletLike[];
@@ -481,7 +487,14 @@ export class Monster extends CircleObject {
             distanceSpeedMul = 1 + 9 * Math.log(1 + t * Math.E) / World._LOG_1_PLUS_E;
         }
 
-        const speedMul = this.speedNumb * this.speedFreezeNumb * distanceSpeedMul;
+        // Fog speed boost: monsters in full shadow move 2x faster
+        let fogSpeedMul = 1;
+        const fog = this.world.fog;
+        if (fog && fog.enabled && !fog.isCircleVisible(this.pos.x, this.pos.y, this.r)) {
+            fogSpeedMul = 2;
+        }
+
+        const speedMul = this.speedNumb * this.speedFreezeNumb * distanceSpeedMul * fogSpeedMul;
         this.speed.x = this._moveVec.x * speedMul;
         this.speed.y = this._moveVec.y * speedMul;
         this.acceleration.x = this._moveVec.x * this.accelerationV;

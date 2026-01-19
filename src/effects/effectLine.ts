@@ -5,7 +5,7 @@
  */
 import { Effect } from './effect';
 import { Line } from '../core/math/line';
-import { MyColor } from '../entities/myColor';
+import { MyColor, ReadonlyColor } from '../entities/myColor';
 import { Functions } from '../core/functions';
 import type { Vector } from '../core/math/vector';
 import type { Circle } from '../core/math/circle';
@@ -90,7 +90,7 @@ export class EffectLine extends Effect {
     /**
      * Initialize effect line color
      */
-    initLineStyle(color: MyColor, width: number): void {
+    initLineStyle(color: ReadonlyColor, width: number): void {
         this.line.strokeWidth = width;
         // Copy color values instead of reference to avoid mutation issues
         this.line.strokeColor.setRGBA(color.r, color.g, color.b, color.a);

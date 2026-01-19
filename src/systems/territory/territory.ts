@@ -25,6 +25,9 @@ interface BuildingLike {
 interface WorldLike {
     width: number;
     height: number;
+    viewWidth: number;
+    viewHeight: number;
+    camera: { x: number; y: number; zoom: number; viewWidth: number; viewHeight: number };
     rootBuilding: BuildingLike;
     batterys: BuildingLike[];
     buildings: BuildingLike[];

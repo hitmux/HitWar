@@ -19,6 +19,9 @@ interface TowerLike {
 interface WorldLike {
     width: number;
     height: number;
+    viewWidth: number;
+    viewHeight: number;
+    camera: { x: number; y: number; zoom: number; viewWidth: number; viewHeight: number };
     rootBuilding: { pos: { x: number; y: number } };
     batterys: TowerLike[];
     territory?: {
