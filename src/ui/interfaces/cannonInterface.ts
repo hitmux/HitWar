@@ -105,7 +105,6 @@ export function cannonInterface(): void {
                     dataItems: [
                         { label: "射程", value: towerObj.rangeR + "px" },
                         { label: "子弹速度", value: towerObj.bullySpeed },
-                        { label: "血量", value: towerObj.rangeR },
                         { label: "攻击间歇时间", value: towerObj.clock },
                         { label: "价格", value: towerObj.price },
                         { label: "详细信息", value: towerObj.comment }
