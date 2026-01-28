@@ -481,6 +481,14 @@ export class Monster extends CircleObject {
             this.speedFreezeNumb = this.burnMaxSpeedN;
         }
 
+        // Acceleration: increase speedNumb over time until maxSpeedN
+        if (this.accelerationV > 0 && this.speedNumb < this.maxSpeedN) {
+            this.speedNumb += this.accelerationV;
+            if (this.speedNumb > this.maxSpeedN) {
+                this.speedNumb = this.maxSpeedN;
+            }
+        }
+
         let distanceSpeedMul = 1;
         if (len > this.world.minMonsterRadius) {
             const t = Math.min((len - this.world.minMonsterRadius) / this.world.monsterRadiusRange, 1);
@@ -497,11 +505,14 @@ export class Monster extends CircleObject {
         const speedMul = this.speedNumb * this.speedFreezeNumb * distanceSpeedMul * fogSpeedMul;
         this.speed.x = this._moveVec.x * speedMul;
         this.speed.y = this._moveVec.y * speedMul;
-        this.acceleration.x = this._moveVec.x * this.accelerationV;
-        this.acceleration.y = this._moveVec.y * this.accelerationV;
         this.speed.add(this.changedSpeed);
-        // 注意：不再累加 acceleration 到 changedSpeed，super.move() 已处理加速度
-        super.move();
+        
+        // Save previous position for sweep collision detection
+        this.prevX = this.pos.x;
+        this.prevY = this.pos.y;
+        
+        // Direct position update (skip CircleObject.move's acceleration logic)
+        this.pos.add(this.speed);
     }
 
     laserDefend(): void {
