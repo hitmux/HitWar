@@ -8,14 +8,9 @@ import type { ITower, IMonster, IBullet, IBuilding, IGameObject } from './entiti
 
 // Effect interface (for visual effects)
 export interface IEffect {
-  pos: IVector;
-  liveTime: number;
-  maxLiveTime: number;
-  removed: boolean;
-
+  isPlay: boolean;
   goStep(): void;
   render(ctx: RenderContext): void;
-  remove(): void;
 }
 
 // QuadTree interface for spatial queries

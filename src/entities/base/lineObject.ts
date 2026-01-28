@@ -8,7 +8,7 @@ import { Vector } from '../../core/math/vector';
 export class LineObject extends Line {
     speed: Vector;
 
-    constructor(line: Line, world: unknown) {
+    constructor(line: Line) {
         super(line.PosStart, line.PosEnd);
         this.speed = Vector.zero();
     }

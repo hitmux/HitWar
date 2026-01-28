@@ -122,6 +122,8 @@ export class Territory {
         const queue: BuildingLike[] = [this.world.rootBuilding];
         let queueIndex = 0;
         visited.add(this.world.rootBuilding);
+        // Reusable array for QuadTree queries to avoid GC pressure
+        const retrieveBuffer: any[] = [];
 
         // BFS traversal (only between territory providers)
         // Optimized: Use QuadTree to only check nearby buildings instead of all providers
@@ -130,10 +132,12 @@ export class Territory {
             const current = queue[queueIndex++];
             
             // Query nearby buildings using QuadTree (much faster than iterating all providers)
+            retrieveBuffer.length = 0; // Clear buffer for reuse
             const nearbyObjects = quadTree.retrieveInRange(
                 current.pos.x,
                 current.pos.y,
-                searchRadius
+                searchRadius,
+                retrieveBuffer
             ) as any[];
 
             // Check each nearby building

@@ -15,7 +15,7 @@ import { getMonstersImg, MONSTER_IMG_PRE_WIDTH, MONSTER_IMG_PRE_HEIGHT } from '.
 import { Monster } from '../../monsters/base/monster';
 
 // Types
-import type { TowerLike, BuildingLike, MonsterLike, BullyLike, EffectLike } from '../entities';
+import type { TowerLike, BuildingLike, MonsterLike, BullyLike, IEffect } from '../entities';
 import type { Mine } from '../../systems/energy/mine';
 
 /** Buffer expansion ratio: Canvas covers 1.5x viewport area to reduce rebuild frequency */
@@ -39,7 +39,7 @@ export interface WorldRendererContext {
     buildings: BuildingLike[];
     mines: Set<Mine>;
     monsters: Set<MonsterLike>;
-    effects: Set<EffectLike>;
+    effects: Set<IEffect>;
     allBullys: Set<BullyLike>;
     obstacles: Obstacle[];
 

@@ -8,6 +8,7 @@ import { SpatialQuerySystem, SpatialEntity } from '../spatial';
 import { EffectCircle } from '../../effects/effectCircle';
 import { EffectLine } from '../../effects/effectLine';
 import { Mine } from '../../systems/energy/mine';
+import type { IEffect } from '../../types';
 
 // 塔防实体接口
 export interface TowerLike {
@@ -69,12 +70,6 @@ export interface BullyLike extends SpatialEntity {
     prevY: number;
 }
 
-// 效果实体接口
-export interface EffectLike {
-    isPlay: boolean;
-    goStep: () => void;
-    render: (ctx: CanvasRenderingContext2D) => void;
-}
 
 // 实体管理器需要的上下文接口
 export interface EntityManagerContext {
@@ -100,7 +95,7 @@ export class EntityManager {
     buildings: BuildingLike[] = [];
     mines: Set<Mine> = new Set();
     monsters: Set<MonsterLike> = new Set();
-    effects: Set<EffectLike> = new Set();
+    effects: Set<IEffect> = new Set();
     othersBullys: BullyLike[] = [];
     allBullys: Set<BullyLike> = new Set();
 
@@ -152,7 +147,7 @@ export class EntityManager {
     /**
      * Add an effect to the world
      */
-    addEffect(effect: EffectLike): void {
+    addEffect(effect: IEffect): void {
         this.effects.add(effect);
     }
 
@@ -281,7 +276,7 @@ export class EntityManager {
                 this._context.territory?.removeBuildingIncremental(t as any);
                 const e = EffectCircle.acquire(t.pos);
                 e.animationFunc = e.destroyAnimation;
-                this.addEffect(e as unknown as EffectLike);
+                this.addEffect(e as unknown as IEffect);
             }
         }
         this.batterys.length = writeIdx;

@@ -8,7 +8,9 @@ export type {
     BuildingLike,
     MonsterLike,
     BullyLike,
-    EffectLike,
     EntityManagerContext,
     EntityRemovalCallbacks
 } from './entityManager';
+
+// Re-export IEffect from types for backward compatibility
+export type { IEffect } from '../../types';

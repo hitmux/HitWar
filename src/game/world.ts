@@ -60,11 +60,11 @@ import type {
     BuildingLike,
     MonsterLike,
     BullyLike,
-    EffectLike
+    IEffect
 } from './entities';
 
 // Re-export for backward compatibility
-export type { TowerLike, BuildingLike, MonsterLike, BullyLike, EffectLike };
+export type { TowerLike, BuildingLike, MonsterLike, BullyLike, IEffect };
 
 export class World {
     // Cached font string to avoid repeated string creation (backward compat)
@@ -123,7 +123,7 @@ export class World {
     set mines(value: Set<Mine>) { this._entityManager.mines = value; }
     get monsters(): Set<MonsterLike> { return this._entityManager.monsters; }
     set monsters(value: Set<MonsterLike>) { this._entityManager.monsters = value; }
-    get effects(): Set<EffectLike> { return this._entityManager.effects; }
+    get effects(): Set<IEffect> { return this._entityManager.effects; }
     get othersBullys(): BullyLike[] { return this._entityManager.othersBullys; }
     get allBullys(): Set<BullyLike> { return this._entityManager.allBullys; }
 
@@ -236,7 +236,7 @@ export class World {
             { width: this.width, height: this.height, mode: this.mode, get time() { return 0; } },
             {
                 addMonster: (m) => this.addMonster(m as MonsterLike),
-                addEffect: (e) => this.addEffect(e as EffectLike)
+                addEffect: (e) => this.addEffect(e as IEffect)
             },
             this as any
         );
@@ -358,7 +358,7 @@ export class World {
      * Add an effect to the world
      * @delegate EntityManager
      */
-    addEffect(effect: EffectLike): void {
+    addEffect(effect: IEffect): void {
         this._entityManager.addEffect(effect);
     }
 
