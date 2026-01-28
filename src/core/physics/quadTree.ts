@@ -136,38 +136,30 @@ export class QuadTree {
     /**
      * Retrieve all objects that could potentially collide with the given object
      */
-    retrieve(obj: QuadTreeObject, found: Set<QuadTreeObject> | null = null): QuadTreeObject[] | Set<QuadTreeObject> {
-        const useSet = found === null;
-        if (useSet) {
-            found = new Set<QuadTreeObject>();
-        }
-
+    retrieve(obj: QuadTreeObject, result: QuadTreeObject[] = []): QuadTreeObject[] {
         for (const o of this.objects) {
-            found!.add(o);
+            result.push(o);
         }
 
         if (this.nodes.length > 0) {
             const indices = this.getIndices(obj);
             for (const i of indices) {
-                this.nodes[i].retrieve(obj, found);
+                this.nodes[i].retrieve(obj, result);
             }
         }
 
-        if (useSet) {
-            return Array.from(found!);
-        }
-        return found!;
+        return result;
     }
 
     /**
      * Retrieve objects within a circular range
      */
-    retrieveInRange(x: number, y: number, radius: number): QuadTreeObject[] {
+    retrieveInRange(x: number, y: number, radius: number, result: QuadTreeObject[] = []): QuadTreeObject[] {
         const rangeObj: QuadTreeObject = {
             pos: { x: x, y: y },
             r: radius
         };
-        return this.retrieve(rangeObj) as QuadTreeObject[];
+        return this.retrieve(rangeObj, result);
     }
 
     /**

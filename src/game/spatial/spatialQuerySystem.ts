@@ -200,7 +200,10 @@ export class SpatialQuerySystem {
                 this.monsterGrid.updateAll(monsters as any);
             } else if (this._dirtyMonsters.size) {
                 for (const monster of this._dirtyMonsters) {
-                    this.monsterGrid.update(monster as any);
+                    // Defensive check: only update if entity still exists
+                    if (monsters.has(monster)) {
+                        this.monsterGrid.update(monster as any);
+                    }
                 }
             }
         }
@@ -210,7 +213,10 @@ export class SpatialQuerySystem {
                 this.bullyGrid.updateAll(bullys as any);
             } else if (this._dirtyBullys.size) {
                 for (const bully of this._dirtyBullys) {
-                    this.bullyGrid.update(bully as any);
+                    // Defensive check: only update if entity still exists
+                    if (bullys.has(bully)) {
+                        this.bullyGrid.update(bully as any);
+                    }
                 }
             }
         }

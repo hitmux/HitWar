@@ -386,12 +386,12 @@ export class Bully extends CircleObject {
 
                 // Can pass through
                 if (this.throughable) {
-                    // Was reduced
+                    this.bodyRadiusChange(-this.throughCutNum);
+                    // Check after radius reduction to prevent negative radius
                     if (this.r <= 0) {
                         this.remove();
                         break;
                     }
-                    this.bodyRadiusChange(-this.throughCutNum);
                     continue;
                 }
                 // Explode

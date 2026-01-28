@@ -14,7 +14,7 @@ export type {
     BuildingLike,
     MonsterLike,
     BullyLike,
-    EffectLike,
+    IEffect,
     EntityManagerContext,
     EntityRemovalCallbacks
 } from './entities';

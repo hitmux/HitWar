@@ -14,7 +14,7 @@ import {
 } from '../../monsters/index';
 import { EffectText } from '../../effects/effect';
 import { Sounds } from '../../systems/sound/sounds';
-import type { MonsterLike, EffectLike } from '../entities';
+import type { MonsterLike, IEffect } from '../entities';
 import { scalePeriod } from '../../core/speedScale';
 
 // 怪物流接口
@@ -56,7 +56,7 @@ export interface WaveManagerContext {
 // 实体添加回调
 export interface WaveEntityCallbacks {
     addMonster: (monster: MonsterLike) => void;
-    addEffect: (effect: EffectLike) => void;
+    addEffect: (effect: IEffect) => void;
 }
 
 /**
@@ -143,7 +143,7 @@ export class WaveManager {
             et.textSize = 40;
             et.duration = 100;
             et.pos = new Vector(this._context.width / 2, this._context.height / 2);
-            this._callbacks.addEffect(et as unknown as EffectLike);
+            this._callbacks.addEffect(et as unknown as IEffect);
             Sounds.playNewMonsterFlow();
         }
     }

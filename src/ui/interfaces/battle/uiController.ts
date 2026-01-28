@@ -97,7 +97,10 @@ export class UIController {
      * Get the AbortSignal for canvas events
      */
     getEventSignal(): AbortSignal {
-        return this.eventSignal!;
+        if (!this.eventSignal) {
+            throw new Error('UIController.getEventSignal() called before initInputHandler()');
+        }
+        return this.eventSignal;
     }
 
     /**
