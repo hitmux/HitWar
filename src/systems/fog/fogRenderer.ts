@@ -175,7 +175,7 @@ export class FogRenderer {
      * New: gradient extends outward from visible radius, creating 30% opacity fog at edge
      */
     private _initHoleMask(): void {
-        const { outerGradientSize, innerEdgeFogOpacity } = VISION_CONFIG;
+        const { outerGradientSize } = VISION_CONFIG;
         // Use a fixed size for the mask (outer gradient size determines effective radius)
         const maskRadius = outerGradientSize * 4;
         const size = (maskRadius + outerGradientSize) * 2;
@@ -189,21 +189,19 @@ export class FogRenderer {
             const ctx = this._holeMaskCanvas.getContext('2d')!;
             const center = maskRadius + outerGradientSize;
 
-            // 1. Fill center area with full alpha (100% transparent / 0% fog)
-            ctx.beginPath();
-            ctx.arc(center, center, maskRadius, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0,0,0,1)';  // Full carve out
-            ctx.fill();
-
-            // 2. Draw gradient ring for edge transition (25% -> 100% fog)
-            // destination-out: alpha determines how much fog is removed
-            const innerAlpha = 1 - innerEdgeFogOpacity;  // 0.75 for 25% fog
+            // Use a single radial gradient from center to outer edge
+            // This creates smooth transition: center (full visible) -> edge (full fog)
             const gradient = ctx.createRadialGradient(
-                center, center, maskRadius,
+                center, center, 0,
                 center, center, maskRadius + outerGradientSize
             );
-            gradient.addColorStop(0, `rgba(0,0,0,${innerAlpha})`);  // Inner edge: 25% fog
-            gradient.addColorStop(1, 'rgba(0,0,0,0)');              // Outer edge: 100% fog
+            // Center: full alpha (complete fog removal)
+            gradient.addColorStop(0, 'rgba(0,0,0,1)');
+            // Inner edge of gradient zone: still mostly visible
+            const gradientStart = maskRadius / (maskRadius + outerGradientSize);
+            gradient.addColorStop(gradientStart, 'rgba(0,0,0,1)');
+            // Outer edge: no fog removal (full fog)
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
             ctx.beginPath();
             ctx.arc(center, center, maskRadius + outerGradientSize, 0, Math.PI * 2);
@@ -218,8 +216,10 @@ export class FogRenderer {
     private _shouldRebuildForCamera(): boolean {
         const camera = this._fog.world.camera;
 
-        // Zoom change detection (must rebuild when zoom out, can reuse when zoom in)
-        if (camera.zoom < this._lastZoom * 0.9) {
+        // Zoom change detection: rebuild when zoom changes significantly (either direction)
+        // This ensures buffer world coverage matches current zoom level
+        const zoomRatio = camera.zoom / this._lastZoom;
+        if (zoomRatio < 0.9 || zoomRatio > 1.1) {
             return true;
         }
 
@@ -357,53 +357,12 @@ export class FogRenderer {
         const scaleX = (canvasWidth * pr) / this._bufferWorldWidth;
         const scaleY = (canvasHeight * pr) / this._bufferWorldHeight;
 
-        // Determine if full copy is needed:
-        // 1. Static cache just rebuilt (_lastRadarAreas was cleared)
-        // 2. First time having radar towers (transition from 0 to N)
-        const needFullCopy = this._lastRadarAreas.length === 0 || (this._lastRadarCount === 0 && count > 0);
-
-        if (needFullCopy) {
-            // Full copy: entire static cache to composite layer
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvasWidth * pr, canvasHeight * pr);
-            if (this._staticCanvas) {
-                ctx.drawImage(this._staticCanvas, 0, 0);
-            }
-        } else {
-            // Incremental update: only restore previous frame's radar areas from static cache
-            ctx.setTransform(scaleX, 0, 0, scaleY, -this._bufferLeft * scaleX, -this._bufferTop * scaleY);
-
-            const bufferRight = this._bufferLeft + this._bufferWorldWidth;
-            const bufferBottom = this._bufferTop + this._bufferWorldHeight;
-
-            for (const lastArea of this._lastRadarAreas) {
-                // Padding to ensure complete coverage of radar sweep area
-                const padding = 50;
-                const r = lastArea.radius + padding;
-
-                // Skip areas outside current buffer range
-                if (lastArea.x + r < this._bufferLeft || lastArea.x - r > bufferRight ||
-                    lastArea.y + r < this._bufferTop || lastArea.y - r > bufferBottom) {
-                    continue;
-                }
-
-                const x = lastArea.x - r;
-                const y = lastArea.y - r;
-                const size = r * 2;
-
-                // Convert to canvas pixel coordinates for source region
-                const srcX = (x - this._bufferLeft) * scaleX;
-                const srcY = (y - this._bufferTop) * scaleY;
-                const srcW = size * scaleX;
-                const srcH = size * scaleY;
-
-                // Draw from static canvas (source: pixel coords) to composite (target: world coords)
-                ctx.drawImage(
-                    this._staticCanvas!,
-                    srcX, srcY, srcW, srcH,
-                    x, y, size, size
-                );
-            }
+        // Always do full copy to ensure gradient integrity
+        // (incremental update can corrupt gradients when radar overlaps static vision)
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvasWidth * pr, canvasHeight * pr);
+        if (this._staticCanvas) {
+            ctx.drawImage(this._staticCanvas, 0, 0);
         }
 
         // 2. Carve out current radar sweep areas on composite layer
