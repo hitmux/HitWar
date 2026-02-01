@@ -15,9 +15,10 @@
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@shared/*": ["shared/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "shared/**/*"],
   "exclude": ["node_modules", "dist"]
 }

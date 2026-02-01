@@ -30,6 +30,7 @@ export function getBuildingFuncArr(): (BuildingCreator | undefined)[] {
         // BuildingRegistry.getCreator('Root'),  // Root is not in UI selection
         BuildingRegistry.getCreator('Collector'),
         BuildingRegistry.getCreator('Treatment'),
+        BuildingRegistry.getCreator('MonsterSpawner'),
     ].filter(Boolean) as (BuildingCreator | undefined)[];
 }
 

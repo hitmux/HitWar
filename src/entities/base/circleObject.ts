@@ -11,16 +11,12 @@ import {
     BAR_OFFSET,
     type StatusBarCache
 } from '../statusBar';
-
-interface CheatMode {
-    enabled: boolean;
-    infiniteHp: boolean;
-}
+import type { CheatModeLike } from '@/types/worldLike';
 
 interface WorldLike {
     width: number;
     height: number;
-    cheatMode?: CheatMode;
+    cheatMode?: CheatModeLike;
 }
 
 export class CircleObject {
@@ -66,6 +62,9 @@ export class CircleObject {
     // 上一帧位置（用于扫掠碰撞检测）
     prevX: number = 0;
     prevY: number = 0;
+
+    // Owner ID for multiplayer support (null = neutral/single-player default)
+    ownerId: string | null = null;
 
     constructor(pos: Vector, world: WorldLike) {
         this.pos = pos;

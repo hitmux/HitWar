@@ -8,14 +8,35 @@ import { MyColor } from '../../entities/myColor';
 import { CircleObject } from '../../entities/base/circleObject';
 import { TowerRegistry } from '../towerRegistry';
 import { TOWER_IMG_PRE_WIDTH, TOWER_IMG_PRE_HEIGHT, getTowersImg } from '../towerConstants';
+import { renderTower } from '../rendering/towerRenderer';
 import { VisionType, VISION_CONFIG } from '@/systems/fog/visionConfig';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
+import type {
+    MonsterLike as BaseMonsterLike,
+    TerritoryLike,
+    FogOfWarLike,
+    UserLike,
+    TowerLike,
+    EnergyLike,
+} from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
 declare const BullyFinally: { Normal: () => BulletLike } | undefined;
 declare const SoundManager: { play(src: string): void } | undefined;
 declare const UP_LEVEL_ICON: HTMLImageElement | undefined;
 
+// Extended FogOfWarLike with markDirty for tower
+interface FogOfWarLikeExt extends FogOfWarLike {
+    markDirty(): void;
+}
+
+// Extended MonsterLike for tower targeting (pos is Vector)
+interface MonsterLike extends BaseMonsterLike {
+    pos: Vector;
+}
+
+// Tower-specific bullet interface (has tower-specific properties)
 interface BulletLike {
     originalPos: Vector;
     father: Tower;
@@ -30,49 +51,28 @@ interface BulletLike {
     split(): void;
     outTowerViewRange(): boolean;
     remove(): void;
-    // 分离的移动和碰撞方法
+    // Two-phase update methods
     move(): void;
     rChange(): void;
     getTarget(): void;
     collide(world: WorldLike): void;
 }
 
-interface MonsterLike {
-    pos: Vector;
-    getBodyCircle(): Circle;
-    hpChange(delta: number): void;
-    isDead(): boolean;
-}
-
-interface TerritoryLike {
-    markDirty(): void;
-    addBuildingIncremental(building: unknown): void;
-    removeBuildingIncremental(building: unknown): void;
-}
-
-interface FogOfWarLike {
-    enabled: boolean;
-    isPositionVisible(x: number, y: number): boolean;
-    isCircleVisible(x: number, y: number, radius: number): boolean;
-    markDirty(): void;
-}
-
-interface UserLike {
-    money: number;
-}
-
+// WorldLike interface for Tower (uses unified sub-interfaces)
 interface WorldLike {
     width: number;
     height: number;
-    batterys: Tower[];
+    batterys: TowerLike[];
     territory?: TerritoryLike;
-    fog?: FogOfWarLike;
+    fog?: FogOfWarLikeExt;
     user: UserLike;
-    energy: { getSatisfactionRatio(): number };
+    energy: EnergyLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: BulletLike): void;
     removeBully(bully: BulletLike): void;
     addEffect?(effect: unknown): void;
+    getMoney(): number;
+    spendMoney(amount: number): boolean;
 }
 
 type AttackFunc = () => void;
@@ -242,7 +242,7 @@ export class Tower extends CircleObject {
         }
         // Use incremental update instead of markDirty
         if (this.world.territory) {
-            this.world.territory.removeBuildingIncremental(this as any);
+            this.world.territory.removeBuildingIncremental?.(this as any);
         }
         super.remove();
     }
@@ -269,6 +269,10 @@ export class Tower extends CircleObject {
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.rangeR + 50);
         const viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
+            // Filter friendly monsters (same owner)
+            if (!isEnemy(this, m)) {
+                continue;
+            }
             // Check fog first (fast rejection), using circle visibility for edge detection
             const mc = m.getBodyCircle();
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
@@ -295,6 +299,10 @@ export class Tower extends CircleObject {
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.rangeR + 50);
         const viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
+            // Filter friendly monsters (same owner)
+            if (!isEnemy(this, m)) {
+                continue;
+            }
             // Check fog first (fast rejection), using circle visibility for edge detection
             const mc = m.getBodyCircle();
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
@@ -364,11 +372,7 @@ export class Tower extends CircleObject {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        if (this.isDead()) {
-            return;
-        }
-        this.renderBody(ctx);
-        this.renderBars(ctx);
+        renderTower(this as any, ctx);
     }
 
     /**
@@ -450,6 +454,10 @@ export class Tower extends CircleObject {
         const viewCircle = this.getViewCircle();
 
         for (const m of nearbyMonsters) {
+            // Filter friendly monsters (same owner)
+            if (!isEnemy(this, m)) {
+                continue;
+            }
             const mc = m.getBodyCircle();
             // Check fog first (fast rejection)
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
@@ -464,8 +472,9 @@ export class Tower extends CircleObject {
 
     getDamageMultiplier(): number {
         let multiplier = this.inValidTerritory ? 1 : (1 / 3);
-        // Apply energy deficit penalty
-        const energyRatio = this.world.energy.getSatisfactionRatio();
+        // Apply energy deficit penalty (multiplayer: use owner's energy system)
+        const energy = (this.world as any).getEnergyForOwner?.(this.ownerId) ?? this.world.energy;
+        const energyRatio = energy.getSatisfactionRatio();
         return multiplier * energyRatio;
     }
 
@@ -476,7 +485,7 @@ export class Tower extends CircleObject {
     isUpLevelAble(): boolean {
         for (let towerName of this.levelUpArr) {
             const meta = TowerRegistry.getMeta(towerName);
-            if (meta && this.world.user.money >= meta.basePrice) {
+            if (meta && this.world.getMoney() >= meta.basePrice) {
                 return true;
             }
         }

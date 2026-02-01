@@ -93,8 +93,37 @@ export function H_Target_S(): Bully {
     return b;
 }
 
+/**
+ * Manual Cannon Shell - Explosive shell for ManualCannon tower
+ * Can hit buildings (unique property)
+ */
+export function ManualCannon_Shell(): Bully {
+    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 3);
+    b.r = 5;
+    b.damage = 50; // Direct hit damage
+
+    b.haveBomb = true;
+    b.bombDamage = 100; // Explosion damage (will be overridden by tower)
+    b.bombRange = 50;   // Explosion radius (will be overridden by tower)
+    b.bombFunc = b.bombFire;
+    b.accelerationV = 0.03;
+
+    // Can hit buildings flag (handled by collision system)
+    (b as any).canHitBuildings = true;
+    // Store target position for guided behavior
+    (b as any).targetPos = null;
+
+    // Dark metallic color
+    b.bodyColor = MyColor.arrTo([80, 80, 100, 1]);
+    b.bodyStrokeColor = MyColor.arrTo([120, 120, 150, 1]);
+    b.bodyStrokeWidth = 3;
+    b.collideSound = "/sound/子弹音效/火炮爆炸.ogg";
+    return b;
+}
+
 // Register all explosive bullets
 BulletRegistry.register('H_S', H_S);
 BulletRegistry.register('H_L', H_L);
 BulletRegistry.register('H_LL', H_LL);
 BulletRegistry.register('H_Target_S', H_Target_S);
+BulletRegistry.register('ManualCannon_Shell', ManualCannon_Shell);

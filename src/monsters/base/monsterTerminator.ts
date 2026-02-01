@@ -8,28 +8,34 @@ import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
+import { renderMonsterTerminator } from '../rendering/monsterRenderer';
 import { scaleSpeed } from '../../core/speedScale';
+import type {
+    CircleLike as BaseCircleLike,
+    BuildingLike as BaseBuildingLike,
+    UserLike,
+    RootBuildingLike,
+} from '@/types/worldLike';
 
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
-    impact(other: CircleLike): boolean;
+// Extended CircleLike with impact method
+interface CircleLike extends BaseCircleLike {
+    impact(other: BaseCircleLike): boolean;
 }
 
-interface BuildingLike {
+// Extended BuildingLike for terminator targeting (uses Vector pos)
+interface BuildingLike extends BaseBuildingLike {
     pos: Vector;
     getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
 }
 
+// WorldLike interface for MonsterTerminator
 interface WorldLike {
     width: number;
     height: number;
     monsters: Set<Monster>;
     allBullys: Iterable<unknown>;
-    rootBuilding: { pos: Vector };
-    user: { money: number };
+    rootBuilding: RootBuildingLike & { pos: Vector };
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): Monster[];
     getBullysInRange(x: number, y: number, range: number): unknown[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
@@ -134,10 +140,7 @@ export class MonsterTerminator extends Monster {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        super.render(ctx);
-        for (let s of this.scar) {
-            s.render(ctx);
-        }
+        renderMonsterTerminator(this as any, ctx);
     }
 }
 

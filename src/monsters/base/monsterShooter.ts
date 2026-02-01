@@ -6,23 +6,25 @@ import { Vector } from '../../core/math/vector';
 import { Circle } from '../../core/math/circle';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
+import { renderMonsterShooter } from '../rendering/monsterRenderer';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
+import type {
+    VectorLike,
+    CircleLike as BaseCircleLike,
+    BuildingLike as BaseBuildingLike,
+    UserLike,
+    RootBuildingLike,
+} from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
 declare const BullyFinally: { S: () => BulletLike } | undefined;
 
-interface VectorLike {
-    x: number;
-    y: number;
+// Extended CircleLike with impact method
+interface CircleLike extends BaseCircleLike {
+    impact(other: BaseCircleLike): boolean;
 }
 
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
-    impact(other: CircleLike): boolean;
-}
-
+// Shooter-specific bullet interface
 interface BulletLike {
     targetTower: boolean;
     father: MonsterShooter;
@@ -43,19 +45,19 @@ interface BulletLike {
     outTowerViewRange(): boolean;
 }
 
-interface BuildingLike {
-    pos: VectorLike;
+// Extended BuildingLike for shooter targeting
+interface BuildingLike extends BaseBuildingLike {
     getBodyCircle(): CircleLike;
-    isDead(): boolean;
 }
 
+// WorldLike interface for MonsterShooter
 interface WorldLike {
     width: number;
     height: number;
     monsters: Set<Monster>;
     allBullys: Iterable<unknown>;
-    rootBuilding: { pos: Vector };
-    user: { money: number };
+    getBaseBuilding(): RootBuildingLike & { pos: Vector };
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): Monster[];
     getBullysInRange(x: number, y: number, range: number): unknown[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
@@ -217,11 +219,7 @@ export class MonsterShooter extends Monster {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        super.render(ctx);
-        new Circle(this.pos.x, this.pos.y, this.rangeR).renderView(ctx);
-        for (let b of this.bullys) {
-            b.render(ctx);
-        }
+        renderMonsterShooter(this as any, ctx);
     }
 
     getViewCircle(): Circle {

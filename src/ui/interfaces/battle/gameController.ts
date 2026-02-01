@@ -247,7 +247,7 @@ export class GameController {
         }
 
         // Check for game failure
-        if ((this.world.rootBuilding as any).isDead()) {
+        if ((this.world.getBaseBuilding() as any).isDead()) {
             SaveManager.clearSave(this.mode, this.haveGroup);
             this.callbacks.onFailure();
             if (this.rafId !== null) {

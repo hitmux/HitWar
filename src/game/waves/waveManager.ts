@@ -1,6 +1,7 @@
 /**
  * WaveManager - 波次管理器
  * 负责管理怪物波次生成和预计算
+ * 支持多人模式下的怪物分散攻击
  */
 
 import { Vector } from '../../core/math/vector';
@@ -130,6 +131,9 @@ export class WaveManager {
         if (this.monsterFlow.couldBegin()) {
             this.monsterFlow.addToWorld(this._context.mode);
 
+            // Distribute monsters among alive players in multiplayer mode
+            this.distributeNeutralWave();
+
             this.monsterFlow = this.monsterFlowNext.copySelf();
             this.monsterFlowNext = MonsterGroup.getMonsterFlow(
                 this._world,
@@ -188,6 +192,9 @@ export class WaveManager {
                 this._callbacks.addMonster(m);
             }
         }
+
+        // Distribute monsters among alive players in multiplayer mode
+        this.distributeNeutralWave();
     }
 
     /**
@@ -311,6 +318,143 @@ export class WaveManager {
         for (const key of this._precomputedWaves.keys()) {
             if (key < minKeepBatch) {
                 this._precomputedWaves.delete(key);
+            }
+        }
+    }
+
+    // =========================================================================
+    // Multiplayer Wave Distribution
+    // =========================================================================
+
+    /**
+     * Distribute neutral monsters among alive players (multiplayer mode)
+     * Called after a wave is added to redistribute targets
+     */
+    distributeNeutralWave(): void {
+        const playerManager = this._world.getPlayerManager?.();
+        if (!playerManager || !playerManager.isMultiplayer) {
+            return; // Single-player mode, no distribution needed
+        }
+
+        const alivePlayers = playerManager.getAlivePlayers();
+        if (alivePlayers.length === 0) {
+            return; // No alive players
+        }
+
+        // Collect neutral monsters that need redistribution
+        const neutralMonsters: MonsterLike[] = [];
+        for (const monster of this._world.monsters) {
+            if ((monster as any).ownerId === null) {
+                neutralMonsters.push(monster);
+            }
+        }
+
+        if (neutralMonsters.length === 0) {
+            return; // No neutral monsters to distribute
+        }
+
+        // Distribute evenly among alive players
+        let playerIndex = 0;
+        for (const monster of neutralMonsters) {
+            const targetPlayer = alivePlayers[playerIndex % alivePlayers.length];
+            const targetBase = playerManager.getBaseBuilding(targetPlayer.id);
+
+            if (targetBase) {
+                // Set monster's destination to target player's base
+                (monster as any).destination = new Vector(targetBase.pos.x, targetBase.pos.y);
+
+                // Reposition monster to spawn from map edge towards target
+                this._repositionMonsterToEdge(monster, targetBase.pos);
+            }
+
+            playerIndex++;
+        }
+    }
+
+    /**
+     * Reposition a monster to spawn from map edge towards target
+     */
+    private _repositionMonsterToEdge(monster: MonsterLike, targetPos: { x: number; y: number }): void {
+        const world = this._world;
+        const margin = 30;
+
+        // Calculate spawn position from edge towards target
+        // Choose random edge based on target position
+        const centerX = world.width / 2;
+        const centerY = world.height / 2;
+
+        // Determine which edges to spawn from (opposite side of target)
+        const dx = targetPos.x - centerX;
+        const dy = targetPos.y - centerY;
+
+        let spawnX: number;
+        let spawnY: number;
+
+        // Spawn from the opposite side of where the target is
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // Target is more to left/right, spawn from opposite horizontal edge
+            spawnX = dx > 0 ? margin : world.width - margin;
+            spawnY = margin + Math.random() * (world.height - 2 * margin);
+        } else {
+            // Target is more to top/bottom, spawn from opposite vertical edge
+            spawnX = margin + Math.random() * (world.width - 2 * margin);
+            spawnY = dy > 0 ? margin : world.height - margin;
+        }
+
+        // Add some randomness to avoid stacking
+        spawnX += (Math.random() - 0.5) * 60;
+        spawnY += (Math.random() - 0.5) * 60;
+
+        // Clamp to world bounds
+        spawnX = Math.max(margin, Math.min(world.width - margin, spawnX));
+        spawnY = Math.max(margin, Math.min(world.height - margin, spawnY));
+
+        (monster as any).pos.x = spawnX;
+        (monster as any).pos.y = spawnY;
+    }
+
+    /**
+     * Handle player elimination - redistribute monsters targeting the eliminated player
+     */
+    redistributeOnPlayerElimination(eliminatedPlayerId: string): void {
+        const playerManager = this._world.getPlayerManager?.();
+        if (!playerManager || !playerManager.isMultiplayer) {
+            return;
+        }
+
+        const alivePlayers = playerManager.getAlivePlayers();
+        if (alivePlayers.length === 0) {
+            return; // No alive players left
+        }
+
+        // Find monsters targeting the eliminated player and redistribute them
+        let playerIndex = 0;
+        for (const monster of this._world.monsters) {
+            // Check if monster's destination matches eliminated player's former base
+            // We need to check by comparing the destination with the base positions
+            const mDest = (monster as any).destination;
+            if (!mDest) continue;
+
+            // Get former base position of eliminated player
+            const elimBase = playerManager.getBaseBuilding(eliminatedPlayerId);
+            if (elimBase) {
+                const dist = Math.sqrt(
+                    Math.pow(mDest.x - elimBase.pos.x, 2) +
+                    Math.pow(mDest.y - elimBase.pos.y, 2)
+                );
+
+                // If monster was targeting eliminated player (within 50 units of base)
+                if (dist < 50) {
+                    // Reassign to another alive player
+                    const newTarget = alivePlayers[playerIndex % alivePlayers.length];
+                    const newBase = playerManager.getBaseBuilding(newTarget.id);
+
+                    if (newBase) {
+                        (monster as any).destination = new Vector(newBase.pos.x, newBase.pos.y);
+                    }
+
+                    playerIndex++;
+                }
             }
         }
     }

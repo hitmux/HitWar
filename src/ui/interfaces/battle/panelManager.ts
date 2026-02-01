@@ -12,6 +12,8 @@ import { TowerRegistry } from '../../../towers/towerRegistry';
 import { getBuildingFuncArr } from '../../../buildings/index';
 import { Mine } from '../../../systems/energy/mine';
 import { VisionType } from '../../../systems/fog/visionConfig';
+import { SpawnerPanel } from './spawnerPanel';
+import { ManualCannonPanel } from './manualCannonPanel';
 import type { GameEntity, CanvasWithInputHandler } from './types';
 
 const BUILDING_FUNC_ARR = getBuildingFuncArr();
@@ -84,6 +86,12 @@ export class PanelManager {
     private refreshPanelInterval: ReturnType<typeof setInterval> | null = null;
     private freshBtnInterval: ReturnType<typeof setInterval> | null = null;
 
+    // Spawner panel
+    private spawnerPanel: SpawnerPanel;
+
+    // Manual cannon panel
+    private manualCannonPanel: ManualCannonPanel;
+
     constructor(
         world: World,
         canvasEle: CanvasWithInputHandler,
@@ -101,6 +109,12 @@ export class PanelManager {
         this.smallLevelUpPanelEle = document.querySelector("#smallLevelUpPanel") as HTMLElement;
         this.listEle = this.smallLevelUpPanelEle.querySelector(".levelUpItems") as HTMLElement;
         this.otherItemsEle = this.smallLevelUpPanelEle.querySelector(".otherItems") as HTMLElement;
+
+        // Initialize spawner panel
+        this.spawnerPanel = new SpawnerPanel(eventSignal);
+
+        // Initialize manual cannon panel
+        this.manualCannonPanel = new ManualCannonPanel(eventSignal);
     }
 
     /**
@@ -126,6 +140,10 @@ export class PanelManager {
             clearInterval(this.freshBtnInterval);
             this.freshBtnInterval = null;
         }
+        // Cleanup spawner panel
+        this.spawnerPanel.destroy();
+        // Cleanup manual cannon panel
+        this.manualCannonPanel.destroy();
         // 恢复默认光标
         this.setMoveCursor(false);
     }
@@ -245,9 +263,8 @@ export class PanelManager {
             if (this.currentPanelEntity && this.currentClickPos) {
                 const price = parseInt(target.dataset.price!);
                 const towerName = target.dataset.towerName!;
-                if (this.world.user.money >= price) {
+                if (this.world.spendMoney(price)) {
                     const pos = this.currentPanelEntity.pos.copy();
-                    this.world.user.money -= price;
                     const newThing = TowerRegistry.create(towerName, this.world) as GameEntity;
                     newThing.towerLevel = this.currentPanelEntity.towerLevel + 1;
                     newThing.pos = pos;
@@ -281,8 +298,7 @@ export class PanelManager {
                         this.callbacks.requestPauseRender();
                         return;
                     }
-                    if (this.world.user.money >= price) {
-                        this.world.user.money -= price;
+                    if (this.world.spendMoney(price)) {
                         if (action === "upgrade") {
                             this.currentPanelMine.upgrade();
                         } else {
@@ -319,7 +335,7 @@ export class PanelManager {
                         downObj.visionType = this.currentPanelEntity.visionType;
                         downObj.visionLevel = this.currentPanelEntity.visionLevel;
                         downObj.radarAngle = this.currentPanelEntity.radarAngle;
-                        this.world.user.money += this.currentPanelEntity.price / 4;
+                        this.world.addMoney(this.currentPanelEntity.price / 4);
                         const newPos = this.currentPanelEntity.pos.copy();
                         this.currentPanelEntity.remove();
                         downObj.pos = newPos;
@@ -328,16 +344,15 @@ export class PanelManager {
                     }
                 } else if (target.classList.contains("sell")) {
                     const refund = this.currentPanelEntity.getSellRefund?.() ?? Math.floor(this.currentPanelEntity.price / 2);
-                    this.world.user.money += refund;
+                    this.world.addMoney(refund);
                     this.currentPanelEntity.remove();
                     this.hideLevelUpPanel();
                 } else if (target.classList.contains("visionUpgrade")) {
                     const visionType = (target.dataset.visionType || VisionType.NONE) as VisionType;
                     if (this.currentPanelEntity.canUpgradeVision?.(visionType)) {
                         const price = this.currentPanelEntity.getVisionUpgradePrice?.(visionType) ?? 0;
-                        if (this.world.user.money >= price) {
+                        if (this.world.spendMoney(price)) {
                             this.currentPanelEntity.upgradeVision?.(visionType);
-                            this.world.user.money -= price;
                             this.world.fog.markDirty();
                             this.showSmallLevelUpPanel(this.currentPanelEntity, this.currentClickPos);
                         } else {
@@ -355,12 +370,12 @@ export class PanelManager {
             if (this.currentPanelMine && this.currentMineScreenPos) {
                 if (target.classList.contains("levelDown")) {
                     const refund = parseInt(target.dataset.refund || "0");
-                    this.world.user.money += refund;
+                    this.world.addMoney(refund);
                     this.currentPanelMine.downgrade();
                     this.showMinePanel(this.currentPanelMine, this.currentMineScreenPos);
                 } else if (target.classList.contains("sell")) {
                     const sellPrice = parseInt(target.dataset.sellPrice || "0");
-                    this.world.user.money += sellPrice;
+                    this.world.addMoney(sellPrice);
                     this.currentPanelMine.destroy();
                     this.hideLevelUpPanel();
                 }
@@ -696,11 +711,31 @@ export class PanelManager {
                     return;
                 }
 
+                // Manual cannon targeting mode handling
+                if (this.manualCannonPanel.isInTargetingMode() && this.manualCannonPanel.getCurrentCannon()) {
+                    const handled = this.manualCannonPanel.handleTargetSelected(clickPos);
+                    if (handled) {
+                        this.callbacks.requestPauseRender();
+                        return;
+                    }
+                }
+
                 if (this.addedThingFunc === null) {
                     for (const item of this.world.getAllBuildingArr()) {
                         if ((item as any).getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
                             if ((item as any).gameType === "Mine") {
                                 this.showMinePanel(item as Mine, screenPos);
+                                return;
+                            }
+                            // Check for MonsterSpawner
+                            if ((item as any).canSpawnMonsters) {
+                                this.spawnerPanel.show(item as any, screenPos);
+                                return;
+                            }
+                            // Check for ManualCannon tower
+                            if ((item as any).canAttackBuildings && (item as any).gameType === "Tower") {
+                                this.manualCannonPanel.show(item as any, screenPos);
+                                (item as any).selected = true;
                                 return;
                             }
                             this.showSmallLevelUpPanel(item as unknown as GameEntity, screenPos);
@@ -726,7 +761,7 @@ export class PanelManager {
                     this.hideLevelUpPanel();
                 } else {
                     const addedThing = this.addedThingFunc(this.world);
-                    if (this.world.user.money < addedThing.price) {
+                    if (this.world.getMoney() < addedThing.price) {
                         const et = new EffectText("钱不够了！");
                         et.pos = clickPos.copy();
                         this.world.addEffect(et as any);
@@ -755,7 +790,7 @@ export class PanelManager {
                         this.world.addEffect(et as any);
                         return;
                     }
-                    this.world.user.money -= addedThing.price;
+                    this.world.spendMoney(addedThing.price);
                     switch (addedThing.gameType) {
                         case "Tower":
                             this.world.addTower(addedThing as any);
@@ -885,7 +920,7 @@ export class PanelManager {
         }
 
         // 检查金币
-        if (this.world.user.money < MOVE_COST) {
+        if (this.world.getMoney() < MOVE_COST) {
             const et = new EffectText(`金币不足！需要${MOVE_COST}元`);
             et.pos = clickPos.copy();
             this.world.addEffect(et as any);
@@ -909,7 +944,7 @@ export class PanelManager {
         this.world.markStaticLayerDirty();
 
         // 6. 扣除金币
-        this.world.user.money -= MOVE_COST;
+        this.world.spendMoney(MOVE_COST);
 
         // 7. 取消选中状态
         (this.moveTarget as any).selected = false;
@@ -965,7 +1000,7 @@ export class PanelManager {
             }
             for (let i = 0; i < towerBtnArr.length; i++) {
                 const btn = towerBtnArr[i] as HTMLElement;
-                if (parseInt(btn.dataset.price!) <= this.world.user.money) {
+                if (parseInt(btn.dataset.price!) <= this.world.getMoney()) {
                     btn.removeAttribute("disabled");
                 } else {
                     btn.setAttribute("disabled", "disabled");
@@ -982,7 +1017,7 @@ export class PanelManager {
             const itemArr = this.smallLevelUpPanelEle.getElementsByClassName("levelUpItem");
             for (let i = 0; i < itemArr.length; i++) {
                 const itemEle = itemArr[i] as HTMLElement;
-                if (parseInt(itemEle.dataset.price!) <= this.world.user.money) {
+                if (parseInt(itemEle.dataset.price!) <= this.world.getMoney()) {
                     itemEle.removeAttribute("disabled");
                     itemEle.style.opacity = "1";
                 } else {

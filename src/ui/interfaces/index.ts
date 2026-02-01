@@ -9,3 +9,4 @@ export { wikiInterface } from './wikiInterface';
 export { cannonInterface } from './cannonInterface';
 export { monstersInterface } from './monstersInterface';
 export { endlessMode, startBattleMode } from './endlessMode';
+export * from './multiplayer';

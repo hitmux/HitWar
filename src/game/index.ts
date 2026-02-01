@@ -30,3 +30,7 @@ export type {
 
 export { WorldRenderer } from './rendering';
 export type { WorldRendererContext } from './rendering';
+
+// Player module (multiplayer support)
+export { PlayerManager, isEnemy, isFriendly, belongsTo, isNeutral, filterEnemies, filterFriendlies } from './player';
+export type { GameResult } from './player';

@@ -29,10 +29,17 @@ import { BuildingFinallyCompat } from '../buildings/index';
 
 // Systems imports
 import { Territory } from '../systems/territory/territory';
+import { MultiPlayerTerritory } from '../systems/territory/multiPlayerTerritory';
 import { Energy } from '../systems/energy/energy';
+import { MultiPlayerEnergy } from '../systems/energy/multiPlayerEnergy';
 import { EnergyRenderer } from '../systems/energy/energyRenderer';
 import { Mine } from '../systems/energy/mine';
 import { FogOfWar } from '../systems/fog';
+import { MultiPlayerFogOfWar } from '../systems/fog/multiPlayerFogOfWar';
+
+// Player imports
+import { PlayerManager } from './player/playerManager';
+import type { PlayerConfig } from '../types/player';
 
 // Type definitions (local interfaces used by World)
 interface UserState {
@@ -52,6 +59,14 @@ interface CheatModeState {
     priceMultiplier: number;
     infiniteHp: boolean;
     disableEnergy: boolean;
+}
+
+/**
+ * World initialization options for multiplayer support
+ */
+interface WorldOptions {
+    isMultiplayer?: boolean;
+    playerConfigs?: PlayerConfig[];
 }
 
 // Import entity interfaces from EntityManager
@@ -97,15 +112,21 @@ export class World {
     obstacles: Obstacle[];
 
     // Root building
-    rootBuilding: BuildingLike;
+    rootBuilding!: BuildingLike;
 
     // Territory and energy systems
-    territory: Territory;
-    energy: Energy;
-    energyRenderer: EnergyRenderer;
+    territory!: Territory;
+    energy!: Energy;
+    energyRenderer!: EnergyRenderer;
 
     // Fog of war system
-    fog: FogOfWar;
+    fog!: FogOfWar;
+
+    // === Multiplayer Systems (optional) ===
+    private _playerManager: PlayerManager | null = null;
+    private _multiTerritory: MultiPlayerTerritory | null = null;
+    private _multiEnergy: MultiPlayerEnergy | null = null;
+    private _multiFog: MultiPlayerFogOfWar | null = null;
 
     // User state
     user: UserState;
@@ -162,7 +183,7 @@ export class World {
     readonly worldCenterX: number = 0;
     readonly worldCenterY: number = 0;
 
-    constructor(worldWidth: number, worldHeight: number, viewWidth?: number, viewHeight?: number) {
+    constructor(worldWidth: number, worldHeight: number, viewWidth?: number, viewHeight?: number, options?: WorldOptions) {
         // World size (game logic space)
         this.width = worldWidth;
         this.height = worldHeight;
@@ -196,31 +217,18 @@ export class World {
         // Obstacles (initialized after rootBuilding)
         this.obstacles = [];
 
-        // Place root building
-        let RootBuilding = BuildingFinallyCompat.Root!(this as any) as any;
-        //console.log('[DEBUG] Before setting pos - RootBuilding.pos:', RootBuilding.pos?.x, RootBuilding.pos?.y);
-        RootBuilding.pos = new Vector(this.width / 2, this.height / 2);
-        //console.log('[DEBUG] After setting pos - RootBuilding.pos:', RootBuilding.pos?.x, RootBuilding.pos?.y);
-        this.rootBuilding = RootBuilding as BuildingLike;
-        this.addBuilding(this.rootBuilding);
+        // === Initialize Player Manager ===
+        this._playerManager = new PlayerManager();
 
-        // Territory system (must be created after rootBuilding)
-        this.territory = new Territory(this as any);
+        // Check if multiplayer mode
+        if (options?.isMultiplayer && options.playerConfigs && options.playerConfigs.length > 0) {
+            this._initMultiplayer(options.playerConfigs);
+        } else {
+            this._initSinglePlayer();
+        }
+
         // Update EntityManager context with territory
         (this._entityManager as any)._context = { territory: this.territory };
-
-        // Fog of war system (must be created after rootBuilding)
-        this.fog = new FogOfWar(this as any);
-
-        // Generate obstacles (must be after rootBuilding)
-        this.obstacles = Obstacle.generateRandom(this as any);
-
-        // Generate mines (must be after obstacles)
-        this.generateMines();
-
-        // Energy system (must be created after mines)
-        this.energy = new Energy(this as any);
-        this.energyRenderer = new EnergyRenderer(this as any);
 
         // Center camera on root building
         this.camera.centerOn(this.rootBuilding.pos);
@@ -268,6 +276,103 @@ export class World {
 
         // Initial static layer rebuild
         this._renderer.markStaticLayerDirty();
+    }
+
+    /**
+     * Initialize single-player mode (default)
+     */
+    private _initSinglePlayer(): void {
+        this._playerManager!.initSinglePlayer();
+
+        // Place root building at center
+        let RootBuilding = BuildingFinallyCompat.Root!(this as any) as any;
+        RootBuilding.pos = new Vector(this.width / 2, this.height / 2);
+        this.rootBuilding = RootBuilding as BuildingLike;
+        this.addBuilding(this.rootBuilding);
+
+        // Territory system (must be created after rootBuilding)
+        this.territory = new Territory(this as any);
+
+        // Fog of war system (must be created after rootBuilding)
+        this.fog = new FogOfWar(this as any);
+
+        // Generate obstacles (must be after rootBuilding)
+        this.obstacles = Obstacle.generateRandom(this as any);
+
+        // Generate mines (must be after obstacles)
+        this.generateMines();
+
+        // Energy system (must be created after mines)
+        this.energy = new Energy(this as any);
+        this.energyRenderer = new EnergyRenderer(this as any);
+    }
+
+    /**
+     * Initialize multiplayer mode
+     */
+    private _initMultiplayer(configs: PlayerConfig[]): void {
+        this._playerManager!.initMultiplayer(configs);
+        const playerIds = configs.map(c => c.id);
+        const localPlayerId = this._playerManager!.localPlayerId;
+
+        // Create base buildings for each player
+        for (const config of configs) {
+            this._createBaseForPlayer(config);
+        }
+
+        // Generate obstacles with pseudo-symmetric layout (before mines)
+        this._generatePseudoSymmetricObstacles(configs);
+
+        // Generate mines with pseudo-symmetric layout
+        this._generatePseudoSymmetricMines(configs);
+
+        // Create multiplayer system managers
+        this._multiTerritory = new MultiPlayerTerritory(this as any, playerIds);
+        this._multiFog = new MultiPlayerFogOfWar(this as any, playerIds, localPlayerId);
+        this._multiEnergy = new MultiPlayerEnergy(this as any, playerIds);
+
+        // Facade compatibility: point to local player's instances
+        this.territory = this._multiTerritory.getTerritory(localPlayerId)!;
+        this.fog = this._multiFog.getLocalFog()!;
+        this.energy = this._multiEnergy.getEnergy(localPlayerId)!;
+
+        // Energy renderer uses local player's energy
+        this.energyRenderer = new EnergyRenderer(this as any);
+    }
+
+    /**
+     * Create base building for a player (multiplayer)
+     */
+    private _createBaseForPlayer(config: PlayerConfig): void {
+        const RootBuilding = BuildingFinallyCompat.Root!(this as any) as any;
+        RootBuilding.pos = new Vector(config.basePosition.x, config.basePosition.y);
+        RootBuilding.ownerId = config.id;
+
+        if (!this.rootBuilding) {
+            // First player's base becomes rootBuilding for backward compatibility
+            this.rootBuilding = RootBuilding as BuildingLike;
+        }
+
+        this.addBuilding(RootBuilding as BuildingLike);
+        this._playerManager!.setBaseBuilding(RootBuilding, config.id);
+    }
+
+    /**
+     * Generate pseudo-symmetric obstacles for multiplayer
+     * Each side has independent random placement but same count and density
+     */
+    private _generatePseudoSymmetricObstacles(configs: PlayerConfig[]): void {
+        const basePositions = configs.map(c => new Vector(c.basePosition.x, c.basePosition.y));
+        this.obstacles = Obstacle.generatePseudoSymmetric(this as any, basePositions);
+    }
+
+    /**
+     * Generate pseudo-symmetric mines for multiplayer
+     * Each side has independent random placement but same count
+     */
+    private _generatePseudoSymmetricMines(configs: PlayerConfig[]): void {
+        const basePositions = configs.map(c => new Vector(c.basePosition.x, c.basePosition.y));
+        this.generateMinesPseudoSymmetric(basePositions);
     }
 
     /**
@@ -360,6 +465,151 @@ export class World {
      */
     addEffect(effect: IEffect): void {
         this._entityManager.addEffect(effect);
+    }
+
+    /**
+     * Add money to the owner (multiplayer compatible)
+     * In single-player mode, ownerId is ignored and money goes to world.user
+     * In multiplayer mode, this will be overridden to dispatch to the correct player
+     */
+    addMoneyToOwner(ownerId: string | null, amount: number): void {
+        // Single-player mode: always add to the main user
+        this.user.money += amount;
+    }
+
+    /**
+     * Get the current player's money
+     * In multiplayer, this will return the local player's money
+     */
+    getMoney(): number {
+        return this.user.money;
+    }
+
+    /**
+     * Set the current player's money (for save/load and initialization)
+     * In multiplayer, this will set the local player's money
+     */
+    setMoney(amount: number): void {
+        this.user.money = amount;
+    }
+
+    /**
+     * Add money to the current player
+     * In multiplayer, this will add to the local player's money
+     */
+    addMoney(amount: number): void {
+        this.user.money += amount;
+    }
+
+    /**
+     * Spend money from the current player
+     * Returns true if the player had enough money, false otherwise
+     * If force is true, money will be set to 0 when insufficient
+     */
+    spendMoney(amount: number, force: boolean = false): boolean {
+        if (this.user.money >= amount) {
+            this.user.money -= amount;
+            return true;
+        }
+        if (force) {
+            this.user.money = 0;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get the base building for a player
+     * In single-player, always returns rootBuilding
+     * In multiplayer, returns the specified player's base
+     */
+    getBaseBuilding(playerId?: string): BuildingLike {
+        if (this._playerManager?.isMultiplayer && playerId) {
+            const base = this._playerManager.getBaseBuilding(playerId);
+            if (base) return base as unknown as BuildingLike;
+        }
+        return this.rootBuilding;
+    }
+
+    /**
+     * Get the Energy instance for a specific owner
+     * Used by towers to calculate damage multiplier based on owner's energy satisfaction
+     * In multiplayer, returns the energy system for the owner's player
+     * In single-player, always returns the global energy instance
+     */
+    getEnergyForOwner(ownerId: string | null): Energy {
+        if (this._multiEnergy && ownerId) {
+            return this._multiEnergy.getEnergy(ownerId) ?? this.energy;
+        }
+        return this.energy;
+    }
+
+    /**
+     * Get the MultiPlayerTerritory manager (for build cost calculation)
+     * Returns null in single-player mode
+     */
+    getMultiTerritory(): MultiPlayerTerritory | null {
+        return this._multiTerritory;
+    }
+
+    /**
+     * Get the PlayerManager (for accessing player data)
+     */
+    getPlayerManager(): PlayerManager | null {
+        return this._playerManager;
+    }
+
+    // =========================================================================
+    // Building Death Handling (for multiplayer win/lose conditions)
+    // =========================================================================
+
+    /** Game result after a building death (for UI to display) */
+    private _lastGameResult: import('./player/playerManager').GameResult | null = null;
+
+    /**
+     * Get the last game result (for UI to check)
+     */
+    getLastGameResult(): import('./player/playerManager').GameResult | null {
+        return this._lastGameResult;
+    }
+
+    /**
+     * Clear the game result (after UI has processed it)
+     */
+    clearGameResult(): void {
+        this._lastGameResult = null;
+    }
+
+    /**
+     * Handle building death - check if base building was destroyed
+     */
+    private _handleBuildingDied(building: any): void {
+        if (!this._playerManager) return;
+
+        // Check if this was a base building
+        const result = this._playerManager.onBuildingDestroyed(building);
+        if (result) {
+            this._lastGameResult = result;
+
+            // If a player was eliminated, redistribute monsters
+            if (!result.ended) {
+                // Game not over yet, redistribute wave targets
+                for (const player of this._playerManager.getAllPlayers()) {
+                    if (!player.isAlive && player.baseBuilding === building) {
+                        this._waveManager.redistributeOnPlayerElimination(player.id);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Handle tower death - check if base building was destroyed (tower can be base)
+     */
+    private _handleTowerDied(tower: any): void {
+        // Towers can also be base buildings in some configurations
+        this._handleBuildingDied(tower);
     }
 
     /**
@@ -510,6 +760,139 @@ export class World {
     }
 
     /**
+     * Generate mines with pseudo-symmetric layout for multiplayer
+     * Each half has independent random placement but same count
+     * @param basePositions Array of base positions (typically 2 for 2-player)
+     */
+    generateMinesPseudoSymmetric(basePositions: Vector[]): void {
+        if (basePositions.length < 2) {
+            // Fallback to normal generation for single player
+            this.generateMines();
+            return;
+        }
+
+        const centerX = this.width / 2;
+        const minDistFromEdge = 100;
+        const minDistFromBase = 200;
+        const maxAttempts = 100;
+
+        // Total mines to generate on each side
+        const minesPerSide = 80;
+
+        // Generate guaranteed mines near each base
+        const guaranteedNearBase = 3;
+        const guaranteedMinDist = 100;
+        const guaranteedMaxDist = 300;
+
+        for (const basePos of basePositions) {
+            let generated = 0;
+            let attempts = 0;
+
+            while (generated < guaranteedNearBase && attempts < maxAttempts * guaranteedNearBase) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = guaranteedMinDist + Math.random() * (guaranteedMaxDist - guaranteedMinDist);
+                const x = basePos.x + Math.cos(angle) * dist;
+                const y = basePos.y + Math.sin(angle) * dist;
+                const pos = new Vector(x, y);
+                attempts++;
+
+                if (x < minDistFromEdge || x > this.width - minDistFromEdge ||
+                    y < minDistFromEdge || y > this.height - minDistFromEdge) {
+                    continue;
+                }
+                if (this.isPositionOnObstacle(pos, 25) || this.isPositionOnBuilding(pos, 25)) {
+                    continue;
+                }
+
+                this.mines.add(new Mine(pos, this as any));
+                generated++;
+            }
+        }
+
+        // Generate remaining mines on left side (x < centerX - 100)
+        this._generateMinesInRegion(minDistFromEdge, centerX - 100, minDistFromEdge, this.height - minDistFromEdge,
+            minesPerSide - guaranteedNearBase, basePositions, minDistFromBase);
+
+        // Generate remaining mines on right side (x > centerX + 100)
+        this._generateMinesInRegion(centerX + 100, this.width - minDistFromEdge, minDistFromEdge, this.height - minDistFromEdge,
+            minesPerSide - guaranteedNearBase, basePositions, minDistFromBase);
+
+        // Generate mines in middle contested zone
+        this._generateMinesInRegion(centerX - 100, centerX + 100, minDistFromEdge, this.height - minDistFromEdge,
+            10, basePositions, minDistFromBase);
+    }
+
+    /**
+     * Generate mines in a specific region with grid distribution
+     */
+    private _generateMinesInRegion(
+        minX: number, maxX: number, minY: number, maxY: number,
+        count: number, basePositions: Vector[], minDistFromBase: number
+    ): void {
+        const effectiveWidth = maxX - minX;
+        const effectiveHeight = maxY - minY;
+
+        if (effectiveWidth <= 0 || effectiveHeight <= 0 || count <= 0) return;
+
+        const gridCols = Math.max(1, Math.ceil(Math.sqrt(count * effectiveWidth / effectiveHeight)));
+        const gridRows = Math.max(1, Math.ceil(count / gridCols));
+        const cellWidth = effectiveWidth / gridCols;
+        const cellHeight = effectiveHeight / gridRows;
+
+        // Shuffle cell indices
+        let cellIndices: number[] = [];
+        for (let i = 0; i < gridCols * gridRows; i++) {
+            cellIndices.push(i);
+        }
+        for (let i = cellIndices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [cellIndices[i], cellIndices[j]] = [cellIndices[j], cellIndices[i]];
+        }
+
+        let generated = 0;
+        const maxAttempts = 100;
+
+        for (const idx of cellIndices) {
+            if (generated >= count) break;
+
+            const col = idx % gridCols;
+            const row = Math.floor(idx / gridCols);
+
+            const margin = 20;
+            const baseX = minX + col * cellWidth;
+            const baseY = minY + row * cellHeight;
+
+            let attempts = 0;
+            let placed = false;
+
+            while (!placed && attempts < maxAttempts) {
+                const x = baseX + margin + Math.random() * Math.max(0, cellWidth - 2 * margin);
+                const y = baseY + margin + Math.random() * Math.max(0, cellHeight - 2 * margin);
+                const pos = new Vector(x, y);
+                attempts++;
+
+                // Check distance from all bases
+                let tooCloseToBase = false;
+                for (const basePos of basePositions) {
+                    if (pos.disSq(basePos) < minDistFromBase * minDistFromBase) {
+                        tooCloseToBase = true;
+                        break;
+                    }
+                }
+                if (tooCloseToBase) continue;
+
+                if (this.isPositionOnObstacle(pos, 25) || this.isPositionOnBuilding(pos, 25)) {
+                    continue;
+                }
+
+                this.mines.add(new Mine(pos, this as any));
+                generated++;
+                placed = true;
+            }
+        }
+    }
+
+    /**
      * Add a building to the world
      * @delegate EntityManager
      */
@@ -564,7 +947,9 @@ export class World {
         // Clean up dead/removed entities (delegated to EntityManager)
         const { towerRemoved, buildingRemoved } = this._entityManager.cleanupEntities({
             onTowerRemoved: () => { this._renderer.markStaticLayerDirty(); },
-            onBuildingRemoved: () => { this._renderer.markStaticLayerDirty(); }
+            onBuildingRemoved: () => { this._renderer.markStaticLayerDirty(); },
+            onBuildingDied: (building) => { this._handleBuildingDied(building as any); },
+            onTowerDied: (tower) => { this._handleTowerDied(tower as any); }
         });
 
         // Add monster flow (delegated to WaveManager)
@@ -573,11 +958,20 @@ export class World {
         // Update all entities (delegated to EntityManager)
         this._entityManager.updateEntities();
 
-        // Energy system tick
-        this.energy.goTick();
+        // Energy system tick (multiplayer-aware)
+        if (this._multiEnergy) {
+            this._multiEnergy.goTick();
+        } else {
+            this.energy.goTick();
+        }
 
-        // Fog of war update
-        this.fog.update();
+        // Fog of war update (multiplayer: only update local player's fog)
+        if (this._multiFog) {
+            this._multiFog.update();
+        } else {
+            this.fog.update();
+        }
+
         this.time++;
     }
 

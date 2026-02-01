@@ -21,6 +21,7 @@ import * as spray from './spray';
 import * as shot from './shot';
 import * as thunder from './thunder';
 import * as laser from './laser';
+import * as manualCannon from './manualCannon';
 
 // Re-export all variants for direct access if needed
 export {
@@ -39,5 +40,6 @@ export {
     spray,
     shot,
     thunder,
-    laser
+    laser,
+    manualCannon
 };

@@ -24,7 +24,8 @@ export {
     TowerHell,
     TowerHammer,
     TowerBoomerang,
-    TowerRay
+    TowerRay,
+    TowerManualCannon
 } from './base/index';
 
 // Import variants to trigger registration (side effect)
@@ -104,5 +105,8 @@ export function getTowerFuncArr() {
 
         TowerRegistry.getCreator('ThunderBall_1'),
         TowerRegistry.getCreator('AirCannon_1'),
+
+        // Manual Cannon (multiplayer special tower)
+        TowerRegistry.getCreator('ManualCannon'),
     ].filter(Boolean);
 }

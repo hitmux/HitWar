@@ -14,6 +14,8 @@ interface TowerLike {
     visionLevel: number;
     radarAngle: number;
     getVisionRadius(): number;
+    // Owner ID for multiplayer (null = neutral/single-player)
+    ownerId?: string | null;
 }
 
 interface WorldLike {
@@ -22,7 +24,7 @@ interface WorldLike {
     viewWidth: number;
     viewHeight: number;
     camera: { x: number; y: number; zoom: number; viewWidth: number; viewHeight: number };
-    rootBuilding: { pos: { x: number; y: number } };
+    getBaseBuilding(playerId?: string): { pos: { x: number; y: number } };
     batterys: TowerLike[];
     territory?: {
         validBuildings: Set<unknown>;
@@ -34,6 +36,9 @@ export class FogOfWar {
     world: WorldLike;
     renderer: FogRenderer;
     enabled: boolean = true;
+
+    // Player ID for multiplayer (null = single-player mode, includes all entities)
+    playerId: string | null = null;
 
     // Vision source cache
     private _visionSourcesDirty: boolean = true;
@@ -60,8 +65,9 @@ export class FogOfWar {
     private _lastRadarAngles: WeakMap<TowerLike, number> = new WeakMap();
     private _lastRadarCount: number = 0;
 
-    constructor(world: WorldLike) {
+    constructor(world: WorldLike, playerId?: string) {
         this.world = world;
+        this.playerId = playerId ?? null;
         this.renderer = new FogRenderer(this);
         this._initVisibilityGrid();
     }
@@ -299,6 +305,7 @@ export class FogOfWar {
 
     /**
      * Get static vision sources (headquarters + towers in valid territory)
+     * In multiplayer mode, only includes towers owned by this player
      */
     getStaticVisionSources(): VisionSource[] {
         if (!this._visionSourcesDirty) {
@@ -309,9 +316,10 @@ export class FogOfWar {
         this._visionSourcesDirty = false;
 
         // Headquarters always provides vision
+        const baseBuilding = this.world.getBaseBuilding(this.playerId ?? undefined);
         this._staticVisionSources.push({
-            x: this.world.rootBuilding.pos.x,
-            y: this.world.rootBuilding.pos.y,
+            x: baseBuilding.pos.x,
+            y: baseBuilding.pos.y,
             radius: VISION_CONFIG.headquarters,
             type: 'static'
         });
@@ -319,6 +327,8 @@ export class FogOfWar {
         // Only towers in valid territory provide vision
         for (const tower of this.world.batterys) {
             if (!tower.inValidTerritory) continue;
+            // Multiplayer: only include towers owned by this player
+            if (this.playerId !== null && tower.ownerId !== this.playerId) continue;
 
             // Radar tower: basic 120px + 5*level (125, 130, 135, 140, 145)
             // Other towers: use getVisionRadius()
@@ -352,6 +362,8 @@ export class FogOfWar {
     private _collectRadarTowers(): TowerLike[] {
         const radarTowers: TowerLike[] = [];
         for (const t of this.world.batterys) {
+            // Multiplayer: only include towers owned by this player
+            if (this.playerId !== null && t.ownerId !== this.playerId) continue;
             if (t.inValidTerritory && t.visionType === VisionType.RADAR && t.visionLevel > 0) {
                 radarTowers.push(t);
             }

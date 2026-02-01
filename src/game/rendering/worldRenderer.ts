@@ -639,6 +639,12 @@ export class WorldRenderer {
                 cache: cache
             });
         }
+
+        // Render monster name below the body
+        ctx.fillStyle = "black";
+        ctx.font = "12px Microsoft YaHei";
+        ctx.textAlign = "center";
+        ctx.fillText(monster.name, monster.pos.x, monster.pos.y + monster.r * 1.5);
     }
 
     private _renderPlacementPreview(ctx: CanvasRenderingContext2D): void {

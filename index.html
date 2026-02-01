@@ -37,6 +37,7 @@
         <div class="version-info" id="versionInfo"></div>
         <div class="btnList">
             <button class="startGame">开始游戏</button>
+            <button class="multiplayerMode">多人模式</button>
             <button class="help">帮助说明</button>
             <button class="wiki">游戏图鉴</button>
         </div>
@@ -66,6 +67,114 @@
             </button>
         </div>
     </div>
+
+    <!-- Multiplayer Connect Interface -->
+    <div class="multiplayer-connect-interface interface" style="display: none">
+        <h1>Multiplayer</h1>
+        <h2>多人模式</h2>
+        <div class="multiplayer-content">
+            <div class="input-group">
+                <label for="playerNameInput">玩家名称</label>
+                <input type="text" id="playerNameInput" placeholder="输入你的名字" maxlength="20">
+            </div>
+            <div class="input-group">
+                <label for="serverUrlInput">服务器地址</label>
+                <input type="text" id="serverUrlInput" placeholder="ws://localhost:2567">
+            </div>
+            <button id="connectBtn" class="connect-btn">连接服务器</button>
+            <div id="connectionStatus" class="connection-status">未连接</div>
+        </div>
+        <div class="leftTopArea">
+            <button class="backPage">返回</button>
+        </div>
+    </div>
+
+    <!-- Multiplayer Lobby Interface -->
+    <div class="multiplayer-lobby-interface interface" style="display: none">
+        <h1>Game Lobby</h1>
+        <h2>游戏大厅</h2>
+        <div class="lobby-header">
+            <span class="lobby-player-label">玩家: <span id="lobbyPlayerName">-</span></span>
+        </div>
+        <div class="lobby-content">
+            <div class="room-list-section">
+                <div class="room-list-header">
+                    <span>房间列表</span>
+                    <button id="refreshRoomsBtn" class="refresh-btn">刷新</button>
+                </div>
+                <div id="roomListContainer" class="room-list-container">
+                    <div class="empty-room-list">暂无房间，创建一个吧！</div>
+                </div>
+            </div>
+            <div class="lobby-actions">
+                <button id="createRoomBtn" class="lobby-btn primary">创建房间</button>
+                <button id="quickMatchBtn" class="lobby-btn">快速匹配</button>
+            </div>
+            <div id="matchStatus" class="match-status">--</div>
+        </div>
+        <div class="leftTopArea">
+            <button class="backPage">断开连接</button>
+        </div>
+
+        <!-- Create Room Dialog -->
+        <div id="createRoomDialog" class="multiplayer-dialog" style="display: none;">
+            <div class="dialog-content">
+                <h3>创建房间</h3>
+                <div class="dialog-body">
+                    <div class="input-group">
+                        <label for="roomNameInput">房间名称</label>
+                        <input type="text" id="roomNameInput" placeholder="我的房间" maxlength="30">
+                    </div>
+                    <div class="map-size-group">
+                        <label>地图大小</label>
+                        <div class="radio-options">
+                            <label class="radio-option">
+                                <input type="radio" name="mapSize" value="small">
+                                <span>小 (4000×3000) - 快节奏</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="mapSize" value="medium" checked>
+                                <span>中 (6000×4000) - 推荐</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="mapSize" value="large">
+                                <span>大 (8000×5000) - 持久战</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="checkbox-group">
+                        <label>
+                            <input type="checkbox" id="privateRoomCheckbox">
+                            <span>私密房间</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="dialog-buttons">
+                    <button id="cancelCreateRoom" class="dialog-btn cancel">取消</button>
+                    <button id="confirmCreateRoom" class="dialog-btn">创建</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multiplayer Waiting Room Interface -->
+    <div class="multiplayer-waiting-interface interface" style="display: none">
+        <h1>Waiting Room</h1>
+        <h2>等待玩家加入</h2>
+        <div id="waitingRoomInfo" class="waiting-room-info">房间信息</div>
+        <div class="waiting-content">
+            <div id="waitingPlayerList" class="waiting-player-list">
+                <!-- Player slots will be rendered here -->
+            </div>
+            <button id="readyBtn" class="ready-btn">准备</button>
+            <div id="gameCountdown" class="game-countdown" style="display: none;"></div>
+            <div id="waitingHint" class="waiting-hint">所有玩家准备后游戏将开始</div>
+        </div>
+        <div class="leftTopArea">
+            <button class="backPage">离开房间</button>
+        </div>
+    </div>
+
     <div class="help-interface interface" style="display: none">
 
         <div class="content">

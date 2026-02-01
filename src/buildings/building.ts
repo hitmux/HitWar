@@ -9,6 +9,7 @@ import { MyColor } from '../entities/myColor';
 import { CircleObject } from '../entities/base/circleObject';
 import { EffectCircle } from '../effects/effectCircle';
 import { BuildingRegistry } from './buildingRegistry';
+import { renderBuilding, renderBuildingStatic, renderBuildingDynamic } from './rendering/buildingRenderer';
 import { scalePeriod } from '../core/speedScale';
 import { renderStatusBar, BAR_OFFSET } from '../entities/statusBar';
 
@@ -36,11 +37,11 @@ interface TowerLike {
 interface WorldLike {
     width: number;
     height: number;
-    user: UserLike;
     territory?: TerritoryLike;
     buildings: Set<Building>;
     batterys: TowerLike[];
     addEffect(effect: unknown): void;
+    addMoneyToOwner(ownerId: string | null, amount: number): void;
 }
 
 type LevelUpFunc = () => Building;
@@ -121,7 +122,8 @@ export class Building extends CircleObject {
         // Add money (gold mines cannot produce in invalid territory)
         if (this.moneyAddedAble && this.inValidTerritory) {
             if (this.liveTime % this.moneyAddedFreezeTime === 0) {
-                this.world.user.money += this.moneyAddedNum;
+                // Gold production: dispatch to building owner (multiplayer compatible)
+                this.world.addMoneyToOwner(this.ownerId, this.moneyAddedNum);
                 // Add collection effect
                 const e = EffectCircle.acquire(this.pos);
                 e.circle.r = this.r;
@@ -167,65 +169,21 @@ export class Building extends CircleObject {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        this.renderStatic(ctx);
-        this.renderDynamic(ctx);
+        renderBuilding(this as any, ctx);
     }
 
     /**
      * Render static parts (body, healing range) - can be cached to static layer
      */
     renderStatic(ctx: CanvasRenderingContext2D): void {
-        if (!this.isInScreen()) {
-            return;
-        }
-
-        const c = this.getBodyCircle();
-        c.render(ctx);
-
-        // Draw healing range circle (cache Circle object)
-        if (this.otherHpAddAble) {
-            if (!this._hpAddRangeCircle) {
-                this._hpAddRangeCircle = new Circle(this.pos.x, this.pos.y, this.otherHpAddRadius);
-                this._hpAddRangeCircle.fillColor.setRGBA(0, 0, 0, 0);
-                this._hpAddRangeCircle.strokeColor.setRGBA(81, 139, 60, 1);
-                this._hpAddRangeCircle.setStrokeWidth(0.5);
-            } else {
-                // Update position (buildings don't move, but just in case)
-                this._hpAddRangeCircle.x = this.pos.x;
-                this._hpAddRangeCircle.y = this.pos.y;
-            }
-            this._hpAddRangeCircle.render(ctx);
-        }
+        renderBuildingStatic(this as any, ctx);
     }
 
     /**
      * Render dynamic parts (HP bar) - must be rendered every frame
      */
     renderDynamic(ctx: CanvasRenderingContext2D): void {
-        if (!this.isInScreen()) {
-            return;
-        }
-
-        // Render HP bar (copied from CircleObject.render)
-        if (this.maxHp > 0 && !this.isDead()) {
-            const barH = this.hpBarHeight;
-            const barX = this.pos.x - this.r;
-            const barY = this.pos.y - this.r + BAR_OFFSET.HP_TOP * barH;
-            const barW = this.r * 2;
-            const hpRate = this.hp / this.maxHp;
-
-            renderStatusBar(ctx, {
-                x: barX,
-                y: barY,
-                width: barW,
-                height: barH,
-                fillRate: hpRate,
-                fillColor: this.hpColor,
-                showText: true,
-                textValue: this.hp,
-                cache: this._hpBarCache
-            });
-        }
+        renderBuildingDynamic(this as any, ctx);
     }
 }
 

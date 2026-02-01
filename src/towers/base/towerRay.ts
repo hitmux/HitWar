@@ -10,22 +10,26 @@ import { MyColor, ReadonlyColor } from '../../entities/myColor';
 import { LineObject } from '../../entities/base/lineObject';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import { renderTowerRay } from '../rendering/towerRenderer';
 import { scaleSpeed } from '../../core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
+import type {
+    VectorLike,
+    CircleLike,
+    MonsterLike as BaseMonsterLike,
+    TerritoryLike,
+    FogOfWarLike,
+    UserLike,
+    TowerLike,
+} from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
     acquire(start: VectorLike, end: VectorLike): EffectLineLike;
 } | undefined;
 
-interface VectorLike {
-    x: number;
-    y: number;
-}
-
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
+// Extended CircleLike with impact method
+interface CircleLikeExt extends CircleLike {
     impact(other: CircleLike): boolean;
 }
 
@@ -35,20 +39,20 @@ interface EffectLineLike {
     initDamage(world: unknown, damage: number): void;
 }
 
-interface MonsterLike {
+// Extended MonsterLike for ray tower (uses Vector for pos)
+interface MonsterLike extends BaseMonsterLike {
     pos: Vector;
-    getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
-    isDead(): boolean;
+    getBodyCircle(): CircleLikeExt;
 }
 
+// WorldLike interface for TowerRay
 interface WorldLike {
     width: number;
     height: number;
-    batterys: Tower[];
-    territory?: { markDirty(): void };
-    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean; isCircleVisible(x: number, y: number, radius: number): boolean };
-    user: { money: number };
+    batterys: TowerLike[];
+    territory?: TerritoryLike;
+    fog?: FogOfWarLike;
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: unknown): void;
     removeBully(bully: unknown): void;
@@ -78,7 +82,7 @@ export class TowerRay extends Tower {
     declare attackFunc: RayAttackFunc;
 
     // Cached query results for the current frame
-    private _cachedMonstersInRange: MonsterLike[] | null = null;
+    private _cachedMonstersInRange: MonsterLike[] | undefined = undefined;
     private _cachedQueryRange: number = 0;
 
     constructor(x: number, y: number, world: any) {
@@ -140,6 +144,10 @@ export class TowerRay extends Tower {
             
             let actualDamage = this.damage * this.getDamageMultiplier();
             for (let m of nearbyMonsters) {
+                // Filter friendly monsters (same owner)
+                if (!isEnemy(this, m)) {
+                    continue;
+                }
                 // Check fog first, using circle visibility for edge detection
                 const mc = m.getBodyCircle();
                 if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
@@ -324,11 +332,7 @@ export class TowerRay extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        if (this.isDead()) {
-            return;
-        }
-        this.renderBody(ctx);
-        this.renderBars(ctx);
+        renderTowerRay(this as any, ctx);
     }
 
     /**

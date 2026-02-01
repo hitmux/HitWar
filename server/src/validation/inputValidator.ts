@@ -1,0 +1,359 @@
+/**
+ * InputValidator - Server-side authoritative validation for all player actions
+ *
+ * Uses shared validation pure functions + server-specific checks
+ * (territory, collision, real-time resource deduction)
+ */
+
+import type { GameState } from '../schema/GameState.js';
+import type { TowerState } from '../schema/TowerState.js';
+import type { BuildingState } from '../schema/BuildingState.js';
+import type { MapSchema } from '@colyseus/schema';
+import type { TerritoryCalculator } from '../systems/territory/territoryCalculator.js';
+import { PVP_CONFIG } from '../config.js';
+import {
+  type ValidationResult,
+  ValidationErrorCode,
+  validationSuccess,
+  validationFailure,
+  validateBuildTowerBasic,
+  validateUpgradeTower,
+  validateSellTower,
+  validateCannonFire,
+  validateSpawnMonster,
+  type TowerMetaData,
+  type PlayerValidationState,
+  type TowerValidationState,
+  type SpawnableMonsterConfig,
+  type SpawnerValidationState,
+} from '../shared/validation/index.js';
+import { checkBuildCollision } from './collisionValidator.js';
+
+/**
+ * Tower metadata registry for server-side validation
+ * Populated from shared config data
+ */
+export class TowerMetaRegistry {
+  private metas: Map<string, TowerMetaData> = new Map();
+
+  register(id: string, price: number, levelUpArr: string[]): void {
+    this.metas.set(id, { id, price, levelUpArr });
+  }
+
+  get(id: string): TowerMetaData | undefined {
+    return this.metas.get(id);
+  }
+
+  has(id: string): boolean {
+    return this.metas.has(id);
+  }
+}
+
+/**
+ * Spawnable monster config registry
+ */
+export class SpawnableMonsterRegistry {
+  private configs: Map<string, SpawnableMonsterConfig> = new Map();
+
+  register(config: SpawnableMonsterConfig): void {
+    this.configs.set(config.monsterId, config);
+  }
+
+  get(monsterId: string): SpawnableMonsterConfig | undefined {
+    return this.configs.get(monsterId);
+  }
+}
+
+/**
+ * Adapt PlayerState to PlayerValidationState interface
+ */
+function toPlayerValidation(
+  player: { id: string; isAlive: boolean; money: number } | undefined
+): PlayerValidationState | undefined {
+  if (!player) return undefined;
+  return { id: player.id, isAlive: player.isAlive, money: player.money };
+}
+
+/**
+ * Adapt TowerState to TowerValidationState interface
+ */
+function toTowerValidation(
+  tower: TowerState | undefined
+): TowerValidationState | undefined {
+  if (!tower) return undefined;
+  return {
+    id: tower.id,
+    ownerId: tower.ownerId,
+    towerType: tower.towerType,
+    position: { x: tower.position.x, y: tower.position.y },
+    radius: tower.radius,
+    attackRadius: tower.attackRadius,
+    isManual: tower.isManual,
+    currentAmmo: tower.currentAmmo,
+  };
+}
+
+/**
+ * Adapt BuildingState to SpawnerValidationState interface
+ */
+function toSpawnerValidation(
+  building: BuildingState | undefined
+): SpawnerValidationState | undefined {
+  if (!building) return undefined;
+  return {
+    id: building.id,
+    ownerId: building.ownerId,
+    isSpawner: building.isSpawner,
+    position: { x: building.position.x, y: building.position.y },
+    getCooldownRemaining(monsterType: string): number {
+      const cd = building.getCooldown(monsterType);
+      return cd ? cd.remainingTicks : 0;
+    },
+  };
+}
+
+/**
+ * Convert MapSchema to iterable with spatial interface
+ */
+function* toSpatialIterable(
+  entities: MapSchema<TowerState> | MapSchema<BuildingState>
+): Iterable<{ id: string; position: { x: number; y: number }; radius: number }> {
+  for (const entity of entities.values()) {
+    yield {
+      id: entity.id,
+      position: { x: entity.position.x, y: entity.position.y },
+      radius: entity.radius,
+    };
+  }
+}
+
+/**
+ * Main server-side input validator
+ * Provides authoritative validation for all player actions
+ */
+export class InputValidator {
+  private state: GameState;
+  private territory: TerritoryCalculator;
+  private towerMeta: TowerMetaRegistry;
+  private spawnableMeta: SpawnableMonsterRegistry;
+
+  constructor(
+    state: GameState,
+    territory: TerritoryCalculator,
+    towerMeta: TowerMetaRegistry,
+    spawnableMeta: SpawnableMonsterRegistry
+  ) {
+    this.state = state;
+    this.territory = territory;
+    this.towerMeta = towerMeta;
+    this.spawnableMeta = spawnableMeta;
+  }
+
+  /**
+   * Update references (call if state or territory is replaced)
+   */
+  updateRefs(state: GameState, territory: TerritoryCalculator): void {
+    this.state = state;
+    this.territory = territory;
+  }
+
+  /**
+   * Validate BUILD_TOWER action
+   * Full server validation: shared checks + territory + collision + money deduction
+   */
+  validateBuildTower(
+    playerId: string,
+    towerType: string,
+    x: number,
+    y: number
+  ): ValidationResult {
+    const player = this.state.getPlayer(playerId);
+    const meta = this.towerMeta.get(towerType);
+    const bounds = {
+      width: this.state.mapConfig.width,
+      height: this.state.mapConfig.height,
+    };
+
+    // Step 1: Shared basic validation (player state, type, bounds)
+    const basicResult = validateBuildTowerBasic(
+      toPlayerValidation(player),
+      towerType,
+      x,
+      y,
+      meta,
+      bounds
+    );
+    if (!basicResult.valid) return basicResult;
+
+    // Step 2: Territory check
+    const inOwnTerritory = this.territory.isPositionInValidTerritory(
+      x,
+      y,
+      playerId,
+      this.state.buildings,
+      this.state.towers
+    );
+
+    // Check if in any enemy territory
+    let inEnemyTerritory = false;
+    for (const otherPlayer of this.state.players.values()) {
+      if (otherPlayer.id === playerId || !otherPlayer.isAlive) continue;
+      if (
+        this.territory.isPositionInValidTerritory(
+          x,
+          y,
+          otherPlayer.id,
+          this.state.buildings,
+          this.state.towers
+        )
+      ) {
+        inEnemyTerritory = true;
+        break;
+      }
+    }
+
+    if (!inOwnTerritory && !inEnemyTerritory) {
+      return validationFailure(ValidationErrorCode.POSITION_NOT_IN_TERRITORY);
+    }
+
+    // Step 3: Collision check
+    const collisionResult = checkBuildCollision(
+      x,
+      y,
+      15, // default tower radius
+      toSpatialIterable(this.state.towers),
+      toSpatialIterable(this.state.buildings)
+    );
+    if (collisionResult.collides) {
+      return validationFailure(
+        ValidationErrorCode.POSITION_COLLISION,
+        `Collision with entity: ${collisionResult.collidingEntityId}`
+      );
+    }
+
+    // Step 4: Calculate final cost (enemy territory = 2x cost)
+    const basePrice = meta!.price;
+    const costMultiplier = inEnemyTerritory && !inOwnTerritory
+      ? PVP_CONFIG.territory.enemyBuildCostMultiplier
+      : 1;
+    const finalCost = basePrice * costMultiplier;
+
+    // Step 5: Check money
+    if (player!.money < finalCost) {
+      return validationFailure(
+        ValidationErrorCode.INSUFFICIENT_MONEY,
+        `Need ${finalCost}, have ${player!.money}`
+      );
+    }
+
+    return validationSuccess({
+      cost: finalCost,
+      inEnemyTerritory,
+      costMultiplier,
+      towerType,
+    });
+  }
+
+  /**
+   * Validate UPGRADE_TOWER action
+   */
+  validateUpgradeTower(
+    playerId: string,
+    towerId: string,
+    targetType: string
+  ): ValidationResult {
+    const player = this.state.getPlayer(playerId);
+    const tower = this.state.towers.get(towerId);
+    const currentMeta = tower ? this.towerMeta.get(tower.towerType) : undefined;
+    const targetMeta = this.towerMeta.get(targetType);
+
+    return validateUpgradeTower(
+      toPlayerValidation(player),
+      toTowerValidation(tower),
+      targetType,
+      currentMeta,
+      targetMeta
+    );
+  }
+
+  /**
+   * Validate SELL_TOWER action
+   */
+  validateSellTower(
+    playerId: string,
+    towerId: string
+  ): ValidationResult {
+    const player = this.state.getPlayer(playerId);
+    const tower = this.state.towers.get(towerId);
+    const meta = tower ? this.towerMeta.get(tower.towerType) : undefined;
+
+    return validateSellTower(
+      toPlayerValidation(player),
+      toTowerValidation(tower),
+      meta,
+      0.5 // 50% refund rate
+    );
+  }
+
+  /**
+   * Validate SPAWN_MONSTER action
+   */
+  validateSpawnMonster(
+    playerId: string,
+    spawnerId: string,
+    monsterType: string,
+    targetPlayerId: string
+  ): ValidationResult {
+    const player = this.state.getPlayer(playerId);
+    const spawner = this.state.buildings.get(spawnerId);
+    const monsterConfig = this.spawnableMeta.get(monsterType);
+
+    // Territory check for spawner
+    if (spawner && spawner.isSpawner) {
+      const inTerritory = this.territory.isInValidTerritory(
+        spawner.id,
+        spawner.ownerId
+      );
+      if (!inTerritory) {
+        return validationFailure(
+          ValidationErrorCode.SPAWNER_NOT_IN_TERRITORY,
+          'Spawner is not in valid territory'
+        );
+      }
+    }
+
+    return validateSpawnMonster(
+      toPlayerValidation(player),
+      toSpawnerValidation(spawner),
+      monsterType,
+      targetPlayerId,
+      this.state.wave.currentWave,
+      monsterConfig,
+      (id: string) => {
+        const p = this.state.getPlayer(id);
+        if (!p) return undefined;
+        return { id: p.id, isAlive: p.isAlive };
+      }
+    );
+  }
+
+  /**
+   * Validate CANNON_FIRE action
+   */
+  validateCannonFire(
+    playerId: string,
+    towerId: string,
+    targetX: number,
+    targetY: number
+  ): ValidationResult {
+    const player = this.state.getPlayer(playerId);
+    const tower = this.state.towers.get(towerId);
+
+    return validateCannonFire(
+      toPlayerValidation(player),
+      toTowerValidation(tower),
+      targetX,
+      targetY
+    );
+  }
+}

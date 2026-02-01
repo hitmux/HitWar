@@ -7,21 +7,23 @@ import { MyColor } from '../../entities/myColor';
 import { Circle } from '../../core/math/circle';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import type {
+    VectorLike,
+    CircleLike,
+    MonsterLike as BaseMonsterLike,
+    TerritoryLike,
+    FogOfWarLike,
+    UserLike,
+    TowerLike,
+} from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
     acquire(start: VectorLike, end: VectorLike): EffectLineLike;
 } | undefined;
 
-interface VectorLike {
-    x: number;
-    y: number;
-}
-
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
+// Extended CircleLike with impact method
+interface CircleLikeExt extends CircleLike {
     impact(other: CircleLike): boolean;
 }
 
@@ -29,20 +31,19 @@ interface EffectLineLike {
     initLineStyle(color: MyColor, width: number): void;
 }
 
-interface MonsterLike {
-    pos: VectorLike;
-    getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
-    isDead(): boolean;
+// Extended MonsterLike for hell tower
+interface MonsterLike extends BaseMonsterLike {
+    getBodyCircle(): CircleLikeExt;
 }
 
+// WorldLike interface for TowerHell
 interface WorldLike {
     width: number;
     height: number;
-    batterys: Tower[];
-    territory?: { markDirty(): void };
-    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean; isCircleVisible(x: number, y: number, radius: number): boolean };
-    user: { money: number };
+    batterys: TowerLike[];
+    territory?: TerritoryLike;
+    fog?: FogOfWarLike;
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: unknown): void;
     removeBully(bully: unknown): void;

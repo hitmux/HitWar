@@ -20,6 +20,8 @@ interface BuildingLike {
     _territoryPenaltyApplied: boolean;
     _originalMaxHp: number | null;
     _originalRangeR?: number | null;
+    // Owner ID for multiplayer (null = neutral/single-player)
+    ownerId?: string | null;
 }
 
 interface WorldLike {
@@ -28,7 +30,7 @@ interface WorldLike {
     viewWidth: number;
     viewHeight: number;
     camera: { x: number; y: number; zoom: number; viewWidth: number; viewHeight: number };
-    rootBuilding: BuildingLike;
+    getBaseBuilding(playerId?: string): BuildingLike;
     batterys: BuildingLike[];
     buildings: BuildingLike[];
     mines: Set<BuildingLike>;
@@ -37,6 +39,10 @@ interface WorldLike {
 
 export class Territory {
     world: WorldLike;
+
+    // Player ID for multiplayer (null = single-player mode, includes all entities)
+    playerId: string | null = null;
+
     territoryRadius: number = 100;  // Territory radius in px
     private _territoryRadiusSq: number = 10000;  // territoryRadius² (cached)
     dirty: boolean = true;           // Dirty flag, needs recalculation
@@ -59,8 +65,9 @@ export class Territory {
     // Renderer
     renderer: TerritoryRenderer;
 
-    constructor(world: WorldLike) {
+    constructor(world: WorldLike, playerId?: string) {
         this.world = world;
+        this.playerId = playerId ?? null;
         this.renderer = new TerritoryRenderer(this);
         // Perform initial calculation immediately (rootBuilding should be present)
         this.recalculate();
@@ -119,9 +126,10 @@ export class Territory {
 
         const visited = new Set<BuildingLike>();
         // Use index-based queue to avoid O(n) shift() operations
-        const queue: BuildingLike[] = [this.world.rootBuilding];
+        const baseBuilding = this._getBaseBuilding();
+        const queue: BuildingLike[] = [baseBuilding];
         let queueIndex = 0;
-        visited.add(this.world.rootBuilding);
+        visited.add(baseBuilding);
         // Reusable array for QuadTree queries to avoid GC pressure
         const retrieveBuffer: any[] = [];
 
@@ -293,10 +301,24 @@ export class Territory {
     }
 
     /**
+     * Get the base building for this territory
+     * In multiplayer mode, returns the base for this player
+     */
+    private _getBaseBuilding(): BuildingLike {
+        return this.world.getBaseBuilding(this.playerId ?? undefined);
+    }
+
+    /**
      * Get all buildings list (towers + buildings + mines)
+     * In multiplayer mode, only includes buildings owned by this player
      */
     _getAllBuildings(): BuildingLike[] {
-        return [...this.world.batterys, ...this.world.buildings, ...this.world.mines];
+        const all = [...this.world.batterys, ...this.world.buildings, ...this.world.mines];
+        // Multiplayer: filter by owner
+        if (this.playerId !== null) {
+            return all.filter(b => b.ownerId === this.playerId);
+        }
+        return all;
     }
 
     /**
@@ -704,7 +726,7 @@ export class Territory {
      */
     _canProvideTerritory(building: BuildingLike): boolean {
         // Headquarters can provide territory
-        if (building === this.world.rootBuilding) return true;
+        if (building === this._getBaseBuilding()) return true;
         // Mines/power plants cannot provide territory (same as gold mines)
         if (building.gameType === "Mine") return false;
         // Repair towers and gold mines cannot provide territory
@@ -725,7 +747,7 @@ export class Territory {
      */
     _applyInvalidPenalty(building: BuildingLike): void {
         // Headquarters is never penalized
-        if (building === this.world.rootBuilding) return;
+        if (building === this._getBaseBuilding()) return;
 
         // Skip if penalty already applied
         if (building._territoryPenaltyApplied) return;
@@ -748,7 +770,7 @@ export class Territory {
      */
     _removeInvalidPenalty(building: BuildingLike): void {
         // Headquarters is never penalized
-        if (building === this.world.rootBuilding) return;
+        if (building === this._getBaseBuilding()) return;
 
         // Skip if penalty not applied
         if (!building._territoryPenaltyApplied) return;

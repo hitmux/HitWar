@@ -99,7 +99,7 @@ export class Mine extends CircleObject {
     /**
      * Upgrade to power plant / upgrade power plant level
      */
-    upgrade(): void {
+    upgrade(playerId?: string): void {
         const hpValues = [3000, 5000, 10000];
 
         if (this.state === Mine.STATE_NORMAL) {
@@ -109,6 +109,10 @@ export class Mine extends CircleObject {
             this.maxHp = hpValues[0];
             this.hp = this.maxHp;
             this._updateRadius();
+            // Set owner ID for multiplayer
+            if (playerId) {
+                this.ownerId = playerId;
+            }
             // Add to buildings set so monsters can attack
             (this.world as any).buildings.push(this);
             // Immediate territory update (no 100ms delay)

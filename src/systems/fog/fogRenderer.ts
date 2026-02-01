@@ -298,6 +298,9 @@ export class FogRenderer {
         this._lastZoom = camera.zoom;
         this._staticCacheValid = true;
 
+        // Static cache rebuilt with new buffer coordinates, composite frame must also update
+        this._dynamicDirty = true;
+
         // Clear old radar data (buffer rebuild invalidates coordinates)
         this._lastRadarAreas = [];
     }

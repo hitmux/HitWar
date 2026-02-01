@@ -653,6 +653,279 @@ body {
 
 }
 
+// ==================== 怪物生成塔面板样式 ====================
+#spawnerPanel {
+  position: absolute;
+  min-width: 250px;
+  max-width: 320px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: rgba(40, 20, 20, 0.9);
+  border: 2px solid rgba(120, 30, 30, 0.8);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+
+  .spawner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(120, 30, 30, 0.5);
+
+    .spawner-title {
+      color: #ff6b6b;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .spawner-close {
+      cursor: pointer;
+      color: #888;
+      font-size: 18px;
+      line-height: 1;
+
+      &:hover {
+        color: #ff6b6b;
+      }
+    }
+  }
+
+  .spawner-target-section {
+    margin-bottom: 10px;
+
+    label {
+      color: #ccc;
+      font-size: 12px;
+      margin-right: 8px;
+    }
+
+    .spawner-target-select {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(120, 30, 30, 0.5);
+      background-color: rgba(60, 30, 30, 0.8);
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+
+      &:focus {
+        outline: none;
+        border-color: #ff6b6b;
+      }
+    }
+  }
+
+  .spawner-monster-list {
+    max-height: 200px;
+    overflow-y: auto;
+
+    .spawner-monster-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      background-color: rgba(60, 30, 30, 0.6);
+      transition: all 0.2s;
+
+      .monster-name {
+        color: #fff;
+        font-size: 12px;
+        font-weight: bold;
+        flex: 1;
+      }
+
+      .monster-cost {
+        color: #ffd700;
+        font-size: 11px;
+        margin: 0 10px;
+      }
+
+      .monster-status {
+        color: #888;
+        font-size: 10px;
+        text-align: right;
+        min-width: 70px;
+      }
+
+      &.available {
+        cursor: pointer;
+
+        &:hover {
+          background-color: rgba(100, 40, 40, 0.8);
+          transform: translateX(2px);
+        }
+
+        .monster-status {
+          color: #6b6;
+        }
+      }
+
+      &.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+
+        .monster-name {
+          color: #999;
+        }
+      }
+    }
+  }
+
+  .spawner-hint {
+    color: #ff8888;
+    font-size: 12px;
+    text-align: center;
+    padding: 10px;
+    display: none;
+  }
+}
+
+// ==================== 手动炮塔面板样式 ====================
+#manualCannonPanel {
+  position: absolute;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: rgba(30, 40, 60, 0.95);
+  border: 2px solid rgba(80, 100, 140, 0.8);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+
+  .cannon-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(80, 100, 140, 0.5);
+
+    .cannon-title {
+      color: #6b9fff;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .cannon-close {
+      cursor: pointer;
+      color: #888;
+      font-size: 18px;
+      line-height: 1;
+
+      &:hover {
+        color: #6b9fff;
+      }
+    }
+  }
+
+  .cannon-stats {
+    margin-bottom: 10px;
+
+    .cannon-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      font-size: 12px;
+
+      .stat-label {
+        color: #aaa;
+      }
+
+      .cannon-ammo {
+        color: #ffd700;
+        font-weight: bold;
+      }
+
+      .cannon-damage {
+        color: #ff6b6b;
+        font-weight: bold;
+      }
+
+      .cannon-range {
+        color: #6bff6b;
+      }
+    }
+  }
+
+  .cannon-reload-bar {
+    height: 4px;
+    background-color: rgba(60, 60, 80, 0.8);
+    border-radius: 2px;
+    margin-bottom: 10px;
+    overflow: hidden;
+
+    .cannon-reload-progress {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #4a9eff, #00d4ff);
+      border-radius: 2px;
+      transition: width 0.1s ease;
+    }
+  }
+
+  .cannon-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .cannon-btn {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #fff;
+
+      &.cannon-fire-btn {
+        background: linear-gradient(135deg, #4a9eff, #2a7edf);
+
+        &:hover:not(:disabled) {
+          background: linear-gradient(135deg, #5aaaff, #3a8eef);
+          transform: translateY(-1px);
+        }
+      }
+
+      &.cannon-semi-btn {
+        background: linear-gradient(135deg, #6b6bff, #4a4adf);
+
+        &:hover:not(:disabled) {
+          background: linear-gradient(135deg, #7b7bff, #5a5aef);
+          transform: translateY(-1px);
+        }
+      }
+
+      &.cannon-clear-btn {
+        background: linear-gradient(135deg, #ff6b6b, #df4a4a);
+        display: none;
+
+        &:hover:not(:disabled) {
+          background: linear-gradient(135deg, #ff7b7b, #ef5a5a);
+          transform: translateY(-1px);
+        }
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+    }
+  }
+
+  .cannon-hint {
+    color: #aaa;
+    font-size: 11px;
+    text-align: center;
+    padding: 8px 0 0 0;
+    font-style: italic;
+  }
+}
+
 button {
   color: white;
 }
@@ -1131,6 +1404,600 @@ button {
       }
     }
   }
+}
+
+// ==================== 多人模式界面样式 ====================
+// Multiplayer interface common styles
+.multiplayer-connect-interface,
+.multiplayer-lobby-interface,
+.multiplayer-waiting-interface {
+  h1, h2 {
+    position: static !important;
+    margin-top: 40px;
+    text-align: center;
+  }
+
+  .leftTopArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+}
+
+// Connect Interface
+.multiplayer-connect-interface {
+  .multiplayer-content {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    padding: 30px;
+    background-color: rgba(30, 30, 30, 0.9);
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .input-group {
+    margin-bottom: 20px;
+
+    label {
+      display: block;
+      color: #aaa;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #f1f3f4;
+      font-size: 16px;
+      transition: all 0.2s;
+
+      &:focus {
+        outline: none;
+        border-color: #4a9eff;
+        box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+      }
+
+      &::placeholder {
+        color: #666;
+      }
+    }
+  }
+
+  .connect-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #4a9eff, #2a7edf);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #5aaaff, #3a8eef);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .connection-status {
+    text-align: center;
+    margin-top: 16px;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 14px;
+
+    &.info {
+      color: #aaa;
+    }
+
+    &.success {
+      color: #6bff6b;
+      background-color: rgba(107, 255, 107, 0.1);
+    }
+
+    &.error {
+      color: #ff6b6b;
+      background-color: rgba(255, 107, 107, 0.1);
+    }
+  }
+}
+
+// Lobby Interface
+.multiplayer-lobby-interface {
+  .lobby-header {
+    position: absolute;
+    right: 30px;
+    top: 30px;
+    color: #f1f3f4;
+    font-size: 16px;
+
+    .lobby-player-label {
+      background-color: rgba(30, 30, 30, 0.8);
+      padding: 8px 16px;
+      border-radius: 20px;
+    }
+  }
+
+  .lobby-content {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px;
+    max-height: 70vh;
+  }
+
+  .room-list-section {
+    background-color: rgba(30, 30, 30, 0.9);
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .room-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background-color: rgba(0, 0, 0, 0.3);
+    color: #f1f3f4;
+    font-weight: bold;
+
+    .refresh-btn {
+      padding: 6px 12px;
+      background-color: rgba(74, 158, 255, 0.3);
+      color: #4a9eff;
+      border: 1px solid #4a9eff;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        background-color: rgba(74, 158, 255, 0.5);
+      }
+    }
+  }
+
+  .room-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  .empty-room-list {
+    text-align: center;
+    color: #888;
+    padding: 40px 20px;
+    font-size: 16px;
+  }
+
+  .room-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    &.room-full {
+      opacity: 0.6;
+    }
+
+    .room-icon {
+      font-size: 20px;
+      margin-right: 12px;
+    }
+
+    .room-name {
+      flex: 1;
+      color: #f1f3f4;
+      font-size: 14px;
+    }
+
+    .room-players {
+      color: #aaa;
+      font-size: 12px;
+      margin-right: 12px;
+    }
+
+    .join-room-btn {
+      padding: 6px 16px;
+      background-color: #4a9eff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover:not(:disabled) {
+        background-color: #3a8eef;
+      }
+
+      &:disabled {
+        background-color: #666;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .lobby-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .lobby-btn {
+    flex: 1;
+    padding: 14px;
+    background-color: rgba(42, 42, 42, 0.9);
+    color: #f1f3f4;
+    border: 2px solid rgba(68, 68, 68, 0.8);
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: rgba(58, 58, 58, 0.9);
+      transform: translateY(-2px);
+    }
+
+    &.primary {
+      background: linear-gradient(135deg, #4a9eff, #2a7edf);
+      border: none;
+
+      &:hover {
+        background: linear-gradient(135deg, #5aaaff, #3a8eef);
+      }
+    }
+
+    &.searching {
+      background: linear-gradient(135deg, #ff9800, #f57c00);
+      animation: searchPulse 1.5s ease-in-out infinite;
+    }
+  }
+
+  .match-status {
+    text-align: center;
+    color: #aaa;
+    font-size: 14px;
+
+    &.success {
+      color: #6bff6b;
+    }
+
+    &.error {
+      color: #ff6b6b;
+    }
+  }
+}
+
+@keyframes searchPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+// Create Room Dialog
+.multiplayer-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(3px);
+
+  .dialog-content {
+    background-color: rgba(30, 30, 30, 0.95);
+    padding: 24px;
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    min-width: 380px;
+
+    h3 {
+      color: #f1f3f4;
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+  }
+
+  .dialog-body {
+    margin-bottom: 20px;
+  }
+
+  .input-group {
+    margin-bottom: 16px;
+
+    label {
+      display: block;
+      color: #aaa;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 14px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      color: #f1f3f4;
+      font-size: 14px;
+
+      &:focus {
+        outline: none;
+        border-color: #4a9eff;
+      }
+    }
+  }
+
+  .map-size-group {
+    margin-bottom: 16px;
+
+    > label {
+      display: block;
+      color: #aaa;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .radio-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+
+      input[type="radio"] {
+        margin-right: 10px;
+        accent-color: #4a9eff;
+      }
+
+      span {
+        color: #ddd;
+        font-size: 14px;
+      }
+    }
+  }
+
+  .checkbox-group {
+    label {
+      display: flex;
+      align-items: center;
+      color: #ddd;
+      font-size: 14px;
+      cursor: pointer;
+
+      input[type="checkbox"] {
+        margin-right: 10px;
+        accent-color: #4a9eff;
+      }
+    }
+  }
+
+  .dialog-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+
+    .dialog-btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      background-color: #4a9eff;
+      color: white;
+
+      &:hover {
+        background-color: #3a8eef;
+        transform: scale(1.05);
+      }
+
+      &.cancel {
+        background-color: #666;
+
+        &:hover {
+          background-color: #555;
+        }
+      }
+    }
+  }
+}
+
+// Waiting Room Interface
+.multiplayer-waiting-interface {
+  .waiting-room-info {
+    position: absolute;
+    left: 50%;
+    top: 28%;
+    transform: translateX(-50%);
+    color: #aaa;
+    font-size: 16px;
+    background-color: rgba(30, 30, 30, 0.8);
+    padding: 8px 20px;
+    border-radius: 20px;
+  }
+
+  .waiting-content {
+    position: absolute;
+    left: 50%;
+    top: 55%;
+    transform: translate(-50%, -50%);
+    width: 450px;
+    text-align: center;
+  }
+
+  .waiting-player-list {
+    margin-bottom: 24px;
+  }
+
+  .player-slot {
+    margin-bottom: 16px;
+    padding: 16px;
+    background-color: rgba(30, 30, 30, 0.9);
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+
+    &.filled.ready {
+      border-color: rgba(107, 255, 107, 0.5);
+    }
+
+    .player-number {
+      color: #888;
+      font-size: 12px;
+      text-align: left;
+      margin-bottom: 8px;
+    }
+
+    .player-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .player-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      flex-shrink: 0;
+
+      &.empty {
+        opacity: 0.3;
+      }
+    }
+
+    .player-info {
+      flex: 1;
+      text-align: left;
+
+      .player-name {
+        color: #f1f3f4;
+        font-size: 16px;
+        font-weight: bold;
+      }
+
+      .host-badge {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        background-color: rgba(255, 215, 0, 0.3);
+        color: #ffd700;
+        font-size: 10px;
+        border-radius: 4px;
+      }
+    }
+
+    .player-status {
+      font-size: 14px;
+
+      &.ready {
+        color: #6bff6b;
+      }
+
+      &.waiting {
+        color: #888;
+      }
+    }
+  }
+
+  .ready-btn {
+    width: 200px;
+    padding: 14px 32px;
+    background: linear-gradient(135deg, #4a9eff, #2a7edf);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background: linear-gradient(135deg, #5aaaff, #3a8eef);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
+    }
+
+    &.ready {
+      background: linear-gradient(135deg, #6bff6b, #4bdf4b);
+
+      &:hover {
+        background: linear-gradient(135deg, #7bff7b, #5bef5b);
+      }
+    }
+  }
+
+  .game-countdown {
+    margin-top: 16px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.3), rgba(255, 87, 34, 0.3));
+    color: #ff9800;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 8px;
+    animation: countdownPulse 1s ease-in-out infinite;
+  }
+
+  .waiting-hint {
+    margin-top: 16px;
+    color: #888;
+    font-size: 14px;
+
+    &.error {
+      color: #ff6b6b;
+    }
+  }
+}
+
+@keyframes countdownPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
 }
 
 // 公告面板

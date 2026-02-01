@@ -163,19 +163,21 @@ interface WorldLike {
     width: number;
     height: number;
     gameSpeed: number;
-    user: { money: number };
     monsterFlow: { level: number; delayTick: number; state: string };
     monsterFlowNext?: unknown;
     camera: { x: number; y: number; zoom: number; clampPosition: () => void };
     obstacles: Obstacle[];
     cheatMode: { enabled: boolean; priceMultiplier: number; infiniteHp: boolean; disableEnergy: boolean };
-    rootBuilding: { pos: Vector; hp: number; maxHp: number };
+    getBaseBuilding(): { pos: Vector; hp: number; maxHp: number };
     batterys: unknown[];
     buildings: unknown[];
     monsters: Set<unknown>;
     mines: Set<unknown>;
     territory?: { markDirty: () => void; recalculate: () => void };
     markStaticLayerDirty: () => void;
+    // Money management (multiplayer compatible)
+    getMoney(): number;
+    setMoney(amount: number): void;
 }
 
 interface MonsterGroupClassLike {
@@ -271,7 +273,7 @@ export class SaveManager {
 
             world: {
                 time: world.time,
-                money: world.user.money,
+                money: world.getMoney(),
                 flowLevel: world.monsterFlow.level,
                 flowDelayTick: world.monsterFlow.delayTick,
                 flowState: world.monsterFlow.state,
@@ -296,10 +298,10 @@ export class SaveManager {
             },
 
             rootBuilding: {
-                x: world.rootBuilding.pos.x,
-                y: world.rootBuilding.pos.y,
-                hp: world.rootBuilding.hp,
-                maxHp: world.rootBuilding.maxHp,
+                x: world.getBaseBuilding().pos.x,
+                y: world.getBaseBuilding().pos.y,
+                hp: world.getBaseBuilding().hp,
+                maxHp: world.getBaseBuilding().maxHp,
             },
 
             towers: [],
@@ -364,7 +366,7 @@ export class SaveManager {
         // Serialize buildings (excluding rootBuilding and Mine)
         for (const building of world.buildings) {
             const b = building as any;
-            if (building === world.rootBuilding) continue;
+            if (building === world.getBaseBuilding()) continue;
             if (b.gameType === "Mine") continue;
 
             const buildingData: BuildingData = {
@@ -465,7 +467,7 @@ export class SaveManager {
 
             // Restore world basic properties
             world.time = saveData.world.time;
-            world.user.money = saveData.world.money;
+            world.setMoney(saveData.world.money);
             world.mode = saveData.mode;
             world.haveFlow = saveData.haveFlow;
 
@@ -475,12 +477,13 @@ export class SaveManager {
 
             // Restore rootBuilding position and HP
             // Position must be restored to avoid overlapping with other buildings
+            const baseBuilding = world.getBaseBuilding();
             if (saveData.rootBuilding.x !== undefined && saveData.rootBuilding.y !== undefined) {
-                world.rootBuilding.pos.x = saveData.rootBuilding.x;
-                world.rootBuilding.pos.y = saveData.rootBuilding.y;
+                baseBuilding.pos.x = saveData.rootBuilding.x;
+                baseBuilding.pos.y = saveData.rootBuilding.y;
             }
-            world.rootBuilding.hp = saveData.rootBuilding.hp;
-            world.rootBuilding.maxHp = saveData.rootBuilding.maxHp;
+            baseBuilding.hp = saveData.rootBuilding.hp;
+            baseBuilding.maxHp = saveData.rootBuilding.maxHp;
 
             // Restore wave state
             if (MonsterGroupClass) {
@@ -516,7 +519,7 @@ export class SaveManager {
 
             // Clear existing entities (except rootBuilding)
             world.batterys = [];
-            world.buildings = [world.rootBuilding];
+            world.buildings = [world.getBaseBuilding()];
             world.monsters = new Set();
             world.mines = new Set();
 
@@ -608,8 +611,9 @@ export class SaveManager {
                 monster.speedFreezeNumb = monsterData.speedFreezeNumb;
                 monster.burnRate = monsterData.burnRate;
                 monster.colishDamage = monsterData.colishDamage;
-                // Create a copy, not a reference! Otherwise monster AI will modify rootBuilding.pos
-                monster.destination = new Vector(world.rootBuilding.pos.x, world.rootBuilding.pos.y);
+                // Create a copy, not a reference! Otherwise monster AI will modify baseBuilding.pos
+                const baseBuildingPos = world.getBaseBuilding().pos;
+                monster.destination = new Vector(baseBuildingPos.x, baseBuildingPos.y);
 
                 if (monsterData.laserDefendNum !== undefined) {
                     monster.laserDefendNum = monsterData.laserDefendNum;

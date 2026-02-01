@@ -1,5 +1,7 @@
 node_modules/
 dist/
+server/node_modules/
+server/dist/
 .idea/
 .claude/
 CLAUDE.md
@@ -12,3 +14,5 @@ doc/
 issue.md
 Trace-20260118T203317.json
 temp.md
+upgrade.md
+.ace-tool/

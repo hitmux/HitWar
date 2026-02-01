@@ -42,7 +42,7 @@ export function startBattleMode(mode: string, haveGroup: boolean = true, loadedS
     if (!haveGroup) {
         world.haveFlow = false;
         if (mode === "hard") {
-            world.user.money = 1000;
+            world.setMoney(1000);
         }
     }
 

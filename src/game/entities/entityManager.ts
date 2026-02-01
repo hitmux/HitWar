@@ -83,6 +83,10 @@ export interface EntityManagerContext {
 export interface EntityRemovalCallbacks {
     onTowerRemoved?: () => void;
     onBuildingRemoved?: () => void;
+    /** Called when a building dies, with the building as parameter */
+    onBuildingDied?: (building: BuildingLike) => void;
+    /** Called when a tower dies, with the tower as parameter */
+    onTowerDied?: (tower: TowerLike) => void;
 }
 
 /**
@@ -277,6 +281,8 @@ export class EntityManager {
                 const e = EffectCircle.acquire(t.pos);
                 e.animationFunc = e.destroyAnimation;
                 this.addEffect(e as unknown as IEffect);
+                // Notify about tower death
+                callbacks?.onTowerDied?.(t);
             }
         }
         this.batterys.length = writeIdx;
@@ -294,6 +300,8 @@ export class EntityManager {
                 if (b.gameType === "Mine" && b.destroy) {
                     b.destroy(true);
                 }
+                // Notify about building death (for base building check)
+                callbacks?.onBuildingDied?.(b);
             }
         }
         this.buildings.length = writeIdx;
