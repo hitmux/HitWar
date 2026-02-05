@@ -13,7 +13,7 @@ export default defineConfig({
   // Development server settings
   server: {
     port: 3000,
-    open: true,
+    open: false,
   },
 
   // Build settings
@@ -26,6 +26,7 @@ export default defineConfig({
     },
     // Output directory
     outDir: 'dist',
+    chunkSizeWarningLimit: 600,
     // Asset handling
     assetsDir: 'assets',
     // Source maps for debugging

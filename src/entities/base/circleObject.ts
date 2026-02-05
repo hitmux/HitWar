@@ -17,6 +17,7 @@ interface WorldLike {
     width: number;
     height: number;
     cheatMode?: CheatModeLike;
+    markSpatialDirty?(entity: unknown): void;
 }
 
 export class CircleObject {
@@ -65,6 +66,9 @@ export class CircleObject {
 
     // Owner ID for multiplayer support (null = neutral/single-player default)
     ownerId: string | null = null;
+
+    // Unique ID for multiplayer entity tracking (null = single-player)
+    id: string | null = null;
 
     constructor(pos: Vector, world: WorldLike) {
         this.pos = pos;
@@ -119,7 +123,7 @@ export class CircleObject {
 
     protected _markMovement(prevX: number, prevY: number): void {
         if (prevX !== this.pos.x || prevY !== this.pos.y) {
-            (this.world as any)?.markSpatialDirty?.call(this.world, this);
+            this.world.markSpatialDirty?.(this);
         }
     }
 
@@ -183,8 +187,7 @@ export class CircleObject {
         } else {
             this.r += dr;
         }
-        // 使用 call 保持 world 作为 this 上下文
-        (this.world as any)?.markSpatialDirty?.call(this.world, this);
+        this.world.markSpatialDirty?.(this);
         this._markBodyDirty();
     }
 

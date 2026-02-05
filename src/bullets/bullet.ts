@@ -7,6 +7,7 @@ import { Circle } from '../core/math/circle';
 import { MyColor } from '../entities/myColor';
 import { CircleObject } from '../entities/base/circleObject';
 import { BulletRegistry } from './bulletRegistry';
+import { isEnemy } from '@/game/player/ownership';
 
 // Declare globals for non-migrated modules
 declare const EffectCircle: {
@@ -47,7 +48,7 @@ interface EffectCircleLike {
 interface EntityLike {
     pos: VectorLike;
     getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
+    hpChange(delta: number, attackerId?: string | null): void;
     isDead(): boolean;
     teleportingAble?: boolean;
     teleporting?(): void;
@@ -55,9 +56,11 @@ interface EntityLike {
     burnRate?: number;
     bodyColor?: { change(dr: number, dg: number, db: number, da: number): void };
     changedSpeed?: VectorLike;
-    // 上一帧位置（用于扫掠碰撞检测）
+    // Previous frame position (for sweep collision detection)
     prevX?: number;
     prevY?: number;
+    // Owner ID for friend/enemy determination
+    ownerId?: string | null;
 }
 
 interface TowerLike {
@@ -339,6 +342,11 @@ export class Bully extends CircleObject {
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.r + 100);
         }
         for (const m of arr) {
+            // Skip friendly entities (same owner)
+            if (!isEnemy(this, m as { ownerId: string | null })) {
+                continue;
+            }
+
             const mc = m.getBodyCircle();
             
             // 使用扫掠碰撞检测
@@ -364,8 +372,8 @@ export class Bully extends CircleObject {
                 if (m.teleportingAble && m.teleporting) {
                     m.teleporting();
                 }
-                // Direct hit damage
-                m.hpChange(-this.damage);
+                // Direct hit damage (pass ownerId for kill reward tracking)
+                m.hpChange(-this.damage, this.ownerId);
                 // Direct hit slow effect
                 if (m.speedFreezeNumb !== undefined) {
                     m.speedFreezeNumb *= this.freezeCutDown;  // slow stacks
@@ -455,6 +463,7 @@ export class Bully extends CircleObject {
                 if (!b) continue;
                 b.isSliptedBully = true;
                 b.world = this.world;
+                b.ownerId = this.ownerId;
                 b.pos = this.pos.copy();
                 b.originalPos = this.pos.copy();
                 b.speed = Vector.randCircle().mul(this.splitRandomV);
@@ -489,12 +498,17 @@ export class Bully extends CircleObject {
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.bombRange + 50);
         }
         for (const m of arr) {
+            // Skip friendly entities (same owner)
+            if (!isEnemy(this, m as { ownerId: string | null })) {
+                continue;
+            }
+
             if (m.getBodyCircle().impact(bC as any)) {
                 // Use disSq for distance calculation, only sqrt when needed for damage
                 const disSq = this.pos.disSq(m.pos as Vector);
                 const dis = Math.sqrt(disSq);
                 const damage = (1 - (dis / this.bombRange)) * this.bombDamage;
-                m.hpChange(-Math.abs(damage));
+                m.hpChange(-Math.abs(damage), this.ownerId);
             }
         }
         // Add explosion effect circle
@@ -524,9 +538,14 @@ export class Bully extends CircleObject {
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.bombRange + 50);
         }
         for (const m of arr) {
+            // Skip friendly entities (same owner)
+            if (!isEnemy(this, m as { ownerId: string | null })) {
+                continue;
+            }
+
             if (m.getBodyCircle().impact(bC as any)) {
-                // Spread damage
-                m.hpChange(-this.bombDamage);
+                // Spread damage (pass ownerId for kill reward tracking)
+                m.hpChange(-this.bombDamage, this.ownerId);
                 if (m.speedFreezeNumb !== undefined) {
                     m.speedFreezeNumb *= this.freezeCutDown;  // slow stacks
                 }

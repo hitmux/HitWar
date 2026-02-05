@@ -65,12 +65,11 @@ export class ClientValidator {
    * Get local player state for validation
    */
   private getLocalPlayer(): PlayerValidationState | undefined {
-    // In single player or local context, we use world's energy as money proxy
-    const energy = this.world.energy;
+    // In single player or local context, we use world's getMoney
     return {
       id: 'local',
-      isAlive: !this.world.getBaseBuilding()?.isDead?.() ?? true,
-      money: energy?.getE() ?? 0,
+      isAlive: !this.world.getBaseBuilding()?.isDead?.(),
+      money: this.world.getMoney() ?? 0,
     };
   }
 
@@ -86,8 +85,8 @@ export class ClientValidator {
     const player = this.getLocalPlayer();
     const meta = getTowerMeta(towerType);
     const bounds = {
-      width: this.world.mw,
-      height: this.world.mh,
+      width: this.world.width,
+      height: this.world.height,
     };
 
     // Basic validation
@@ -96,22 +95,22 @@ export class ClientValidator {
 
     // Simple territory check (in own territory)
     const territory = this.world.territory;
-    if (territory && !territory.isPositionInValidTerritory(x, y)) {
+    if (territory && !territory.isPositionInValidTerritory({ x, y } as any)) {
       // Check if in enemy territory (for PVP, need different check)
       // For now, just fail if not in own territory
       return validationFailure(ValidationErrorCode.POSITION_NOT_IN_TERRITORY);
     }
 
     // Collision check with existing towers and buildings
-    const towers = this.world.entityManager?.towers || [];
+    const towers = this.world.batterys || [];
     const buildings = this.world.buildings || [];
 
-    const towerColliders = towers.map(t => ({
-      position: { x: t.x, y: t.y },
+    const towerColliders = towers.map((t: any) => ({
+      position: { x: t.pos?.x ?? t.x, y: t.pos?.y ?? t.y },
       radius: t.r,
     }));
-    const buildingColliders = buildings.map(b => ({
-      position: { x: b.x, y: b.y },
+    const buildingColliders = (buildings as any[]).map((b: any) => ({
+      position: { x: b.pos?.x ?? b.x, y: b.pos?.y ?? b.y },
       radius: b.r,
     }));
 
@@ -184,8 +183,8 @@ export class ClientValidator {
     const player = this.getLocalPlayer();
 
     // Find tower in world
-    const towers = this.world.entityManager?.towers || [];
-    const tower = towers.find(t => (t as any).id === towerId);
+    const towers = this.world.batterys || [];
+    const tower = towers.find((t: any) => t.id === towerId) as any;
 
     if (!tower) {
       return validationFailure(ValidationErrorCode.CANNON_NOT_FOUND);
@@ -195,11 +194,11 @@ export class ClientValidator {
       id: towerId,
       ownerId: 'local',
       towerType: tower.constructor.name,
-      position: { x: tower.x, y: tower.y },
+      position: { x: tower.pos?.x ?? tower.x, y: tower.pos?.y ?? tower.y },
       radius: tower.r,
       attackRadius: tower.rangeR || 200,
-      isManual: (tower as any).isManual || false,
-      currentAmmo: (tower as any).currentAmmo ?? 1,
+      isManual: tower.isManual || false,
+      currentAmmo: tower.currentAmmo ?? 1,
     };
 
     return validateCannonFire(player, towerValidation, targetX, targetY);

@@ -9,14 +9,17 @@ import { CircleObject } from '../../entities/base/circleObject';
 import { EffectCircle } from '../../effects/effectCircle';
 
 interface WorldLike {
+    width: number;
+    height: number;
     buildings: unknown[];
     mines: Set<Mine>;
-    territory?: { 
+    territory?: {
         markDirty: () => void;
         addBuildingIncremental: (building: unknown) => void;
     };
     addEffect: (effect: unknown) => void;
     user: { money: number };
+    markBuildingQuadTreeDirty?(): void;
 }
 
 export class Mine extends CircleObject {
@@ -27,6 +30,9 @@ export class Mine extends CircleObject {
 
     // Upgrade prices for each level (level 1, 2, 3)
     static UPGRADE_PRICES: readonly number[] = [150, 200, 250];
+
+    // Override world type for Mine-specific interface
+    declare world: WorldLike;
 
     gameType: string = "Mine";
     name: string = "矿井";
@@ -147,9 +153,7 @@ export class Mine extends CircleObject {
                 buildings.splice(idx, 1);
             }
             // Mark building quadtree as dirty so spatial queries are updated
-            if ((this.world as any)._spatialSystem) {
-                (this.world as any)._spatialSystem.markBuildingQuadTreeDirty();
-            }
+            this.world.markBuildingQuadTreeDirty?.();
             this.state = Mine.STATE_NORMAL;
             this.powerPlantLevel = 0;
             this.hp = 0;
@@ -201,9 +205,7 @@ export class Mine extends CircleObject {
                     buildings.splice(idx, 1);
                 }
                 // Mark building quadtree as dirty so spatial queries are updated
-                if ((this.world as any)._spatialSystem) {
-                    (this.world as any)._spatialSystem.markBuildingQuadTreeDirty();
-                }
+                this.world.markBuildingQuadTreeDirty?.();
             }
 
             // Downgrade to damaged mine

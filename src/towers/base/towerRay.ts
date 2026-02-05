@@ -154,7 +154,7 @@ export class TowerRay extends Tower {
                     continue;
                 }
                 if (line.intersectWithCircle(mc as any)) {
-                    m.hpChange(-actualDamage);
+                    m.hpChange(-actualDamage, this.ownerId);
                 }
             }
             if (typeof EffectLine !== 'undefined') {
@@ -314,7 +314,7 @@ export class TowerRay extends Tower {
                         continue;
                     }
                     if (br.intersectWithCircle(mc as any)) {
-                        m.hpChange(-actualDamage);
+                        m.hpChange(-actualDamage, this.ownerId);
                         if (!this.rayThrowAble) {
                             toDelete.push(br);
                             break;

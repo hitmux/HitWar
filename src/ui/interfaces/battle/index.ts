@@ -18,6 +18,9 @@ import type { CanvasWithInputHandler, BattleModeConfig } from './types';
 // Re-export types for external use
 export type { BattleModeConfig, GameEntity, CanvasWithInputHandler } from './types';
 
+// Re-export multiplayer battle mode
+export { startMultiplayerBattleMode } from './multiplayerBattleMode';
+
 /**
  * Start battle mode
  * @param mode - Game mode: "easy", "normal", "hard"

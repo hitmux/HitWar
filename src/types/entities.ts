@@ -57,7 +57,7 @@ export interface ICircleObject extends IGameObject {
   bodyRadiusChange(delta: number): void;
   hpInit(maxHp: number): void;
   hpSet(hp: number): void;
-  hpChange(delta: number): void;
+  hpChange(delta: number, attackerId?: string | null): void;
   isDead(): boolean;
   isInScreen(): boolean;
   isOutScreen(): boolean;

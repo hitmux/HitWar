@@ -33,6 +33,7 @@ interface BulletLike {
     pos: Vector;
     speed: Vector;
     slideRate: number;
+    ownerId: string | null;
     goStep(): void;
     render(ctx: CanvasRenderingContext2D): void;
     remove(): void;
@@ -90,7 +91,7 @@ export class MonsterShooter extends Monster {
 
         this.getmMainBullyFunc = typeof BullyFinally !== 'undefined' ? BullyFinally.S : null;
         this.bullySpeed = scaleSpeed(8);
-        this.clock = scalePeriod(5);
+        this.clock = scalePeriod(30);
         this.attackBullyNum = 1;
         this.bullyDeviationRotate = 0;
         this.bullySpeedAddMax = 0;
@@ -168,13 +169,29 @@ export class MonsterShooter extends Monster {
     }
 
     getTarget(): void {
-        const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.rangeR);
-        const viewCircle = this.getViewCircle();
-        for (let building of nearbyBuildings) {
-            const bc = building.getBodyCircle();
-            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, bc.x, bc.y, bc.r)) {
-                this.target = building;
-                return;
+        // First, check if current target is still valid (alive and in range)
+        if (this.target !== null) {
+            if (this.target.isDead()) {
+                this.target = null;
+            } else {
+                const tc = this.target.getBodyCircle();
+                const viewCircle = this.getViewCircle();
+                if (!Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, tc.x, tc.y, tc.r)) {
+                    this.target = null;
+                }
+            }
+        }
+
+        // If no valid target, search for a new one
+        if (this.target === null) {
+            const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.rangeR);
+            const viewCircle = this.getViewCircle();
+            for (const building of nearbyBuildings) {
+                const bc = building.getBodyCircle();
+                if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, bc.x, bc.y, bc.r)) {
+                    this.target = building;
+                    return;
+                }
             }
         }
     }
@@ -211,6 +228,7 @@ export class MonsterShooter extends Monster {
         res.originalPos = new Vector(this.pos.x, this.pos.y);
         res.world = this.world;
         res.pos = new Vector(this.pos.x, this.pos.y).deviation(this.bullyDeviation);
+        res.ownerId = this.ownerId;
         let bDir = this.dirction.mul(Math.random() * this.bullySpeedAddMax + this.bullySpeed);
         bDir = bDir.deviation(this.bullyDeviationRotate);
         res.speed = bDir;

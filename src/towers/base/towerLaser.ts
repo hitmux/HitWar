@@ -225,7 +225,7 @@ export class TowerLaser extends Tower {
                         // Check collision with circle
                         const mc = m.getBodyCircle() as Circle;
                         if (Circle.collides(node.pos.x, node.pos.y, searchRadius, mc.x, mc.y, mc.r)) {
-                            m.hpChange(-currentDamage);
+                            m.hpChange(-currentDamage, this.ownerId);
                             monsterSet.add(m);
                             attacked = true;
 
@@ -282,7 +282,7 @@ export class TowerLaser extends Tower {
                 if (this.laserFreezeNow === this.laserFreezeMax) {
                     let d = this.laserBaseDamage + this.laserDamageAdd;
                     d = d * this.getDamageMultiplier();
-                    m.hpChange(-d);
+                    m.hpChange(-d, this.ownerId);
                     isAttacked = true;
                 }
             }
@@ -328,7 +328,7 @@ export class TowerLaser extends Tower {
             d = d * this.getDamageMultiplier();
             this.laserFreezeNow = 0;
             this.laserDamageAdd = 0;
-            this.target.hpChange(-d);
+            this.target.hpChange(-d, this.ownerId);
 
             if (typeof EffectLine !== 'undefined') {
                 let e = EffectLine.acquire(this.pos, this.target.pos);

@@ -194,6 +194,10 @@ export class MonsterMortis extends Monster {
     clashOnly(): void {
         const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
         for (let b of nearbyBuildings) {
+            // Skip friendly buildings (multiplayer support)
+            if (!isEnemy(this, b)) {
+                continue;
+            }
             const bc = b.getBodyCircle();
             // 使用扫掠检测（建筑不移动）
             if (Circle.sweepCollides(

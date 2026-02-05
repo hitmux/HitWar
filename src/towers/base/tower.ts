@@ -56,6 +56,8 @@ interface BulletLike {
     rChange(): void;
     getTarget(): void;
     collide(world: WorldLike): void;
+    // Owner ID for multiplayer
+    ownerId?: string | null;
 }
 
 // WorldLike interface for Tower (uses unified sub-interfaces)
@@ -73,6 +75,7 @@ interface WorldLike {
     addEffect?(effect: unknown): void;
     getMoney(): number;
     spendMoney(amount: number): boolean;
+    getEnergyForOwner?(ownerId: string | null): EnergyLike;
 }
 
 type AttackFunc = () => void;
@@ -346,6 +349,7 @@ export class Tower extends CircleObject {
         res.speed = bDir;
         res.slideRate = this.bullySlideRate;
         res.damage = res.damage * this.getDamageMultiplier();
+        res.ownerId = this.ownerId;
         return res;
     }
 
@@ -473,7 +477,7 @@ export class Tower extends CircleObject {
     getDamageMultiplier(): number {
         let multiplier = this.inValidTerritory ? 1 : (1 / 3);
         // Apply energy deficit penalty (multiplayer: use owner's energy system)
-        const energy = (this.world as any).getEnergyForOwner?.(this.ownerId) ?? this.world.energy;
+        const energy = this.world.getEnergyForOwner?.(this.ownerId) ?? this.world.energy;
         const energyRatio = energy.getSatisfactionRatio();
         return multiplier * energyRatio;
     }

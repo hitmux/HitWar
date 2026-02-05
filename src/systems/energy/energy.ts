@@ -78,7 +78,11 @@ export class Energy {
             for (const mine of this.world.mines) {
                 // Multiplayer: only count mines owned by this player
                 if (this.playerId !== null && mine.ownerId !== this.playerId) continue;
-                total += mine.getEnergyProduction();
+                const prod = mine.getEnergyProduction();
+                // Guard against NaN
+                if (!Number.isNaN(prod)) {
+                    total += prod;
+                }
             }
             this._productionCache = total;
             this._productionDirty = false;
@@ -98,7 +102,11 @@ export class Energy {
                 // Multiplayer: only count towers owned by this player
                 if (this.playerId !== null && t.ownerId !== this.playerId) continue;
                 if (t.inValidTerritory) {
-                    total += 0.5 * t.getTowerLevel();
+                    const level = t.getTowerLevel();
+                    // Guard against NaN
+                    if (!Number.isNaN(level)) {
+                        total += 0.5 * level;
+                    }
                 }
             }
             // Repair tower consumption
@@ -127,6 +135,10 @@ export class Energy {
      * Returns 1 if no consumption or surplus, returns ratio if deficit
      */
     getSatisfactionRatio(): number {
+        // Return 1 (no penalty) when energy system is disabled
+        if (this.world.cheatMode.enabled && this.world.cheatMode.disableEnergy) {
+            return 1;
+        }
         const production = this.getTotalProduction();
         const consumption = this.getTotalConsumption();
         if (consumption <= 0) return 1;
@@ -164,7 +176,10 @@ export class Energy {
 
         // Energy surplus bonus: +1 gold per surplus energy every BONUS_INTERVAL ticks
         if (balance > 0 && this.world.time % this.BONUS_INTERVAL === 0) {
-            this.world.addMoney(balance);
+            // Guard against NaN to prevent money corruption
+            if (!Number.isNaN(balance)) {
+                this.world.addMoney(balance);
+            }
         }
     }
 }

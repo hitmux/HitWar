@@ -92,6 +92,7 @@ export interface BuildTowerPayload {
 
 export interface UpgradeTowerPayload {
   towerId: string;
+  targetType: string; // Required: target tower type for upgrade
 }
 
 export interface SellTowerPayload {

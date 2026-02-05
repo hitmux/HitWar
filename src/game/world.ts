@@ -470,11 +470,23 @@ export class World {
     /**
      * Add money to the owner (multiplayer compatible)
      * In single-player mode, ownerId is ignored and money goes to world.user
-     * In multiplayer mode, this will be overridden to dispatch to the correct player
+     * In multiplayer mode, money is dispatched to the correct player via PlayerManager
      */
     addMoneyToOwner(ownerId: string | null, amount: number): void {
-        // Single-player mode: always add to the main user
-        this.user.money += amount;
+        if (Number.isNaN(amount)) {
+            console.error('[World.addMoneyToOwner] NaN detected! ownerId:', ownerId, new Error().stack);
+            return;
+        }
+        if (this._playerManager?.isMultiplayer) {
+            // Multiplayer mode: dispatch to the correct player
+            if (ownerId) {
+                this._playerManager.addMoney(amount, ownerId);
+            }
+            // null ownerId (neutral kills) - no reward in multiplayer
+        } else {
+            // Single-player mode: always add to the main user
+            this.user.money += amount;
+        }
     }
 
     /**
@@ -490,6 +502,10 @@ export class World {
      * In multiplayer, this will set the local player's money
      */
     setMoney(amount: number): void {
+        if (Number.isNaN(amount)) {
+            console.error('[World.setMoney] NaN detected!', new Error().stack);
+            return;
+        }
         this.user.money = amount;
     }
 
@@ -498,6 +514,10 @@ export class World {
      * In multiplayer, this will add to the local player's money
      */
     addMoney(amount: number): void {
+        if (Number.isNaN(amount)) {
+            console.error('[World.addMoney] NaN detected!', new Error().stack);
+            return;
+        }
         this.user.money += amount;
     }
 
@@ -507,6 +527,10 @@ export class World {
      * If force is true, money will be set to 0 when insufficient
      */
     spendMoney(amount: number, force: boolean = false): boolean {
+        if (Number.isNaN(amount)) {
+            console.error('[World.spendMoney] NaN detected!', new Error().stack);
+            return false;
+        }
         if (this.user.money >= amount) {
             this.user.money -= amount;
             return true;
@@ -997,6 +1021,10 @@ export class World {
      */
     markStaticLayerDirty(): void {
         this._renderer.markStaticLayerDirty();
+    }
+
+    markBuildingQuadTreeDirty(): void {
+        this._spatialSystem.markBuildingQuadTreeDirty();
     }
 
     /**

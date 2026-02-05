@@ -31,6 +31,7 @@ import {
   TowerMetaRegistry,
   SpawnableMonsterRegistry,
 } from '../validation/index.js';
+import { TOWER_META, type TowerMetaData } from '../../../shared/config/towerMeta.js';
 
 /**
  * Room options when creating/joining
@@ -106,12 +107,12 @@ export class GameRoom extends Room<GameState> {
     // Territory calculator
     this.territoryCalc = new TerritoryCalculator({ territoryRadius: 100 });
 
-    // Tower metadata registry
-    // TODO: Populate from shared tower config when available
+    // Tower metadata registry - populated from shared config
     this.towerMeta = new TowerMetaRegistry();
-    // Register basic towers for now
-    this.towerMeta.register('BasicCannon', 50, ['AncientCannon', 'TraditionalCannon', 'FutureCannon_1']);
-    this.towerMeta.register('AncientCannon', 100, ['GunCannon_1', 'ShotCannon', 'ArrowCannon']);
+    // Import all tower metadata from shared config
+    for (const [id, meta] of Object.entries(TOWER_META)) {
+      this.towerMeta.register(id, meta.price, meta.levelUpArr);
+    }
 
     // Spawnable monster registry
     this.spawnableMeta = new SpawnableMonsterRegistry();
@@ -913,22 +914,45 @@ export class GameRoom extends Room<GameState> {
    * Handle upgrade tower
    */
   private handleUpgradeTower(client: Client, payload: UpgradeTowerPayload): void {
-    // Note: Upgrade target type should be passed in payload
-    // For now, we use a simplified version without target type validation
-    const tower = this.state.towers.get(payload.towerId);
-    if (!tower || tower.ownerId !== client.sessionId) {
-      this.sendActionRejected(client, 'UPGRADE_TOWER', 'Cannot upgrade: invalid tower', 'TOWER_NOT_OWNED');
+    // Validate targetType is provided
+    if (!payload.targetType) {
+      this.sendActionRejected(client, 'UPGRADE_TOWER', 'Missing target type', 'MISSING_TARGET_TYPE');
       return;
     }
 
-    const player = this.state.getPlayer(client.sessionId);
-    if (!player || !player.isAlive) {
-      this.sendActionRejected(client, 'UPGRADE_TOWER', 'Cannot upgrade: invalid player state', 'PLAYER_NOT_ALIVE');
+    // Full validation using InputValidator
+    const result = this.inputValidator.validateUpgradeTower(
+      client.sessionId,
+      payload.towerId,
+      payload.targetType
+    );
+
+    if (!result.valid) {
+      this.sendActionRejected(client, 'UPGRADE_TOWER', result.errorMessage || 'Validation failed', result.errorCode);
       return;
     }
 
-    // TODO: Full validation with target type when payload is extended
+    // Get tower and player (validated above)
+    const tower = this.state.towers.get(payload.towerId)!;
+    const player = this.state.getPlayer(client.sessionId)!;
+    const upgradeCost = result.data?.cost as number;
+
+    // Deduct money
+    player.money -= upgradeCost;
+
+    // Upgrade tower: change type and increment level
+    tower.towerType = payload.targetType;
     tower.level++;
+
+    // Update tower stats based on new type if needed
+    const targetMeta = this.towerMeta.get(payload.targetType);
+    if (targetMeta) {
+      // Could update other stats here (radius, attackRadius, etc.) based on config
+    }
+
+    console.log(
+      `[GameRoom] Tower upgraded: ${tower.id} -> ${payload.targetType} by ${player.name} (cost: ${upgradeCost})`
+    );
   }
 
   /**

@@ -227,10 +227,10 @@ export class WorldRenderer {
 
         // Render dynamic parts of buildings (HP bars)
         for (const b of this._context.buildings) {
-            if ((b as any).gameType === "Mine") continue;
+            if (b.gameType === "Mine") continue;
             if (this._isObjectVisible(b, this._visibleBounds)) {
-                if (typeof (b as any).renderDynamic === 'function') {
-                    (b as any).renderDynamic(ctx);
+                if (typeof b.renderDynamic === 'function') {
+                    b.renderDynamic(ctx);
                 }
             }
         }
@@ -239,14 +239,14 @@ export class WorldRenderer {
         // 阶段1: 先渲染所有塔的主体
         for (const b of this._context.batterys) {
             if (this._isObjectVisible(b, this._visibleBounds)) {
-                (b as any).renderBody(ctx);
+                b.renderBody?.(ctx);
             }
         }
         // 阶段2: 再渲染所有塔的状态条（血条、蓄力条等）
         // 这样状态条都在同一层级，避免塔A的蓄力条覆盖塔B的血条
         for (const b of this._context.batterys) {
             if (this._isObjectVisible(b, this._visibleBounds)) {
-                (b as any).renderBars(ctx);
+                b.renderBars?.(ctx);
             }
         }
 
@@ -537,16 +537,16 @@ export class WorldRenderer {
 
         // Only render static parts of buildings (body, not HP bar) within buffer
         for (const b of buildings) {
-            if ((b as any).gameType === "Mine") continue;
-            const pos = (b as any).pos;
-            const r = (b as any).r || 50;
+            if (b.gameType === "Mine") continue;
+            const pos = b.pos;
+            const r = b.r || 50;
             // Skip buildings outside buffer
             if (pos.x + r < this._bufferLeft || pos.x - r > bufferRight ||
                 pos.y + r < this._bufferTop || pos.y - r > bufferBottom) {
                 continue;
             }
-            if (typeof (b as any).renderStatic === 'function') {
-                (b as any).renderStatic(ctx);
+            if (typeof b.renderStatic === 'function') {
+                b.renderStatic(ctx);
             } else {
                 b.render(ctx);
             }

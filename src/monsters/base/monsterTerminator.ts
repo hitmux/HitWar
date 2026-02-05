@@ -10,6 +10,7 @@ import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
 import { renderMonsterTerminator } from '../rendering/monsterRenderer';
 import { scaleSpeed } from '../../core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
 import type {
     CircleLike as BaseCircleLike,
     BuildingLike as BaseBuildingLike,
@@ -59,23 +60,23 @@ export class MonsterTerminator extends Monster {
         this.scar = new Set();
     }
 
-    hpChange(dh: number): void {
+    hpChange(dh: number, sourceOwnerId?: string | null): void {
         let damage = -dh;
         if (damage < 10) {
             return;
         }
         if (damage < 100) {
-            super.hpChange(-1);
+            super.hpChange(-1, sourceOwnerId);
         } else if (damage < 300) {
-            super.hpChange(-5);
+            super.hpChange(-5, sourceOwnerId);
         } else if (damage < 500) {
-            super.hpChange(-100);
+            super.hpChange(-100, sourceOwnerId);
         } else if (damage < 1500) {
-            super.hpChange(-300);
+            super.hpChange(-300, sourceOwnerId);
         } else if (damage < 3000) {
-            super.hpChange(-500);
+            super.hpChange(-500, sourceOwnerId);
         } else {
-            super.hpChange(-damage * 0.75);
+            super.hpChange(-damage * 0.75, sourceOwnerId);
         }
     }
 
@@ -119,6 +120,10 @@ export class MonsterTerminator extends Monster {
         this.meeleAttacking = false;
         const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
         for (let b of nearbyBuildings) {
+            // Skip friendly buildings (multiplayer support)
+            if (!isEnemy(this, b)) {
+                continue;
+            }
             const bc = b.getBodyCircle();
             // 使用扫掠检测（建筑不移动）
             if (Circle.sweepCollides(

@@ -21,17 +21,24 @@ export interface TowerLike {
     // 分离的移动和碰撞方法
     goStepMove: () => void;
     goStepCollide: () => void;
+    // Rendering methods
+    renderBody?: (ctx: CanvasRenderingContext2D) => void;
+    renderBars?: (ctx: CanvasRenderingContext2D) => void;
 }
 
 // 建筑实体接口
 export interface BuildingLike {
     pos: Vector;
+    r?: number;
     gameType?: string;
     isDead: () => boolean;
     goStep: () => void;
     render: (ctx: CanvasRenderingContext2D) => void;
     destroy?: (skipRemoveFromBuildings?: boolean) => void;
     getBodyCircle: () => any; // Returns Circle or compatible object
+    // Rendering methods
+    renderStatic?: (ctx: CanvasRenderingContext2D) => void;
+    renderDynamic?: (ctx: CanvasRenderingContext2D) => void;
 }
 
 // 怪物实体接口
@@ -53,6 +60,9 @@ export interface MonsterLike extends SpatialEntity {
     // 上一帧位置（用于扫掠碰撞检测）
     prevX: number;
     prevY: number;
+    // Multiplayer support
+    ownerId?: string | null;
+    destination?: Vector;
 }
 
 // 子弹实体接口

@@ -155,6 +155,8 @@ export class PlayerManager {
      * Add money to a player
      */
     addMoney(amount: number, playerId?: string): void {
+        // Guard against NaN
+        if (Number.isNaN(amount)) return;
         const id = playerId ?? this._localPlayerId;
         const player = this._players.get(id);
         if (player) {
@@ -167,6 +169,8 @@ export class PlayerManager {
      * @returns true if successful, false if not enough money
      */
     spendMoney(amount: number, playerId?: string): boolean {
+        // Guard against NaN
+        if (Number.isNaN(amount)) return false;
         const id = playerId ?? this._localPlayerId;
         const player = this._players.get(id);
         if (!player) return false;
@@ -182,6 +186,8 @@ export class PlayerManager {
      * Set money for a player
      */
     setMoney(amount: number, playerId?: string): void {
+        // Guard against NaN
+        if (Number.isNaN(amount)) return;
         const id = playerId ?? this._localPlayerId;
         const player = this._players.get(id);
         if (player) {

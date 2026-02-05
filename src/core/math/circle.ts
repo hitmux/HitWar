@@ -40,7 +40,7 @@ export class Circle {
     /**
      * Check if two circles collide
      */
-    impact(otherC: Circle): boolean {
+    impact(otherC: { x: number; y: number; r: number }): boolean {
         const dx = otherC.x - this.x;
         const dy = otherC.y - this.y;
         const distSq = dx * dx + dy * dy;

@@ -106,7 +106,7 @@ export class TowerHammer extends Tower {
                 continue;
             }
             if (Circle.collides(itemCircle.x, itemCircle.y, itemCircle.r, mc.x, mc.y, mc.r)) {
-                m.hpChange(-actualDamage);
+                m.hpChange(-actualDamage, this.ownerId);
             }
         }
     }
@@ -197,7 +197,7 @@ export class TowerHammer extends Tower {
                 continue;
             }
             if (Circle.collides(itemCircle.x, itemCircle.y, itemCircle.r, mc.x, mc.y, mc.r)) {
-                m.hpChange(-actualDamage);
+                m.hpChange(-actualDamage, this.ownerId);
                 this.hitCooldown.set(m, this.liveTime);
             }
         }

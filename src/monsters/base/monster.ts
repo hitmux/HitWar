@@ -258,6 +258,9 @@ export class Monster extends CircleObject {
 
     imgIndex: number;
 
+    // Multiplayer: track who dealt the last damage (for kill reward)
+    lastDamageOwnerId: string | null = null;
+
     declare world: WorldLike;
 
     constructor(pos: Vector, world: WorldLike) {
@@ -712,7 +715,11 @@ export class Monster extends CircleObject {
         }
     }
 
-    hpChange(dh: number): void {
+    hpChange(dh: number, sourceOwnerId?: string | null): void {
+        // Track who dealt damage (for kill reward in multiplayer)
+        if (dh < 0 && sourceOwnerId !== undefined) {
+            this.lastDamageOwnerId = sourceOwnerId;
+        }
         return super.hpChange(dh);
     }
 
@@ -721,8 +728,8 @@ export class Monster extends CircleObject {
         super.remove();
         this.hpSet(0);
         this.world.removeMonster(this);
-        // Kill reward: dispatch to owner (multiplayer compatible)
-        this.world.addMoneyToOwner(null, this.addPrice);
+        // Kill reward: dispatch to killer (multiplayer compatible)
+        this.world.addMoneyToOwner(this.lastDamageOwnerId, this.addPrice);
     }
 
     clash(): void {
@@ -793,6 +800,10 @@ export class Monster extends CircleObject {
     clashOnly(): void {
         let nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
         for (let b of nearbyBuildings) {
+            // Skip friendly buildings (multiplayer support)
+            if (!isEnemy(this, b)) {
+                continue;
+            }
             const bc = b.getBodyCircle();
             // 使用扫掠检测（建筑不移动，所以用基础扫掠检测）
             if (Circle.sweepCollides(

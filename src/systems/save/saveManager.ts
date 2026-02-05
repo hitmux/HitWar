@@ -174,6 +174,7 @@ interface WorldLike {
     monsters: Set<unknown>;
     mines: Set<unknown>;
     territory?: { markDirty: () => void; recalculate: () => void };
+    fog?: { markDirty: () => void };
     markStaticLayerDirty: () => void;
     // Money management (multiplayer compatible)
     getMoney(): number;
@@ -681,8 +682,8 @@ export class SaveManager {
             }
 
             // Rebuild fog vision cache after loading
-            if ((world as any).fog) {
-                (world as any).fog.markDirty();
+            if (world.fog) {
+                world.fog.markDirty();
             }
 
             // Mark static layer dirty to rebuild building render cache

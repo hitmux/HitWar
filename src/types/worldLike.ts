@@ -45,10 +45,12 @@ export interface MonsterLike {
     pos: VectorLike;
     r?: number;
     getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
+    hpChange(delta: number, attackerId?: string | null): void;
     isDead(): boolean;
     /** Owner player ID for multiplayer (null = neutral) */
     ownerId: string | null;
+    /** Target destination for multiplayer mode */
+    destination?: VectorLike;
 }
 
 /** Minimal bullet interface */
@@ -61,6 +63,8 @@ export interface BulletLike {
     acceleration: VectorLike;
     damageChange(delta: number): void;
     remove(): void;
+    /** Owner player ID for multiplayer (null = neutral) */
+    ownerId?: string | null;
 }
 
 /** Minimal building interface for targeting/collision */
@@ -68,8 +72,9 @@ export interface BuildingLike {
     pos: VectorLike;
     hp: number;
     maxHp: number;
+    r?: number;
     getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
+    hpChange(delta: number, attackerId?: string | null): void;
     isDead(): boolean;
     // Tower-specific (optional, for threat calculation)
     damage?: number;
@@ -85,6 +90,13 @@ export interface BuildingLike {
     _originalRangeR?: number | null;
     /** Owner player ID for multiplayer (null = neutral) */
     ownerId: string | null;
+    // UI state
+    selected?: boolean;
+    // MonsterSpawner specific
+    canSpawnMonsters?: boolean;
+    // Rendering methods
+    renderStatic?(ctx: CanvasRenderingContext2D): void;
+    renderDynamic?(ctx: CanvasRenderingContext2D): void;
 }
 
 /** Minimal tower interface */
@@ -92,12 +104,21 @@ export interface TowerLike {
     pos: VectorLike;
     r?: number;
     rangeR?: number;
-    hpChange(delta: number): void;
+    hpChange(delta: number, attackerId?: string | null): void;
     getBodyCircle?(): CircleLike;
     getTowerLevel?(): number;
     inValidTerritory?: boolean;
     /** Owner player ID for multiplayer (null = neutral) */
     ownerId: string | null;
+    // Type identification
+    gameType?: string;
+    // UI state
+    selected?: boolean;
+    // ManualCannon specific
+    canAttackBuildings?: boolean;
+    // Rendering methods
+    renderBody?(ctx: CanvasRenderingContext2D): void;
+    renderBars?(ctx: CanvasRenderingContext2D): void;
 }
 
 // ============================================================================
@@ -118,6 +139,7 @@ export interface FogOfWarLike {
     enabled: boolean;
     isPositionVisible(x: number, y: number): boolean;
     isCircleVisible(x: number, y: number, radius: number): boolean;
+    markDirty(): void;
 }
 
 /** Camera interface */
@@ -222,6 +244,13 @@ export interface WorldLike {
 
     // Static layer
     markStaticLayerDirty?(): void;
+
+    // Spatial system methods (for entity movement tracking)
+    markBuildingQuadTreeDirty?(): void;
+    markSpatialDirty?(entity: unknown): void;
+
+    // Energy system (multiplayer compatible)
+    getEnergyForOwner?(ownerId: string | null): EnergyLike;
 }
 
 // ============================================================================

@@ -97,7 +97,7 @@ export class TowerHell extends Tower {
         if (this.laserFreezeNow === this.laserFreezeMax) {
             let damage = Math.pow(this.targetLiveTime, 2) / this.damageRate;
             damage = damage * this.getDamageMultiplier();
-            this.target.hpChange(-damage);
+            this.target.hpChange(-damage, this.ownerId);
             this.targetLiveTime++;
 
             if (typeof EffectLine !== 'undefined') {

@@ -344,7 +344,7 @@ export class WaveManager {
         // Collect neutral monsters that need redistribution
         const neutralMonsters: MonsterLike[] = [];
         for (const monster of this._world.monsters) {
-            if ((monster as any).ownerId === null) {
+            if (monster.ownerId === null) {
                 neutralMonsters.push(monster);
             }
         }
@@ -361,7 +361,7 @@ export class WaveManager {
 
             if (targetBase) {
                 // Set monster's destination to target player's base
-                (monster as any).destination = new Vector(targetBase.pos.x, targetBase.pos.y);
+                monster.destination = new Vector(targetBase.pos.x, targetBase.pos.y);
 
                 // Reposition monster to spawn from map edge towards target
                 this._repositionMonsterToEdge(monster, targetBase.pos);
@@ -409,8 +409,8 @@ export class WaveManager {
         spawnX = Math.max(margin, Math.min(world.width - margin, spawnX));
         spawnY = Math.max(margin, Math.min(world.height - margin, spawnY));
 
-        (monster as any).pos.x = spawnX;
-        (monster as any).pos.y = spawnY;
+        monster.pos.x = spawnX;
+        monster.pos.y = spawnY;
     }
 
     /**
@@ -432,7 +432,7 @@ export class WaveManager {
         for (const monster of this._world.monsters) {
             // Check if monster's destination matches eliminated player's former base
             // We need to check by comparing the destination with the base positions
-            const mDest = (monster as any).destination;
+            const mDest = monster.destination;
             if (!mDest) continue;
 
             // Get former base position of eliminated player
@@ -450,7 +450,7 @@ export class WaveManager {
                     const newBase = playerManager.getBaseBuilding(newTarget.id);
 
                     if (newBase) {
-                        (monster as any).destination = new Vector(newBase.pos.x, newBase.pos.y);
+                        monster.destination = new Vector(newBase.pos.x, newBase.pos.y);
                     }
 
                     playerIndex++;

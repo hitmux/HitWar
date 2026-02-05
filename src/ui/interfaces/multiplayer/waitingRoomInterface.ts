@@ -10,7 +10,7 @@ import {
   NetworkEvent,
   ConnectionState,
 } from '@/network/networkClient';
-import { startBattleMode } from '../battle';
+import { startMultiplayerBattleMode } from '../battle';
 import { PLAYER_COLORS, type PlayerDisplayInfo } from './types';
 import { lobbyInterface } from './lobbyInterface';
 
@@ -206,10 +206,8 @@ export function waitingRoomInterface(): void {
     cleanup();
     // Navigate to game interface
     gotoPage('war-interface');
-    // Start battle mode with multiplayer configuration
-    // For now, use standard single-player mode
-    // TODO: Implement proper multiplayer game integration
-    startBattleMode('normal', true, null);
+    // Start multiplayer battle mode
+    startMultiplayerBattleMode();
   };
 
   const onError = (error: unknown) => {

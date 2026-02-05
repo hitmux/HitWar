@@ -124,7 +124,7 @@ export class TowerBoomerang extends Tower {
                 continue;
             }
             if (this.bar.intersectWithCircle(mc as any)) {
-                m.hpChange(-actualDamage);
+                m.hpChange(-actualDamage, this.ownerId);
             }
         }
         this.barGo();
@@ -174,7 +174,7 @@ export class TowerBoomerang extends Tower {
                 continue;
             }
             if (this.bar.intersectWithCircle(mc as any)) {
-                m.hpChange(-actualDamage);
+                m.hpChange(-actualDamage, this.ownerId);
                 this.hitCooldown.set(m, this.liveTime);
             }
         }
