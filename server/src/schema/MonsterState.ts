@@ -22,6 +22,8 @@ export class MonsterState extends Schema {
   @type('boolean') isSlowed: boolean = false;
   @type('number') freezeEndTime: number = 0;
   @type('number') slowEndTime: number = 0;
+  @type('number') burnRate: number = 0; // HP% damage per tick from burning
+  @type('string') burnSourceOwnerId: string = ''; // Player who applied the burn
 
   // Movement tracking (for sweep collision)
   prevX: number = 0;

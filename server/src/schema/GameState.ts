@@ -8,6 +8,7 @@ import { TowerState } from './TowerState.js';
 import { MonsterState } from './MonsterState.js';
 import { BuildingState } from './BuildingState.js';
 import { BulletState } from './BulletState.js';
+import { MineState } from './MineState.js';
 
 /**
  * Game phase enum
@@ -81,6 +82,7 @@ export class GameState extends Schema {
   @type({ map: MonsterState }) monsters: MapSchema<MonsterState> = new MapSchema<MonsterState>();
   @type({ map: BuildingState }) buildings: MapSchema<BuildingState> = new MapSchema<BuildingState>();
   @type({ map: BulletState }) bullets: MapSchema<BulletState> = new MapSchema<BulletState>();
+  @type({ map: MineState }) mines: MapSchema<MineState> = new MapSchema<MineState>();
 
   // Disconnection handling
   @type('string') disconnectedPlayerId: string = '';
@@ -95,6 +97,7 @@ export class GameState extends Schema {
     this.monsters = new MapSchema<MonsterState>();
     this.buildings = new MapSchema<BuildingState>();
     this.bullets = new MapSchema<BulletState>();
+    this.mines = new MapSchema<MineState>();
   }
 
   /**

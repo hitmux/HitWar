@@ -490,6 +490,39 @@ export class World {
     }
 
     /**
+     * Spend money from the owner (multiplayer compatible)
+     * In single-player mode, ownerId is ignored and money is spent from world.user
+     * In multiplayer mode, money is spent from the correct player via PlayerManager
+     * If force is true, money will be set to 0 when insufficient
+     */
+    spendMoneyFromOwner(ownerId: string | null, amount: number, force: boolean = false): boolean {
+        if (Number.isNaN(amount)) {
+            console.error('[World.spendMoneyFromOwner] NaN detected! ownerId:', ownerId, new Error().stack);
+            return false;
+        }
+        if (this._playerManager?.isMultiplayer) {
+            // Multiplayer mode: dispatch to the correct player
+            if (ownerId) {
+                const success = this._playerManager.spendMoney(amount, ownerId);
+                if (!success && force) {
+                    // Force spend: set player money to 0
+                    const player = this._playerManager.getPlayer(ownerId);
+                    if (player) {
+                        player.money = 0;
+                    }
+                    return true;
+                }
+                return success;
+            }
+            // null ownerId - no penalty in multiplayer
+            return false;
+        } else {
+            // Single-player mode: always spend from the main user
+            return this.spendMoney(amount, force);
+        }
+    }
+
+    /**
      * Get the current player's money
      * In multiplayer, this will return the local player's money
      */

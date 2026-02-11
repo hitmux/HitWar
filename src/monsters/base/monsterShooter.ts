@@ -8,6 +8,7 @@ import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
 import { renderMonsterShooter } from '../rendering/monsterRenderer';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
+import { isEnemy } from '../../game/player/ownership';
 import type {
     VectorLike,
     CircleLike as BaseCircleLike,
@@ -187,6 +188,10 @@ export class MonsterShooter extends Monster {
             const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.rangeR);
             const viewCircle = this.getViewCircle();
             for (const building of nearbyBuildings) {
+                // Skip friendly buildings
+                if (!isEnemy(this, building)) {
+                    continue;
+                }
                 const bc = building.getBodyCircle();
                 if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, bc.x, bc.y, bc.r)) {
                     this.target = building;

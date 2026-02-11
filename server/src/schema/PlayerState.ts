@@ -24,6 +24,11 @@ export class PlayerState extends Schema {
   @type('number') monstersKilled: number = 0;
   @type('number') monstersSpawned: number = 0;
 
+  // Energy system
+  @type('number') energyProduction: number = 6;
+  @type('number') energyConsumption: number = 0;
+  @type('number') energySatisfaction: number = 1;
+
   constructor(id: string = '', name: string = '', playerIndex: number = 0) {
     super();
     this.id = id;

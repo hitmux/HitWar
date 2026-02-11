@@ -341,6 +341,71 @@ export class ClientPrediction {
     /**
      * Get prediction count (for debugging)
      */
+
+    // ==================== Matching Methods ====================
+    // Used by NetworkWorldAdapter to match server state changes to predictions
+
+    /**
+     * Find and confirm a build prediction by (towerType, x, y).
+     * Position-based matching ensures correct pairing even with concurrent builds.
+     */
+    findAndConfirmBuild(towerType: string, x: number, y: number, tolerance = 1): boolean {
+        for (const [id, prediction] of this._predictedTowers) {
+            if (
+                prediction.state === 'pending' &&
+                prediction.towerType === towerType &&
+                Math.abs(prediction.x - x) <= tolerance &&
+                Math.abs(prediction.y - y) <= tolerance
+            ) {
+                this.confirmBuild(id);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Reject the oldest pending build prediction (FIFO).
+     * Used when ACTION_REJECTED arrives without coordinates.
+     */
+    rejectOldestPendingBuild(): boolean {
+        for (const [id, prediction] of this._predictedTowers) {
+            if (prediction.state === 'pending') {
+                this.rejectBuild(id);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Find and confirm a sell prediction by towerId.
+     * Called when a tower disappears from server state.
+     */
+    findAndConfirmSellByTowerId(towerId: string): boolean {
+        for (const [id, sell] of this._predictedSells) {
+            if (sell.state === 'pending' && sell.towerId === towerId) {
+                this.confirmSell(id);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Reject the oldest pending sell prediction (FIFO).
+     * Used when sell ACTION_REJECTED arrives.
+     */
+    rejectOldestPendingSell(): boolean {
+        for (const [id, sell] of this._predictedSells) {
+            if (sell.state === 'pending') {
+                this.rejectSell(id);
+                return true;
+            }
+        }
+        return false;
+    }
+
     getPredictionCount(): number {
         return this._predictedTowers.size + this._predictedSells.size;
     }

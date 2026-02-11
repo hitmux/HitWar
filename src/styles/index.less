@@ -658,60 +658,59 @@ body {
   position: absolute;
   min-width: 250px;
   max-width: 320px;
-  padding: 10px;
-  border-radius: 8px;
-  background-color: rgba(40, 20, 20, 0.9);
-  border: 2px solid rgba(120, 30, 30, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  padding: 8px;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.5);
   z-index: 1000;
 
   .spawner-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(120, 30, 30, 0.5);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
 
     .spawner-title {
-      color: #ff6b6b;
+      color: #333;
       font-weight: bold;
       font-size: 14px;
     }
 
     .spawner-close {
       cursor: pointer;
-      color: #888;
+      color: #666;
       font-size: 18px;
       line-height: 1;
+      transition: all 0.2s;
 
       &:hover {
-        color: #ff6b6b;
+        color: #333;
+        transform: scale(1.1);
       }
     }
   }
 
   .spawner-target-section {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 
     label {
-      color: #ccc;
+      color: #333;
       font-size: 12px;
       margin-right: 8px;
     }
 
     .spawner-target-select {
       padding: 4px 8px;
-      border-radius: 4px;
-      border: 1px solid rgba(120, 30, 30, 0.5);
-      background-color: rgba(60, 30, 30, 0.8);
-      color: #fff;
+      border-radius: 5px;
+      border: none;
+      background-color: rgba(255, 255, 255, 0.5);
+      color: #333;
       font-size: 12px;
       cursor: pointer;
 
       &:focus {
         outline: none;
-        border-color: #ff6b6b;
       }
     }
   }
@@ -724,27 +723,28 @@ body {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 10px;
-      margin-bottom: 4px;
-      border-radius: 4px;
-      background-color: rgba(60, 30, 30, 0.6);
+      padding: 6px 8px;
+      margin-bottom: 3px;
+      border-radius: 5px;
+      background-color: rgba(255, 255, 255, 0.5);
       transition: all 0.2s;
 
       .monster-name {
-        color: #fff;
+        color: #333;
         font-size: 12px;
         font-weight: bold;
         flex: 1;
       }
 
       .monster-cost {
-        color: #ffd700;
+        color: #b8860b;
         font-size: 11px;
         margin: 0 10px;
+        font-weight: bold;
       }
 
       .monster-status {
-        color: #888;
+        color: #666;
         font-size: 10px;
         text-align: right;
         min-width: 70px;
@@ -754,12 +754,12 @@ body {
         cursor: pointer;
 
         &:hover {
-          background-color: rgba(100, 40, 40, 0.8);
-          transform: translateX(2px);
+          transform: scale(1.05);
+          background-color: rgba(255, 255, 255, 0.7);
         }
 
         .monster-status {
-          color: #6b6;
+          color: #228b22;
         }
       }
 
@@ -768,14 +768,14 @@ body {
         cursor: not-allowed;
 
         .monster-name {
-          color: #999;
+          color: #666;
         }
       }
     }
   }
 
   .spawner-hint {
-    color: #ff8888;
+    color: #c00;
     font-size: 12px;
     text-align: center;
     padding: 10px;
@@ -788,80 +788,80 @@ body {
   position: absolute;
   min-width: 220px;
   max-width: 280px;
-  padding: 10px;
-  border-radius: 8px;
-  background-color: rgba(30, 40, 60, 0.95);
-  border: 2px solid rgba(80, 100, 140, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  padding: 8px;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.5);
   z-index: 1000;
 
   .cannon-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(80, 100, 140, 0.5);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
 
     .cannon-title {
-      color: #6b9fff;
+      color: #333;
       font-weight: bold;
       font-size: 14px;
     }
 
     .cannon-close {
       cursor: pointer;
-      color: #888;
+      color: #666;
       font-size: 18px;
       line-height: 1;
+      transition: all 0.2s;
 
       &:hover {
-        color: #6b9fff;
+        color: #333;
+        transform: scale(1.1);
       }
     }
   }
 
   .cannon-stats {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 
     .cannon-stat {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 4px 0;
+      padding: 3px 0;
       font-size: 12px;
 
       .stat-label {
-        color: #aaa;
+        color: #555;
       }
 
       .cannon-ammo {
-        color: #ffd700;
+        color: #b8860b;
         font-weight: bold;
       }
 
       .cannon-damage {
-        color: #ff6b6b;
+        color: #c00;
         font-weight: bold;
       }
 
       .cannon-range {
-        color: #6bff6b;
+        color: #228b22;
       }
     }
   }
 
   .cannon-reload-bar {
     height: 4px;
-    background-color: rgba(60, 60, 80, 0.8);
+    background-color: rgba(0, 0, 0, 0.2);
     border-radius: 2px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     overflow: hidden;
 
     .cannon-reload-progress {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, #4a9eff, #00d4ff);
+      background-color: #4a9eff;
       border-radius: 2px;
       transition: width 0.1s ease;
     }
@@ -870,43 +870,34 @@ body {
   .cannon-actions {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 
     .cannon-btn {
-      padding: 8px 12px;
+      padding: 6px 10px;
       border: none;
-      border-radius: 4px;
+      border-radius: 5px;
       font-size: 12px;
       cursor: pointer;
       transition: all 0.2s;
-      color: #fff;
+      color: #333;
+      background-color: rgba(255, 255, 255, 0.5);
+
+      &:hover:not(:disabled) {
+        transform: scale(1.05);
+        background-color: rgba(255, 255, 255, 0.7);
+      }
 
       &.cannon-fire-btn {
-        background: linear-gradient(135deg, #4a9eff, #2a7edf);
-
-        &:hover:not(:disabled) {
-          background: linear-gradient(135deg, #5aaaff, #3a8eef);
-          transform: translateY(-1px);
-        }
+        font-weight: bold;
       }
 
       &.cannon-semi-btn {
-        background: linear-gradient(135deg, #6b6bff, #4a4adf);
-
-        &:hover:not(:disabled) {
-          background: linear-gradient(135deg, #7b7bff, #5a5aef);
-          transform: translateY(-1px);
-        }
+        font-weight: bold;
       }
 
       &.cannon-clear-btn {
-        background: linear-gradient(135deg, #ff6b6b, #df4a4a);
         display: none;
-
-        &:hover:not(:disabled) {
-          background: linear-gradient(135deg, #ff7b7b, #ef5a5a);
-          transform: translateY(-1px);
-        }
+        color: #c00;
       }
 
       &:disabled {
@@ -918,10 +909,10 @@ body {
   }
 
   .cannon-hint {
-    color: #aaa;
+    color: #666;
     font-size: 11px;
     text-align: center;
-    padding: 8px 0 0 0;
+    padding: 6px 0 0 0;
     font-style: italic;
   }
 }
@@ -1407,15 +1398,36 @@ button {
 }
 
 // ==================== 多人模式界面样式 ====================
-// Multiplayer interface common styles
+// Multiplayer interface common styles (unified with main game UI)
+
+// Multiplayer button mixin - matches .interfaceBtn() style
+.multiplayerBtn() {
+  background-color: #1e1e1e;
+  color: rgb(241, 243, 244);
+  display: block;
+  padding: 14px 32px;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  border-radius: 100px;
+  font-family: myFont, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: bold;
+
+  &:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
 .multiplayer-connect-interface,
 .multiplayer-lobby-interface,
 .multiplayer-waiting-interface {
-  h1, h2 {
-    position: static !important;
-    margin-top: 40px;
-    text-align: center;
-  }
+  // Use default .header() styles for h1/h2 - remove position override
 
   .leftTopArea {
     position: absolute;
@@ -1429,14 +1441,12 @@ button {
   .multiplayer-content {
     position: absolute;
     left: 50%;
-    top: 45%;
+    top: 50%;
     transform: translate(-50%, -50%);
     width: 400px;
     padding: 30px;
-    background-color: rgba(30, 30, 30, 0.9);
-    border-radius: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    background-color: rgba(30, 30, 30, 0.85);
+    border-radius: 20px;
   }
 
   .input-group {
@@ -1444,9 +1454,10 @@ button {
 
     label {
       display: block;
-      color: #aaa;
+      color: rgba(255, 255, 255, 0.7);
       font-size: 14px;
       margin-bottom: 8px;
+      font-family: myFont, "Times New Roman", serif;
     }
 
     input {
@@ -1454,15 +1465,14 @@ button {
       padding: 12px 16px;
       background-color: rgba(255, 255, 255, 0.1);
       border: 2px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
+      border-radius: 100px;
       color: #f1f3f4;
       font-size: 16px;
       transition: all 0.2s;
 
       &:focus {
         outline: none;
-        border-color: #4a9eff;
-        box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
       }
 
       &::placeholder {
@@ -1472,35 +1482,18 @@ button {
   }
 
   .connect-btn {
+    .multiplayerBtn();
     width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #4a9eff, #2a7edf);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover:not(:disabled) {
-      background: linear-gradient(135deg, #5aaaff, #3a8eef);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+    margin-top: 10px;
   }
 
   .connection-status {
     text-align: center;
     margin-top: 16px;
     padding: 8px;
-    border-radius: 4px;
+    border-radius: 100px;
     font-size: 14px;
+    font-family: myFont, "Times New Roman", serif;
 
     &.info {
       color: #aaa;
@@ -1526,27 +1519,27 @@ button {
     top: 30px;
     color: #f1f3f4;
     font-size: 16px;
+    font-family: myFont, "Times New Roman", serif;
 
     .lobby-player-label {
       background-color: rgba(30, 30, 30, 0.8);
-      padding: 8px 16px;
-      border-radius: 20px;
+      padding: 8px 20px;
+      border-radius: 100px;
     }
   }
 
   .lobby-content {
     position: absolute;
     left: 50%;
-    top: 50%;
+    top: 55%;
     transform: translate(-50%, -50%);
     width: 500px;
     max-height: 70vh;
   }
 
   .room-list-section {
-    background-color: rgba(30, 30, 30, 0.9);
-    border-radius: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(30, 30, 30, 0.85);
+    border-radius: 20px;
     overflow: hidden;
     margin-bottom: 20px;
   }
@@ -1555,24 +1548,16 @@ button {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 12px 20px;
     background-color: rgba(0, 0, 0, 0.3);
     color: #f1f3f4;
     font-weight: bold;
+    font-family: myFont, "Times New Roman", serif;
 
     .refresh-btn {
-      padding: 6px 12px;
-      background-color: rgba(74, 158, 255, 0.3);
-      color: #4a9eff;
-      border: 1px solid #4a9eff;
-      border-radius: 4px;
+      .multiplayerBtn();
+      padding: 6px 16px;
       font-size: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-
-      &:hover {
-        background-color: rgba(74, 158, 255, 0.5);
-      }
     }
   }
 
@@ -1587,6 +1572,7 @@ button {
     color: #888;
     padding: 40px 20px;
     font-size: 16px;
+    font-family: myFont, "Times New Roman", serif;
   }
 
   .room-item {
@@ -1595,7 +1581,7 @@ button {
     padding: 12px 16px;
     margin-bottom: 8px;
     background-color: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
+    border-radius: 100px;
     transition: all 0.2s;
 
     &:hover {
@@ -1615,6 +1601,7 @@ button {
       flex: 1;
       color: #f1f3f4;
       font-size: 14px;
+      font-family: myFont, "Times New Roman", serif;
     }
 
     .room-players {
@@ -1624,23 +1611,9 @@ button {
     }
 
     .join-room-btn {
-      padding: 6px 16px;
-      background-color: #4a9eff;
-      color: white;
-      border: none;
-      border-radius: 4px;
+      .multiplayerBtn();
+      padding: 6px 20px;
       font-size: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-
-      &:hover:not(:disabled) {
-        background-color: #3a8eef;
-      }
-
-      &:disabled {
-        background-color: #666;
-        cursor: not-allowed;
-      }
     }
   }
 
@@ -1651,33 +1624,12 @@ button {
   }
 
   .lobby-btn {
+    .multiplayerBtn();
     flex: 1;
-    padding: 14px;
-    background-color: rgba(42, 42, 42, 0.9);
-    color: #f1f3f4;
-    border: 2px solid rgba(68, 68, 68, 0.8);
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover {
-      background-color: rgba(58, 58, 58, 0.9);
-      transform: translateY(-2px);
-    }
-
-    &.primary {
-      background: linear-gradient(135deg, #4a9eff, #2a7edf);
-      border: none;
-
-      &:hover {
-        background: linear-gradient(135deg, #5aaaff, #3a8eef);
-      }
-    }
+    text-align: center;
 
     &.searching {
-      background: linear-gradient(135deg, #ff9800, #f57c00);
+      background-color: #ff9800;
       animation: searchPulse 1.5s ease-in-out infinite;
     }
   }
@@ -1686,6 +1638,7 @@ button {
     text-align: center;
     color: #aaa;
     font-size: 14px;
+    font-family: myFont, "Times New Roman", serif;
 
     &.success {
       color: #6bff6b;
@@ -1718,10 +1671,8 @@ button {
 
   .dialog-content {
     background-color: rgba(30, 30, 30, 0.95);
-    padding: 24px;
-    border-radius: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    padding: 28px;
+    border-radius: 20px;
     min-width: 380px;
 
     h3 {
@@ -1729,6 +1680,7 @@ button {
       text-align: center;
       margin-bottom: 20px;
       font-size: 20px;
+      font-family: myFont, "Times New Roman", serif;
     }
   }
 
@@ -1741,23 +1693,24 @@ button {
 
     label {
       display: block;
-      color: #aaa;
+      color: rgba(255, 255, 255, 0.7);
       font-size: 14px;
       margin-bottom: 8px;
+      font-family: myFont, "Times New Roman", serif;
     }
 
     input[type="text"] {
       width: 100%;
-      padding: 10px 14px;
+      padding: 10px 16px;
       background-color: rgba(255, 255, 255, 0.1);
       border: 2px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
+      border-radius: 100px;
       color: #f1f3f4;
       font-size: 14px;
 
       &:focus {
         outline: none;
-        border-color: #4a9eff;
+        border-color: rgba(255, 255, 255, 0.5);
       }
     }
   }
@@ -1767,9 +1720,10 @@ button {
 
     > label {
       display: block;
-      color: #aaa;
+      color: rgba(255, 255, 255, 0.7);
       font-size: 14px;
       margin-bottom: 10px;
+      font-family: myFont, "Times New Roman", serif;
     }
 
     .radio-options {
@@ -1781,9 +1735,9 @@ button {
     .radio-option {
       display: flex;
       align-items: center;
-      padding: 10px 14px;
+      padding: 10px 16px;
       background-color: rgba(255, 255, 255, 0.05);
-      border-radius: 6px;
+      border-radius: 100px;
       cursor: pointer;
       transition: all 0.2s;
 
@@ -1793,12 +1747,13 @@ button {
 
       input[type="radio"] {
         margin-right: 10px;
-        accent-color: #4a9eff;
+        accent-color: #f1f3f4;
       }
 
       span {
         color: #ddd;
         font-size: 14px;
+        font-family: myFont, "Times New Roman", serif;
       }
     }
   }
@@ -1810,10 +1765,11 @@ button {
       color: #ddd;
       font-size: 14px;
       cursor: pointer;
+      font-family: myFont, "Times New Roman", serif;
 
       input[type="checkbox"] {
         margin-right: 10px;
-        accent-color: #4a9eff;
+        accent-color: #f1f3f4;
       }
     }
   }
@@ -1824,27 +1780,12 @@ button {
     justify-content: center;
 
     .dialog-btn {
-      padding: 10px 24px;
-      border: none;
-      border-radius: 6px;
+      .multiplayerBtn();
+      padding: 10px 28px;
       font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.2s;
-      background-color: #4a9eff;
-      color: white;
-
-      &:hover {
-        background-color: #3a8eef;
-        transform: scale(1.05);
-      }
 
       &.cancel {
-        background-color: #666;
-
-        &:hover {
-          background-color: #555;
-        }
+        background-color: #444;
       }
     }
   }
@@ -1859,9 +1800,10 @@ button {
     transform: translateX(-50%);
     color: #aaa;
     font-size: 16px;
+    font-family: myFont, "Times New Roman", serif;
     background-color: rgba(30, 30, 30, 0.8);
-    padding: 8px 20px;
-    border-radius: 20px;
+    padding: 8px 24px;
+    border-radius: 100px;
   }
 
   .waiting-content {
@@ -1879,13 +1821,12 @@ button {
 
   .player-slot {
     margin-bottom: 16px;
-    padding: 16px;
-    background-color: rgba(30, 30, 30, 0.9);
-    border-radius: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    padding: 16px 20px;
+    background-color: rgba(30, 30, 30, 0.85);
+    border-radius: 20px;
 
     &.filled.ready {
-      border-color: rgba(107, 255, 107, 0.5);
+      box-shadow: 0 0 10px rgba(107, 255, 107, 0.3);
     }
 
     .player-number {
@@ -1893,6 +1834,7 @@ button {
       font-size: 12px;
       text-align: left;
       margin-bottom: 8px;
+      font-family: myFont, "Times New Roman", serif;
     }
 
     .player-card {
@@ -1920,21 +1862,24 @@ button {
         color: #f1f3f4;
         font-size: 16px;
         font-weight: bold;
+        font-family: myFont, "Times New Roman", serif;
       }
 
       .host-badge {
         display: inline-block;
         margin-left: 8px;
-        padding: 2px 8px;
+        padding: 2px 10px;
         background-color: rgba(255, 215, 0, 0.3);
         color: #ffd700;
         font-size: 10px;
-        border-radius: 4px;
+        border-radius: 100px;
+        font-family: myFont, "Times New Roman", serif;
       }
     }
 
     .player-status {
       font-size: 14px;
+      font-family: myFont, "Times New Roman", serif;
 
       &.ready {
         color: #6bff6b;
@@ -1947,40 +1892,25 @@ button {
   }
 
   .ready-btn {
+    .multiplayerBtn();
     width: 200px;
-    padding: 14px 32px;
-    background: linear-gradient(135deg, #4a9eff, #2a7edf);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover {
-      background: linear-gradient(135deg, #5aaaff, #3a8eef);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
-    }
+    margin: 0 auto;
 
     &.ready {
-      background: linear-gradient(135deg, #6bff6b, #4bdf4b);
-
-      &:hover {
-        background: linear-gradient(135deg, #7bff7b, #5bef5b);
-      }
+      background-color: #2d5a2d;
     }
   }
 
   .game-countdown {
+    display: inline-block;
     margin-top: 16px;
-    padding: 12px 24px;
-    background: linear-gradient(135deg, rgba(255, 152, 0, 0.3), rgba(255, 87, 34, 0.3));
+    padding: 12px 28px;
+    background-color: rgba(255, 152, 0, 0.2);
     color: #ff9800;
     font-size: 18px;
     font-weight: bold;
-    border-radius: 8px;
+    font-family: myFont, "Times New Roman", serif;
+    border-radius: 100px;
     animation: countdownPulse 1s ease-in-out infinite;
   }
 
@@ -1988,6 +1918,7 @@ button {
     margin-top: 16px;
     color: #888;
     font-size: 14px;
+    font-family: myFont, "Times New Roman", serif;
 
     &.error {
       color: #ff6b6b;

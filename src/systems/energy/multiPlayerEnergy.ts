@@ -16,6 +16,8 @@ interface WorldLike {
     getMoney(): number;
     addMoney(amount: number): void;
     spendMoney(amount: number, force?: boolean): boolean;
+    addMoneyToOwner(ownerId: string | null, amount: number): void;
+    spendMoneyFromOwner(ownerId: string | null, amount: number, force?: boolean): boolean;
 }
 
 export class MultiPlayerEnergy {

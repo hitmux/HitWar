@@ -25,7 +25,9 @@ import { InterpolationSystem, getInterpolationSystem } from './interpolation';
 import { LocalEffectsManager, getLocalEffectsManager } from './localEffects';
 import { ClientPrediction, getClientPrediction } from './clientPrediction';
 import type { NetworkClient } from '../networkClient';
+import { NetworkEvent } from '../networkClient';
 import { ServerMessage } from '../messages';
+import { MineRenderProxy } from './mineRenderProxy';
 
 // ============================================================================
 // Types for Colyseus state access
@@ -55,6 +57,9 @@ interface PlayerStateView {
     money: number;
     isAlive: boolean;
     basePosition: { x: number; y: number };
+    energyProduction?: number;
+    energyConsumption?: number;
+    energySatisfaction?: number;
 }
 
 // ============================================================================
@@ -90,6 +95,8 @@ export class NetworkWorldAdapter {
     private _monsterSet: Set<MonsterRenderProxy> = new Set();
     private _effectSet: Set<IEffect> = new Set();
     private _bulletSet: Set<BulletRenderProxy> = new Set();
+    private _mineProxies: Map<string, MineRenderProxy> = new Map();
+    private _mineSet: Set<MineRenderProxy> = new Set();
 
     // User state cache
     private _userState = {
@@ -210,6 +217,19 @@ export class NetworkWorldAdapter {
                 this._localEffects.onBuildingDestroyed(building.pos.x, building.pos.y);
             }
         });
+
+        // Action rejected → reject corresponding prediction
+        events.on(NetworkEvent.ACTION_REJECTED, (...args: unknown[]) => {
+            const data = args[0] as { action: string; reason: string; errorCode?: string };
+            switch (data.action) {
+                case 'BUILD_TOWER':
+                    this._prediction.rejectOldestPendingBuild();
+                    break;
+                case 'SELL_TOWER':
+                    this._prediction.rejectOldestPendingSell();
+                    break;
+            }
+        });
     }
 
     // ==================== Per-Frame Update ====================
@@ -282,14 +302,8 @@ export class NetworkWorldAdapter {
     private _syncProxies(): void {
         if (!this._gameState) return;
 
-        // Sync towers
-        this._syncEntityMap(
-            this._gameState.towers,
-            this._towerProxies,
-            (state) => new TowerRenderProxy(state),
-            (proxy, state) => proxy.updateFromState(state),
-            true // has position for interpolation
-        );
+        // Towers: specialized sync with prediction matching
+        this._syncTowersWithPrediction();
 
         // Sync monsters
         this._syncEntityMap(
@@ -308,6 +322,44 @@ export class NetworkWorldAdapter {
             (proxy, state) => proxy.updateFromState(state),
             false
         );
+
+        // Sync mines
+        this._syncMines();
+    }
+
+    /**
+     * Sync mine proxies from GameState.mines
+     */
+    private _syncMines(): void {
+        if (!this._gameState) return;
+
+        const serverMines = (this._gameState as Record<string, unknown>).mines as
+            Map<string, { id: string; position: { x: number; y: number }; mineState: string; ownerId: string; level: number; hp: number; maxHp: number; radius: number; repairing: boolean; repairProgress: number }> | undefined;
+
+        if (!serverMines) return;
+
+        // Remove proxies for mines no longer on server
+        for (const [id] of this._mineProxies) {
+            if (!serverMines.has(id)) {
+                this._mineProxies.delete(id);
+            }
+        }
+
+        // Add/update proxies
+        serverMines.forEach((mineState, id) => {
+            let proxy = this._mineProxies.get(id);
+            if (!proxy) {
+                proxy = new MineRenderProxy();
+                this._mineProxies.set(id, proxy);
+            }
+            proxy.syncFromSchema(mineState);
+        });
+
+        // Rebuild the mine set
+        this._mineSet.clear();
+        for (const proxy of this._mineProxies.values()) {
+            this._mineSet.add(proxy);
+        }
     }
 
     /**
@@ -340,6 +392,43 @@ export class NetworkWorldAdapter {
                 if (hasPosition) {
                     this._interpolation.removeEntity(id);
                 }
+            }
+        }
+    }
+
+    /**
+     * Specialized tower sync that integrates with ClientPrediction.
+     * New towers from server → confirm matching ghost prediction.
+     * Removed towers from server → confirm matching sell prediction.
+     */
+    private _syncTowersWithPrediction(): void {
+        if (!this._gameState) return;
+        const serverMap = this._gameState.towers;
+
+        // Add new / update existing
+        for (const [id, state] of serverMap) {
+            const existing = this._towerProxies.get(id);
+            if (existing) {
+                existing.updateFromState(state);
+            } else {
+                // New tower from server - try to match a pending build prediction
+                this._prediction.findAndConfirmBuild(
+                    state.towerType,
+                    state.position.x,
+                    state.position.y
+                );
+                this._towerProxies.set(id, new TowerRenderProxy(state));
+                this._interpolation.pushSnapshot(id, state.position.x, state.position.y, 0);
+            }
+        }
+
+        // Remove deleted
+        for (const id of this._towerProxies.keys()) {
+            if (!serverMap.has(id)) {
+                // Tower removed from server - try to match a pending sell prediction
+                this._prediction.findAndConfirmSellByTowerId(id);
+                this._towerProxies.delete(id);
+                this._interpolation.removeEntity(id);
             }
         }
     }
@@ -412,6 +501,13 @@ export class NetworkWorldAdapter {
         const mapWidth = this._gameState?.mapConfig.width ?? 6000;
         const mapHeight = this._gameState?.mapConfig.height ?? 4000;
 
+        // Read energy from local player's PlayerState
+        const localPlayerState = this._gameState?.players.get(this._localPlayerId);
+        const energyProxy = localPlayerState ? {
+            getTotalProduction: () => localPlayerState.energyProduction ?? 6,
+            getTotalConsumption: () => localPlayerState.energyConsumption ?? 0,
+        } : undefined;
+
         return {
             width: mapWidth,
             height: mapHeight,
@@ -423,7 +519,7 @@ export class NetworkWorldAdapter {
             // Entity collections
             batterys: this._towerArray as unknown as WorldRendererContext['batterys'],
             buildings: this._buildingArray as unknown as WorldRendererContext['buildings'],
-            mines: new Set(), // Network mode: mines not yet synced
+            mines: this._mineSet as unknown as WorldRendererContext['mines'],
             monsters: this._monsterSet as unknown as WorldRendererContext['monsters'],
             effects: this._effectSet,
             allBullys: this._bulletSet as unknown as WorldRendererContext['allBullys'],
@@ -439,7 +535,7 @@ export class NetworkWorldAdapter {
             // Systems (optional in network mode)
             territory: undefined,
             fog: undefined,
-            energy: undefined,
+            energy: energyProxy,
             energyRenderer: undefined,
             monsterFlow: this._gameState ? {
                 toString: () => `Wave ${this._gameState!.wave.currentWave}`,

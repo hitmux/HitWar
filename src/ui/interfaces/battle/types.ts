@@ -203,6 +203,9 @@ export interface PanelManagerWorldLike {
     addTower(tower: unknown): void;
     addBuilding(building: unknown): void;
 
+    // Tower sell (optional, used by multiplayer facade for client prediction)
+    sellTower?(towerId: string): void;
+
     // Static layer
     markStaticLayerDirty(): void;
 }

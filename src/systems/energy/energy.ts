@@ -33,9 +33,8 @@ interface WorldLike {
     batterys: TowerLike[];
     buildings: BuildingLike[];
     // Money management (multiplayer compatible)
-    getMoney(): number;
-    addMoney(amount: number): void;
-    spendMoney(amount: number, force?: boolean): boolean;
+    addMoneyToOwner(ownerId: string | null, amount: number): void;
+    spendMoneyFromOwner(ownerId: string | null, amount: number, force?: boolean): boolean;
 }
 
 export class Energy {
@@ -171,14 +170,16 @@ export class Energy {
 
         const balance = this.getBalance();
         if (balance < 0 && this.world.time % this.PENALTY_INTERVAL === 0) {
-            this.world.spendMoney(this.PENALTY_COST, true);
+            // Use playerId to penalize the correct player
+            this.world.spendMoneyFromOwner(this.playerId, this.PENALTY_COST, true);
         }
 
         // Energy surplus bonus: +1 gold per surplus energy every BONUS_INTERVAL ticks
         if (balance > 0 && this.world.time % this.BONUS_INTERVAL === 0) {
             // Guard against NaN to prevent money corruption
             if (!Number.isNaN(balance)) {
-                this.world.addMoney(balance);
+                // Use playerId to reward the correct player
+                this.world.addMoneyToOwner(this.playerId, balance);
             }
         }
     }

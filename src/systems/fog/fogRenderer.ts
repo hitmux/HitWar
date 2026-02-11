@@ -486,6 +486,8 @@ export class FogRenderer {
         for (const tower of towers) {
             if (!tower.inValidTerritory) continue;
             if (tower.visionType !== VisionType.RADAR || tower.visionLevel <= 0) continue;
+            // Filter by player - only render scan lines for own towers
+            if (this._fog.playerId !== null && tower.ownerId !== this._fog.playerId) continue;
 
             const radius = tower.getVisionRadius();
 

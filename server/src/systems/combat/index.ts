@@ -13,3 +13,5 @@ export {
   type BulletHitResult,
   type BulletFiredEvent,
 } from './bulletManager.js';
+export { CombatSystem, type CombatTickResult } from './combatSystem.js';
+export { processMonsterMelee, type MeleeResult } from './monsterMeleeSystem.js';

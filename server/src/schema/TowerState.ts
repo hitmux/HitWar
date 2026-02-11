@@ -25,6 +25,12 @@ export class TowerState extends Schema {
   @type('number') currentAmmo: number = 0;
   @type('number') maxAmmo: number = 0;
 
+  // Auto-target settings for manual cannon
+  @type('number') autoTargetX: number = 0;
+  @type('number') autoTargetY: number = 0;
+  @type('number') autoTargetRadius: number = 0;
+  @type('boolean') hasAutoTarget: boolean = false;
+
   constructor() {
     super();
     this.position = new VectorSchema();

@@ -5,6 +5,7 @@
 import * as Colyseus from 'colyseus.js';
 import { NETWORK_CONFIG } from './config';
 import { NetworkEventEmitter } from './eventEmitter';
+import { getReconnectionManager } from './reconnectionManager';
 import {
   ClientMessage,
   ServerMessage,
@@ -20,6 +21,10 @@ import {
   type ErrorPayload,
   type RoomInfo,
   type MatchFoundPayload,
+  type UpgradeMinePayload,
+  type RepairMinePayload,
+  type DowngradeMinePayload,
+  type SellMinePayload,
 } from './messages';
 
 /**
@@ -76,6 +81,9 @@ export const NetworkEvent = {
   PLAYER_ELIMINATED: 'player_eliminated',
   PLAYER_DISCONNECTED: 'player_disconnected',
   PLAYER_RECONNECTED: 'player_reconnected',
+
+  // Action feedback
+  ACTION_REJECTED: 'action_rejected',
 } as const;
 
 /**
@@ -275,6 +283,28 @@ export class NetworkClient {
     this.gameRoom.send(ClientMessage.SELL_TOWER, payload);
   }
 
+  // === Mine Operations ===
+
+  upgradeMine(payload: UpgradeMinePayload): void {
+    if (!this.gameRoom) return;
+    this.gameRoom.send(ClientMessage.UPGRADE_MINE, payload);
+  }
+
+  repairMine(payload: RepairMinePayload): void {
+    if (!this.gameRoom) return;
+    this.gameRoom.send(ClientMessage.REPAIR_MINE, payload);
+  }
+
+  downgradeMine(payload: DowngradeMinePayload): void {
+    if (!this.gameRoom) return;
+    this.gameRoom.send(ClientMessage.DOWNGRADE_MINE, payload);
+  }
+
+  sellMine(payload: SellMinePayload): void {
+    if (!this.gameRoom) return;
+    this.gameRoom.send(ClientMessage.SELL_MINE, payload);
+  }
+
   /**
    * Spawn a monster
    */
@@ -316,6 +346,7 @@ export class NetworkClient {
    */
   async leaveGame(): Promise<void> {
     if (this.gameRoom) {
+      getReconnectionManager().clearSession();
       await this.gameRoom.leave(true);
       this.gameRoom = null;
 
@@ -324,6 +355,28 @@ export class NetworkClient {
       } else {
         this.setConnectionState(ConnectionState.DISCONNECTED);
       }
+    }
+  }
+
+  /**
+   * Reconnect to a game room using a previously saved reconnection token.
+   * Uses Colyseus client.reconnect() which accepts the format "roomId:token".
+   */
+  async reconnectToGame(token: string): Promise<boolean> {
+    try {
+      this.gameRoom = await this.colyseusClient.reconnect(token);
+      this.setupGameHandlers(this.gameRoom);
+      this.setConnectionState(ConnectionState.IN_GAME);
+
+      // Save updated token (may change after reconnection)
+      getReconnectionManager().saveSession(this.gameRoom.reconnectionToken);
+      this.reconnectAttempts = 0;
+
+      console.log('[NetworkClient] Game room reconnected successfully');
+      return true;
+    } catch (error) {
+      console.error('[NetworkClient] Game reconnect failed:', error);
+      return false;
     }
   }
 
@@ -380,6 +433,9 @@ export class NetworkClient {
       this.setupGameHandlers(this.gameRoom);
 
       this.setConnectionState(ConnectionState.IN_GAME);
+
+      // Save reconnection token for potential reconnection
+      getReconnectionManager().saveSession(this.gameRoom.reconnectionToken);
 
       console.log(`[NetworkClient] Joined game room: ${data.roomId}`);
     } catch (error) {
@@ -474,6 +530,11 @@ export class NetworkClient {
     room.onMessage(ServerMessage.ERROR, (data: ErrorPayload) => {
       console.error('[NetworkClient] Game error:', data);
       this.events.emit(NetworkEvent.ERROR, data);
+    });
+
+    // Action rejection feedback (e.g. insufficient funds, invalid position)
+    room.onMessage(ServerMessage.ACTION_REJECTED, (data: { action: string; reason: string; errorCode?: string }) => {
+      this.events.emit(NetworkEvent.ACTION_REJECTED, data);
     });
 
     // Room lifecycle

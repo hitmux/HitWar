@@ -20,6 +20,8 @@ import type { BulletCreationData } from './towerAttack.js';
  */
 export interface BulletHitResult {
   bulletId: string;
+  towerId: string;
+  ownerId: string;
   targetId: string;
   targetType: 'monster' | 'building';
   damage: number;
@@ -54,6 +56,8 @@ export interface BulletFiredEvent {
  */
 interface MonsterSpatialEntity extends SpatialEntity {
   state: MonsterState;
+  prevX?: number;
+  prevY?: number;
 }
 
 /**
@@ -224,8 +228,8 @@ export class BulletManager {
       }
 
       // Get monster previous position
-      const mPrevX = (monster as any).prevX ?? monster.position.x;
-      const mPrevY = (monster as any).prevY ?? monster.position.y;
+      const mPrevX = entity.prevX ?? monster.position.x;
+      const mPrevY = entity.prevY ?? monster.position.y;
 
       // Sweep collision detection (both objects moving)
       const collided = sweepCollidesRelative(
@@ -303,6 +307,8 @@ export class BulletManager {
   ): BulletHitResult {
     const result: BulletHitResult = {
       bulletId: bullet.id,
+      towerId: bullet.towerId,
+      ownerId: bullet.ownerId,
       targetId,
       targetType,
       damage: bullet.damage,

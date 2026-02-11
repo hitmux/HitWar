@@ -257,6 +257,16 @@ export class TowerAttackSystem {
   /**
    * Reset tower cooldown (for selling/rebuilding)
    */
+  /**
+   * Check cooldown and set it if ready. Returns true if action can proceed.
+   */
+  checkAndSetCooldown(towerId: string, currentTick: number, cooldownTicks: number): boolean {
+    const lastAttack = this.lastAttackTick.get(towerId) || 0;
+    if (currentTick - lastAttack < cooldownTicks) return false;
+    this.lastAttackTick.set(towerId, currentTick);
+    return true;
+  }
+
   resetTowerCooldown(towerId: string): void {
     this.lastAttackTick.delete(towerId);
   }

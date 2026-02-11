@@ -263,6 +263,26 @@ export class SaveManager {
     }
 
     /**
+     * Find creator function name by matching building properties
+     */
+    static findBuildingCreatorName(building: unknown, world: WorldLike): string | null {
+        const buildingObj = building as { name: string };
+        const names = BuildingRegistry.getNames();
+        for (const name of names) {
+            // Skip Root as it's handled separately
+            if (name === 'Root') continue;
+            const creator = BuildingRegistry.getCreator(name);
+            if (creator) {
+                const sample = creator(world as any) as { name: string };
+                if (sample.name === buildingObj.name) {
+                    return name;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Serialize world state to save data object
      */
     static serialize(world: WorldLike): SaveData {
@@ -372,7 +392,7 @@ export class SaveManager {
 
             const buildingData: BuildingData = {
                 type: "Building",
-                creatorFunc: b.name === "金矿" ? "Collector" : "Treatment",
+                creatorFunc: this.findBuildingCreatorName(building, world) || "Treatment",
                 x: b.pos.x,
                 y: b.pos.y,
                 hp: b.hp,

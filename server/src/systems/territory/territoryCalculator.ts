@@ -7,8 +7,10 @@
 
 import type { BuildingState } from '../../schema/BuildingState.js';
 import type { TowerState } from '../../schema/TowerState.js';
+import type { MineState } from '../../schema/MineState.js';
 import type { MapSchema } from '@colyseus/schema';
 import { distSq } from '../../shared/math/vector.js';
+import { MineStateType } from '../../../../shared/config/mineMeta.js';
 
 /**
  * Configuration for territory calculation
@@ -80,7 +82,8 @@ export class TerritoryCalculator {
    */
   recalculate(
     buildings: MapSchema<BuildingState>,
-    towers: MapSchema<TowerState>
+    towers: MapSchema<TowerState>,
+    mines?: MapSchema<MineState>
   ): Map<string, TerritoryResult> {
     if (!this.dirty) return this.playerResults;
     this.dirty = false;
@@ -128,6 +131,25 @@ export class TerritoryCalculator {
       }
       playerEntities.get(tower.ownerId)!.push(entity);
     });
+
+    // Process mines (only powerPlant state participates in territory)
+    if (mines) {
+      mines.forEach((mine) => {
+        if (!mine.ownerId || mine.mineState !== MineStateType.POWER_PLANT) return;
+
+        const entity: TerritoryEntity = {
+          id: mine.id,
+          ownerId: mine.ownerId,
+          position: { x: mine.position.x, y: mine.position.y },
+          isBase: false,
+        };
+
+        if (!playerEntities.has(mine.ownerId)) {
+          playerEntities.set(mine.ownerId, []);
+        }
+        playerEntities.get(mine.ownerId)!.push(entity);
+      });
+    }
 
     // Calculate territory for each player
     for (const [playerId, entities] of playerEntities) {

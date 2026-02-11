@@ -2,8 +2,10 @@
 export {
   ClientMessage,
   ServerMessage,
+  LobbyMessage,
   type ClientMessageType,
   type ServerMessageType,
+  type LobbyMessageType,
   type BuildTowerPayload,
   type UpgradeTowerPayload,
   type SellTowerPayload,
@@ -25,4 +27,11 @@ export {
   type BulletFiredPayload,
   type BulletHitPayload,
   type BulletExplosionPayload,
+  type RoomInfo,
+  type MatchFoundPayload,
+  type UpgradeMinePayload,
+  type RepairMinePayload,
+  type DowngradeMinePayload,
+  type SellMinePayload,
+  type MineDestroyedPayload,
 } from '../../../../shared/types/messages.js';

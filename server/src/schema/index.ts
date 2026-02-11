@@ -9,6 +9,7 @@ export { TowerState } from './TowerState.js';
 export { MonsterState } from './MonsterState.js';
 export { BuildingState, SpawnerCooldown } from './BuildingState.js';
 export { BulletState } from './BulletState.js';
+export { MineState } from './MineState.js';
 export {
   GameState,
   MapConfig,

@@ -103,6 +103,14 @@ export class EnergyCalculator {
   }
 
   /**
+   * Clear all registered mines (used before bulk re-sync)
+   */
+  clearMines(): void {
+    this.mines.clear();
+    this.markDirty();
+  }
+
+  /**
    * Recalculate energy for all players
    */
   recalculate(
@@ -196,6 +204,13 @@ export class EnergyCalculator {
    */
   getPlayerState(playerId: string): PlayerEnergyState | undefined {
     return this.playerStates.get(playerId);
+  }
+
+  /**
+   * Get all player energy states (for syncing to PlayerState schema)
+   */
+  getPlayerStates(): Map<string, PlayerEnergyState> {
+    return this.playerStates;
   }
 
   /**

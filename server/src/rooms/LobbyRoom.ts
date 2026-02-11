@@ -5,24 +5,7 @@
 import { Room, Client, matchMaker } from '@colyseus/core';
 import { LobbyState, LobbyPlayer, RoomListing } from '../schema/LobbyState.js';
 import type { MapSize } from '../config.js';
-
-/**
- * Lobby message types
- */
-const LobbyMessage = {
-  // Client -> Server
-  CREATE_ROOM: 'create_room',
-  JOIN_ROOM: 'join_room',
-  QUICK_MATCH: 'quick_match',
-  CANCEL_SEARCH: 'cancel_search',
-  REFRESH_ROOMS: 'refresh_rooms',
-
-  // Server -> Client
-  ROOM_CREATED: 'room_created',
-  MATCH_FOUND: 'match_found',
-  ROOM_LIST_UPDATED: 'room_list_updated',
-  ERROR: 'error',
-} as const;
+import { LobbyMessage } from '../shared/types/messages.js';
 
 /**
  * Create room options
@@ -49,7 +32,9 @@ interface LobbyOptions {
   playerName?: string;
 }
 
-export class LobbyRoom extends Room<LobbyState> {
+export class LobbyRoom extends Room {
+  // State type declaration
+  declare state: LobbyState;
   // Quick match queue
   private matchQueue: Client[] = [];
   private matchCheckInterval: ReturnType<typeof setInterval> | null = null;
@@ -336,8 +321,19 @@ export class LobbyRoom extends Room<LobbyState> {
     try {
       const player = this.state.players.get(client.sessionId);
 
-      // Get reservation
-      const reservation = await matchMaker.joinById(options.roomId, {
+      // Query the room first to get its reference
+      const rooms = await matchMaker.query({ roomId: options.roomId });
+      if (rooms.length === 0) {
+        throw new Error('Room not found');
+      }
+
+      const room = rooms[0];
+      if (room.clients >= room.maxClients) {
+        throw new Error('Room is full');
+      }
+
+      // Get a proper reservation (not joinById which returns Room directly)
+      const reservation = await matchMaker.reserveSeatFor(room, {
         playerName: player?.name || 'Player',
       });
 

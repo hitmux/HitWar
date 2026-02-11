@@ -306,27 +306,44 @@ export class PanelManager {
             if (this.currentPanelMine && this.currentMineScreenPos) {
                 const action = target.dataset.mineAction;
                 const price = parseInt(target.dataset.price || "0");
+                const isMultiplayer = this.networkClient !== null;
+
                 if (action === "upgrade" || action === "repair") {
-                    // Re-check territory validity (may have changed since panel opened)
-                    if (!this.currentPanelMine.inValidTerritory) {
-                        const et = new EffectText("不在有效领地，无法操作");
-                        et.pos = this.currentPanelMine.pos.copy();
-                        this.world.addEffect(et);
-                        this.hideLevelUpPanel();
-                        this.callbacks.requestPauseRender();
-                        return;
-                    }
-                    if (this.world.spendMoney(price)) {
-                        if (action === "upgrade") {
-                            this.currentPanelMine.upgrade();
-                        } else {
-                            this.currentPanelMine.startRepair();
+                    if (isMultiplayer && this.currentPanelMine.id) {
+                        // Multiplayer: send mine action to server
+                        const facade = this.world as unknown as {
+                            upgradeMine?: (id: string) => void;
+                            repairMine?: (id: string) => void;
+                        };
+                        if (action === "upgrade" && facade.upgradeMine) {
+                            facade.upgradeMine(this.currentPanelMine.id);
+                        } else if (action === "repair" && facade.repairMine) {
+                            facade.repairMine(this.currentPanelMine.id);
                         }
-                        this.showMinePanel(this.currentPanelMine, this.currentMineScreenPos);
-                    } else {
-                        const et = new EffectText("钱不够！");
-                        et.pos = this.currentPanelMine.pos.copy();
-                        this.world.addEffect(et);
+                        this.hideLevelUpPanel();
+                    } else if (!isMultiplayer) {
+                        // Single-player: local handling
+                        // Re-check territory validity (may have changed since panel opened)
+                        if (!this.currentPanelMine.inValidTerritory) {
+                            const et = new EffectText("不在有效领地，无法操作");
+                            et.pos = this.currentPanelMine.pos.copy();
+                            this.world.addEffect(et);
+                            this.hideLevelUpPanel();
+                            this.callbacks.requestPauseRender();
+                            return;
+                        }
+                        if (this.world.spendMoney(price)) {
+                            if (action === "upgrade") {
+                                this.currentPanelMine.upgrade();
+                            } else {
+                                this.currentPanelMine.startRepair();
+                            }
+                            this.showMinePanel(this.currentPanelMine, this.currentMineScreenPos);
+                        } else {
+                            const et = new EffectText("钱不够！");
+                            et.pos = this.currentPanelMine.pos.copy();
+                            this.world.addEffect(et);
+                        }
                     }
                 }
                 this.callbacks.requestPauseRender();
@@ -372,10 +389,14 @@ export class PanelManager {
                     }
                 } else if (target.classList.contains("sell")) {
                     if (isMultiplayer && this.currentPanelEntity.id) {
-                        // Multiplayer: send sell request to server
-                        this.networkClient!.sellTower({
-                            towerId: this.currentPanelEntity.id
-                        });
+                        // Multiplayer: route through facade for client prediction
+                        if (this.world.sellTower) {
+                            this.world.sellTower(this.currentPanelEntity.id);
+                        } else {
+                            this.networkClient!.sellTower({
+                                towerId: this.currentPanelEntity.id
+                            });
+                        }
                         this.hideLevelUpPanel();
                     } else if (!isMultiplayer) {
                         // Single-player: local handling
@@ -405,16 +426,32 @@ export class PanelManager {
 
             // Handle mine operations
             if (this.currentPanelMine && this.currentMineScreenPos) {
+                const isMultiplayer = this.networkClient !== null;
+                const facade = this.world as unknown as {
+                    downgradeMine?: (id: string) => void;
+                    sellMine?: (id: string) => void;
+                };
+
                 if (target.classList.contains("levelDown")) {
-                    const refund = parseInt(target.dataset.refund || "0");
-                    this.world.addMoney(refund);
-                    this.currentPanelMine.downgrade();
-                    this.showMinePanel(this.currentPanelMine, this.currentMineScreenPos);
+                    if (isMultiplayer && this.currentPanelMine.id && facade.downgradeMine) {
+                        facade.downgradeMine(this.currentPanelMine.id);
+                        this.hideLevelUpPanel();
+                    } else if (!isMultiplayer) {
+                        const refund = parseInt(target.dataset.refund || "0");
+                        this.world.addMoney(refund);
+                        this.currentPanelMine.downgrade();
+                        this.showMinePanel(this.currentPanelMine, this.currentMineScreenPos);
+                    }
                 } else if (target.classList.contains("sell")) {
-                    const sellPrice = parseInt(target.dataset.sellPrice || "0");
-                    this.world.addMoney(sellPrice);
-                    this.currentPanelMine.destroy();
-                    this.hideLevelUpPanel();
+                    if (isMultiplayer && this.currentPanelMine.id && facade.sellMine) {
+                        facade.sellMine(this.currentPanelMine.id);
+                        this.hideLevelUpPanel();
+                    } else if (!isMultiplayer) {
+                        const sellPrice = parseInt(target.dataset.sellPrice || "0");
+                        this.world.addMoney(sellPrice);
+                        this.currentPanelMine.destroy();
+                        this.hideLevelUpPanel();
+                    }
                 }
                 this.callbacks.requestPauseRender();
             }

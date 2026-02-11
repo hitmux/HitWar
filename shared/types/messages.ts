@@ -26,6 +26,12 @@ export const ClientMessage = {
   CANNON_FIRE: 'cannon_fire',
   CANNON_SET_AUTO_TARGET: 'cannon_set_auto_target',
 
+  // Mine actions
+  UPGRADE_MINE: 'upgrade_mine',
+  REPAIR_MINE: 'repair_mine',
+  DOWNGRADE_MINE: 'downgrade_mine',
+  SELL_MINE: 'sell_mine',
+
   // Game control
   SURRENDER: 'surrender',
   PAUSE_REQUEST: 'pause_request',
@@ -62,6 +68,9 @@ export const ServerMessage = {
   BUILDING_DAMAGED: 'building_damaged',
   BUILDING_DESTROYED: 'building_destroyed',
 
+  // Mine events
+  MINE_DESTROYED: 'mine_destroyed',
+
   // Player events
   PLAYER_JOINED: 'player_joined',
   PLAYER_LEFT: 'player_left',
@@ -78,6 +87,26 @@ export const ServerMessage = {
 } as const;
 
 export type ServerMessageType = (typeof ServerMessage)[keyof typeof ServerMessage];
+
+/**
+ * Lobby Messages (used by both client and server lobby rooms)
+ */
+export const LobbyMessage = {
+  // Client -> Server
+  CREATE_ROOM: 'create_room',
+  JOIN_ROOM: 'join_room',
+  QUICK_MATCH: 'quick_match',
+  CANCEL_SEARCH: 'cancel_search',
+  REFRESH_ROOMS: 'refresh_rooms',
+
+  // Server -> Client
+  ROOM_CREATED: 'room_created',
+  MATCH_FOUND: 'match_found',
+  ROOM_LIST_UPDATED: 'room_list_updated',
+  ERROR: 'error',
+} as const;
+
+export type LobbyMessageType = (typeof LobbyMessage)[keyof typeof LobbyMessage];
 
 /**
  * Message payload types
@@ -220,4 +249,45 @@ export interface BulletExplosionPayload {
   radius: number;
   damage: number;
   hitTargets: string[];
+}
+
+// ==================== Room / Lobby Payload Types ====================
+
+export interface RoomInfo {
+  roomId: string;
+  roomName: string;
+  hostName: string;
+  mapSize: string;
+  playerCount: number;
+  maxPlayers: number;
+  isPrivate: boolean;
+  isPlaying: boolean;
+}
+
+export interface MatchFoundPayload {
+  roomId: string;
+  reservation: unknown; // Colyseus reservation object
+}
+
+// ==================== Mine Payload Types ====================
+
+export interface UpgradeMinePayload {
+  mineId: string;
+}
+
+export interface RepairMinePayload {
+  mineId: string;
+}
+
+export interface DowngradeMinePayload {
+  mineId: string;
+}
+
+export interface SellMinePayload {
+  mineId: string;
+}
+
+export interface MineDestroyedPayload {
+  mineId: string;
+  destroyedBy: string;
 }

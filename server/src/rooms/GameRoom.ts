@@ -24,14 +24,33 @@ import {
   type SpawnMonsterPayload,
   type CannonFirePayload,
   type CannonSetAutoTargetPayload,
+  type UpgradeMinePayload,
+  type RepairMinePayload,
+  type DowngradeMinePayload,
+  type SellMinePayload,
 } from '../shared/types/messages.js';
-import { TerritoryCalculator } from '../systems/territory/territoryCalculator.js';
+import { TerritoryCalculator, type TerritoryResult } from '../systems/territory/territoryCalculator.js';
+import { EnergyCalculator } from '../systems/energy/energyCalculator.js';
+import { MineManager } from '../systems/mine/index.js';
+import {
+  CombatSystem,
+  DamageCalculator,
+  type BulletHitResult,
+  type CombatTickResult,
+  type MeleeResult,
+} from '../systems/combat/index.js';
 import {
   InputValidator,
   TowerMetaRegistry,
   SpawnableMonsterRegistry,
 } from '../validation/index.js';
-import { TOWER_META, type TowerMetaData } from '../../../shared/config/towerMeta.js';
+import { TOWER_META } from '../../../shared/config/towerMeta.js';
+import {
+  SPAWNABLE_MONSTER_META,
+  getMonstersForWave,
+  type MonsterMetaData,
+} from '../../../shared/config/monsterMeta.js';
+import { getTowerCombatData } from '../../../shared/config/towerCombatMeta.js';
 
 /**
  * Room options when creating/joining
@@ -52,7 +71,9 @@ interface ClientMetadata {
   reconnectToken?: string;
 }
 
-export class GameRoom extends Room<GameState> {
+export class GameRoom extends Room {
+  // State type declaration
+  declare state: GameState;
   // Game loop
   private gameLoopInterval: Delayed | null = null;
   private readonly tickRate = SERVER_CONFIG.tickRate;
@@ -64,9 +85,12 @@ export class GameRoom extends Room<GameState> {
 
   // Validation
   private territoryCalc!: TerritoryCalculator;
+  private energyCalc!: EnergyCalculator;
+  private combatSystem!: CombatSystem;
   private inputValidator!: InputValidator;
   private towerMeta!: TowerMetaRegistry;
   private spawnableMeta!: SpawnableMonsterRegistry;
+  private mineManager!: MineManager;
 
   /**
    * Room creation
@@ -107,6 +131,20 @@ export class GameRoom extends Room<GameState> {
     // Territory calculator
     this.territoryCalc = new TerritoryCalculator({ territoryRadius: 100 });
 
+    // Energy calculator
+    this.energyCalc = new EnergyCalculator();
+
+    // Damage calculator (combines territory + energy)
+    const damageCalc = new DamageCalculator(this.territoryCalc, this.energyCalc);
+
+    // Combat system (spatial grids + tower attacks + bullets)
+    this.combatSystem = new CombatSystem(
+      this.state.mapConfig.width,
+      this.state.mapConfig.height,
+      damageCalc
+    );
+    this.combatSystem.initTowerConfigs();
+
     // Tower metadata registry - populated from shared config
     this.towerMeta = new TowerMetaRegistry();
     // Import all tower metadata from shared config
@@ -114,14 +152,16 @@ export class GameRoom extends Room<GameState> {
       this.towerMeta.register(id, meta.price, meta.levelUpArr);
     }
 
-    // Spawnable monster registry
+    // Spawnable monster registry - populated from shared config
     this.spawnableMeta = new SpawnableMonsterRegistry();
-    this.spawnableMeta.register({ monsterId: 'Normal', cost: 20, cooldownTicks: 60, unlockWave: 1 });
-    this.spawnableMeta.register({ monsterId: 'Runner', cost: 20, cooldownTicks: 80, unlockWave: 3 });
-    this.spawnableMeta.register({ monsterId: 'Ox1', cost: 30, cooldownTicks: 120, unlockWave: 5 });
-    this.spawnableMeta.register({ monsterId: 'Bomber1', cost: 40, cooldownTicks: 160, unlockWave: 8 });
-    this.spawnableMeta.register({ monsterId: 'Mts', cost: 100, cooldownTicks: 200, unlockWave: 10 });
-    this.spawnableMeta.register({ monsterId: 'T800', cost: 1200, cooldownTicks: 600, unlockWave: 15 });
+    for (const meta of Object.values(SPAWNABLE_MONSTER_META)) {
+      this.spawnableMeta.register({
+        monsterId: meta.monsterId,
+        cost: meta.cost,
+        cooldownTicks: meta.cooldownTicks,
+        unlockWave: meta.unlockWave,
+      });
+    }
 
     // Input validator
     this.inputValidator = new InputValidator(
@@ -130,6 +170,9 @@ export class GameRoom extends Room<GameState> {
       this.towerMeta,
       this.spawnableMeta
     );
+
+    // Mine manager
+    this.mineManager = new MineManager(this.state, this.energyCalc, this.territoryCalc);
   }
 
   /**
@@ -178,6 +221,23 @@ export class GameRoom extends Room<GameState> {
     // Game control
     this.onMessage(ClientMessage.SURRENDER, (client) => {
       this.handleSurrender(client);
+    });
+
+    // Mine actions
+    this.onMessage(ClientMessage.UPGRADE_MINE, (client, payload: UpgradeMinePayload) => {
+      this.handleUpgradeMine(client, payload);
+    });
+
+    this.onMessage(ClientMessage.REPAIR_MINE, (client, payload: RepairMinePayload) => {
+      this.handleRepairMine(client, payload);
+    });
+
+    this.onMessage(ClientMessage.DOWNGRADE_MINE, (client, payload: DowngradeMinePayload) => {
+      this.handleDowngradeMine(client, payload);
+    });
+
+    this.onMessage(ClientMessage.SELL_MINE, (client, payload: SellMinePayload) => {
+      this.handleSellMine(client, payload);
     });
   }
 
@@ -251,7 +311,7 @@ export class GameRoom extends Room<GameState> {
   /**
    * Player leaves the room
    */
-  async onLeave(client: Client, consented: boolean): Promise<void> {
+  async onLeave(client: Client, consented?: boolean): Promise<void> {
     const player = this.state.getPlayer(client.sessionId);
     if (!player) return;
 
@@ -338,7 +398,7 @@ export class GameRoom extends Room<GameState> {
    */
   private removePlayer(playerId: string): void {
     // Remove player's base
-    this.state.buildings.forEach((building, id) => {
+    this.state.buildings.forEach((building: BuildingState, id: string) => {
       if (building.ownerId === playerId) {
         this.state.buildings.delete(id);
       }
@@ -360,17 +420,21 @@ export class GameRoom extends Room<GameState> {
     player.isAlive = false;
 
     // Remove player's entities
-    this.state.towers.forEach((tower, id) => {
+    this.state.towers.forEach((tower: TowerState, id: string) => {
       if (tower.ownerId === playerId) {
         this.state.towers.delete(id);
       }
     });
 
-    this.state.buildings.forEach((building, id) => {
+    this.state.buildings.forEach((building: BuildingState, id: string) => {
       if (building.ownerId === playerId) {
         this.state.buildings.delete(id);
       }
     });
+
+    // Mark territory and energy dirty after entity removal
+    this.territoryCalc.markDirty();
+    this.energyCalc.markDirty();
 
     // Notify
     this.broadcast(ServerMessage.PLAYER_ELIMINATED, {
@@ -418,22 +482,96 @@ export class GameRoom extends Room<GameState> {
   /**
    * Main game tick
    */
+
+  /**
+   * Convert TerritoryResult map to the format EnergyCalculator expects:
+   * playerId -> Set of valid entity IDs
+   */
+  private buildValidTerritoryIds(
+    territoryResults: Map<string, TerritoryResult>
+  ): Map<string, Set<string>> {
+    const result = new Map<string, Set<string>>();
+    for (const [playerId, territory] of territoryResults) {
+      result.set(playerId, territory.validBuildings);
+    }
+    return result;
+  }
+
+  /**
+   * Apply energy money penalties/bonuses to player states
+   */
+  private applyEnergyMoneyChanges(moneyChanges: Map<string, number>): void {
+    for (const [playerId, change] of moneyChanges) {
+      const player = this.state.getPlayer(playerId);
+      if (!player || !player.isAlive) continue;
+      player.money = Math.max(0, player.money + change);
+    }
+  }
+
   private gameTick(): void {
     if (this.state.phase !== GamePhase.PLAYING) return;
 
     this.state.currentTick++;
 
-    // Update entities
+    // Phase 1: Entity updates
     this.updateMonsters();
     this.updateTowers();
     this.updateBuildings();
     this.updateWave();
+    this.mineManager.updateRepairs();
 
-    // Check collisions and attacks
-    this.processAttacks();
-    this.processCollisions();
+    // Phase 1.5: Territory + Energy recalculation (dirty flag, O(1) when clean)
+    const territoryResults = this.territoryCalc.recalculate(
+      this.state.buildings,
+      this.state.towers,
+      this.state.mines
+    );
+    const validTerritoryIds = this.buildValidTerritoryIds(territoryResults);
 
-    // Check game end conditions
+    // Phase 1.5b: Sync mine production to energy calculator
+    this.mineManager.syncToEnergyCalc(validTerritoryIds);
+
+    // Phase 1.5c: Energy recalculation
+    this.energyCalc.recalculate(
+      this.state.towers,
+      this.state.buildings,
+      validTerritoryIds
+    );
+
+    // Phase 1.6: Energy tick (penalties/bonuses, frequency controlled internally)
+    const moneyChanges = this.energyCalc.processTick(this.state.currentTick);
+    this.applyEnergyMoneyChanges(moneyChanges);
+
+    // Phase 1.7: Sync energy state to PlayerState for client display
+    this.syncEnergyToPlayerStates();
+
+    // Phase 2: Combat (DamageCalculator now reads correct satisfactionRatio)
+    const combatResult = this.combatSystem.update(
+      this.state.currentTick,
+      this.state.towers,
+      this.state.monsters,
+      this.state.buildings
+    );
+    this.applyCombatResult(combatResult);
+
+    // Phase 2.5: Manual cannon auto-fire
+    const autoFireEvents = this.combatSystem.processCannonAutoFire(
+      this.state.currentTick,
+      this.state.towers
+    );
+    for (const event of autoFireEvents) {
+      this.broadcast(ServerMessage.BULLET_FIRED, event);
+    }
+
+    // Phase 3: Monster melee (buildings + mines)
+    const meleeResults = this.combatSystem.processMonsterMelee(
+      this.state.monsters,
+      this.state.buildings,
+      this.state.mines
+    );
+    this.applyMeleeResults(meleeResults);
+
+    // Phase 4: Game end check
     this.checkGameEnd();
   }
 
@@ -441,7 +579,11 @@ export class GameRoom extends Room<GameState> {
    * Update all monsters
    */
   private updateMonsters(): void {
-    this.state.monsters.forEach((monster) => {
+    this.state.monsters.forEach((monster: MonsterState) => {
+      // Save previous position for sweep collision
+      monster.prevX = monster.position.x;
+      monster.prevY = monster.position.y;
+
       // Update position based on velocity
       monster.position.x += monster.velocity.x;
       monster.position.y += monster.velocity.y;
@@ -453,6 +595,15 @@ export class GameRoom extends Room<GameState> {
       if (monster.isSlowed && this.state.currentTick >= monster.slowEndTime) {
         monster.isSlowed = false;
       }
+
+      // Burn DoT
+      if (monster.burnRate > 0) {
+        const burnDamage = monster.maxHp * monster.burnRate;
+        monster.hp -= burnDamage;
+        if (monster.hp <= 0) {
+          this.killMonster(monster, '', monster.burnSourceOwnerId);
+        }
+      }
     });
   }
 
@@ -460,12 +611,13 @@ export class GameRoom extends Room<GameState> {
    * Update all towers
    */
   private updateTowers(): void {
-    // Tower attacks are processed in processAttacks()
-    // This is for tower-specific updates (e.g., rotation, ammo reload)
-    this.state.towers.forEach((tower) => {
+    // Tower-specific updates (rotation, ammo reload)
+    this.state.towers.forEach((tower: TowerState) => {
       if (tower.isManual && tower.currentAmmo < tower.maxAmmo) {
-        // Ammo reloading logic would go here
-        // This is simplified - actual implementation would track reload ticks
+        // Reload 1 ammo every 120 ticks (~2 seconds at 60fps)
+        if (this.state.currentTick % 120 === 0) {
+          tower.currentAmmo++;
+        }
       }
     });
   }
@@ -474,10 +626,10 @@ export class GameRoom extends Room<GameState> {
    * Update all buildings
    */
   private updateBuildings(): void {
-    this.state.buildings.forEach((building) => {
+    this.state.buildings.forEach((building: BuildingState) => {
       if (building.isSpawner) {
         // Update cooldowns
-        building.cooldowns.forEach((cooldown) => {
+        building.cooldowns.forEach((cooldown: { remainingTicks: number }) => {
           if (cooldown.remainingTicks > 0) {
             cooldown.remainingTicks--;
           }
@@ -498,7 +650,7 @@ export class GameRoom extends Room<GameState> {
     } else {
       // Check if wave is complete
       const neutralMonsters = Array.from(this.state.monsters.values()).filter(
-        (m) => m.ownerId === ''
+        (m: MonsterState) => m.ownerId === ''
       );
       if (neutralMonsters.length === 0) {
         this.state.wave.isWaveActive = false;
@@ -532,15 +684,20 @@ export class GameRoom extends Room<GameState> {
       const targetPlayer = alivePlayers[i % alivePlayers.length];
       if (!targetPlayer) continue;
 
+      const monsterType = this.getMonsterTypeForWave(waveNumber);
+      const meta = SPAWNABLE_MONSTER_META[monsterType];
+
       const monster = new MonsterState();
       monster.id = this.state.generateEntityId('monster');
       monster.ownerId = ''; // Neutral
       monster.targetPlayerId = targetPlayer.id;
-      monster.monsterType = this.getMonsterTypeForWave(waveNumber);
-      monster.hp = 100 + waveNumber * 20;
+      monster.monsterType = monsterType;
+
+      // Use metadata for base stats, scale HP with wave
+      monster.hp = (meta?.baseHp ?? 100) + waveNumber * 20;
       monster.maxHp = monster.hp;
-      monster.radius = 10;
-      monster.speed = 2;
+      monster.radius = meta?.radius ?? 10;
+      monster.speed = meta?.speed ?? 2;
 
       // Spawn from map edge, heading toward target player's base
       const spawnPos = this.getEdgeSpawnPosition(targetPlayer);
@@ -564,12 +721,13 @@ export class GameRoom extends Room<GameState> {
    * Get monster type based on wave number
    */
   private getMonsterTypeForWave(waveNumber: number): string {
-    if (waveNumber >= 15) return 'T800';
-    if (waveNumber >= 10) return 'Ninja';
-    if (waveNumber >= 8) return 'Bomber';
-    if (waveNumber >= 5) return 'Tank';
-    if (waveNumber >= 3) return 'Fast';
-    return 'Normal';
+    const available = getMonstersForWave(waveNumber);
+    if (available.length === 0) return 'Normal';
+
+    // Sort by unlock wave descending, pick from top 3 candidates
+    const sorted = available.sort((a, b) => b.unlockWave - a.unlockWave);
+    const candidates = sorted.slice(0, Math.min(3, sorted.length));
+    return candidates[Math.floor(Math.random() * candidates.length)].monsterId;
   }
 
   /**
@@ -592,56 +750,147 @@ export class GameRoom extends Room<GameState> {
   }
 
   /**
-   * Process tower attacks
+   * Apply combat tick results (bullet hits, fired events)
    */
-  private processAttacks(): void {
-    // This is a simplified version - actual implementation would need
-    // to integrate with the game's combat system
-    this.state.towers.forEach((tower) => {
-      if (tower.isManual) return; // Manual towers don't auto-attack
+  private applyCombatResult(result: CombatTickResult): void {
+    // Broadcast bullet fired events to clients
+    for (const event of result.bulletsFired) {
+      this.broadcast(ServerMessage.BULLET_FIRED, event);
+    }
 
-      // Find enemies in range
-      this.state.monsters.forEach((monster) => {
-        const dist = tower.position.distanceTo(monster.position);
-        if (dist <= tower.attackRadius) {
-          // Check if enemy
-          if (this.isEnemy(tower.ownerId, monster.ownerId)) {
-            // Simplified damage - actual implementation would use tower stats
-            this.damageMonster(monster, 10, tower.id);
+    // Process bullet hits
+    for (const hit of result.bulletsHit) {
+      if (hit.targetType === 'monster') {
+        const monster = this.state.monsters.get(hit.targetId);
+        if (monster) {
+          this.damageMonster(monster, hit.damage, hit.towerId);
+          this.applyStatusEffects(monster, hit);
+
+          // Process explosion targets
+          for (const expTarget of hit.explosionTargets) {
+            const expMonster = this.state.monsters.get(expTarget.id);
+            if (expMonster) {
+              this.damageMonster(expMonster, expTarget.damage, hit.towerId);
+              this.applyStatusEffects(expMonster, hit);
+            }
           }
         }
+      } else if (hit.targetType === 'building') {
+        const building = this.state.buildings.get(hit.targetId);
+        if (building) {
+          this.damageBuilding(building, hit.damage, hit.towerId);
+        }
+      }
+    }
+
+    // Broadcast bullet removed events
+    if (result.bulletsRemoved.length > 0) {
+      this.broadcast(ServerMessage.BULLET_HIT, {
+        removedBullets: result.bulletsRemoved,
       });
-    });
+    }
   }
 
   /**
-   * Process collisions
+   * Apply melee collision results
    */
-  private processCollisions(): void {
-    // Monster vs Building collisions
-    this.state.monsters.forEach((monster) => {
-      this.state.buildings.forEach((building) => {
-        if (this.isEnemy(monster.ownerId, building.ownerId)) {
-          const dist = monster.position.distanceTo(building.position);
-          if (dist <= monster.radius + building.radius) {
-            // Monster attacks building
-            this.damageBuilding(building, 5, monster.id);
-
-            // Remove monster after clash
-            this.removeMonster(monster.id);
-          }
+  private applyMeleeResults(results: MeleeResult[]): void {
+    for (const result of results) {
+      if (result.mineId) {
+        // Mine hit
+        const destroyed = this.mineManager.damageMine(
+          result.mineId,
+          result.damage,
+          result.monsterId
+        );
+        if (destroyed) {
+          this.broadcast(ServerMessage.MINE_DESTROYED, {
+            mineId: result.mineId,
+            destroyedBy: result.monsterId,
+          });
         }
-      });
-    });
+      } else {
+        // Building hit
+        const building = this.state.buildings.get(result.buildingId);
+        if (building) {
+          this.damageBuilding(building, result.damage, result.monsterId);
+        }
+      }
+      this.removeMonster(result.monsterId);
+    }
   }
 
   /**
-   * Check if two entities are enemies
+   * Sync energy state from EnergyCalculator to PlayerState for client display
    */
-  private isEnemy(ownerId1: string, ownerId2: string): boolean {
-    // Neutral entities (empty ownerId) are enemies to everyone
-    if (ownerId1 === '' || ownerId2 === '') return true;
-    return ownerId1 !== ownerId2;
+  private syncEnergyToPlayerStates(): void {
+    for (const [playerId, energy] of this.energyCalc.getPlayerStates()) {
+      const player = this.state.getPlayer(playerId);
+      if (!player) continue;
+      player.energyProduction = energy.production;
+      player.energyConsumption = energy.consumption;
+      player.energySatisfaction = energy.satisfactionRatio;
+    }
+  }
+
+  // === Mine Message Handlers ===
+
+  private handleUpgradeMine(client: Client, payload: UpgradeMinePayload): void {
+    const playerId = client.sessionId;
+    const result = this.mineManager.upgradeMine(payload.mineId, playerId);
+    if (!result.ok) {
+      this.sendActionRejected(client, 'upgrade_mine', result.error!);
+    }
+  }
+
+  private handleRepairMine(client: Client, payload: RepairMinePayload): void {
+    const playerId = client.sessionId;
+    const result = this.mineManager.repairMine(payload.mineId, playerId);
+    if (!result.ok) {
+      this.sendActionRejected(client, 'repair_mine', result.error!);
+    }
+  }
+
+  private handleDowngradeMine(client: Client, payload: DowngradeMinePayload): void {
+    const playerId = client.sessionId;
+    const result = this.mineManager.downgradeMine(payload.mineId, playerId);
+    if (!result.ok) {
+      this.sendActionRejected(client, 'downgrade_mine', result.error!);
+    }
+  }
+
+  private handleSellMine(client: Client, payload: SellMinePayload): void {
+    const playerId = client.sessionId;
+    const result = this.mineManager.sellMine(payload.mineId, playerId);
+    if (!result.ok) {
+      this.sendActionRejected(client, 'sell_mine', result.error!);
+    }
+  }
+
+  /**
+   * Apply status effects from bullet hit to monster
+   */
+  private applyStatusEffects(monster: MonsterState, hit: BulletHitResult): void {
+    // Freeze effect
+    if (hit.freezeMultiplier < 1) {
+      monster.isSlowed = true;
+      monster.slowEndTime = this.state.currentTick + 180; // ~3 seconds at 60fps
+      // Apply speed reduction
+      monster.velocity.x *= hit.freezeMultiplier;
+      monster.velocity.y *= hit.freezeMultiplier;
+    }
+
+    // Burn effect
+    if (hit.burnRate > 0) {
+      // Stack burn rate with cap (matches client maxBurnRate)
+      monster.burnRate = Math.min(monster.burnRate + hit.burnRate, 0.005);
+      // Track who applied the burn for kill attribution
+      monster.burnSourceOwnerId = hit.ownerId;
+      // Fire clears ice
+      if (monster.isSlowed) {
+        monster.isSlowed = false;
+      }
+    }
   }
 
   /**
@@ -664,11 +913,16 @@ export class GameRoom extends Room<GameState> {
   /**
    * Kill a monster
    */
-  private killMonster(monster: MonsterState, killerId: string): void {
-    // Award money to killer
-    const killerTower = this.state.towers.get(killerId);
-    if (killerTower && killerTower.ownerId) {
-      const player = this.state.getPlayer(killerTower.ownerId);
+  private killMonster(monster: MonsterState, killerId: string, killerOwnerId?: string): void {
+    // Award money to killer - killerId can be a tower ID or bullet owner ID
+    // killerOwnerId can be passed directly (e.g. burn kills) to skip tower lookup
+    if (!killerOwnerId) {
+      const killerTower = this.state.towers.get(killerId);
+      killerOwnerId = killerTower?.ownerId || '';
+    }
+
+    if (killerOwnerId) {
+      const player = this.state.getPlayer(killerOwnerId);
       if (player) {
         const reward = this.getMonsterReward(monster.monsterType);
         player.money += reward;
@@ -689,15 +943,8 @@ export class GameRoom extends Room<GameState> {
    * Get monster kill reward
    */
   private getMonsterReward(monsterType: string): number {
-    const rewards: Record<string, number> = {
-      Normal: 10,
-      Fast: 10,
-      Tank: 15,
-      Bomber: 20,
-      Ninja: 50,
-      T800: 600,
-    };
-    return rewards[monsterType] || 10;
+    const meta = SPAWNABLE_MONSTER_META[monsterType];
+    return meta?.reward ?? 10;
   }
 
   /**
@@ -743,6 +990,10 @@ export class GameRoom extends Room<GameState> {
     }
 
     this.state.buildings.delete(building.id);
+
+    // Mark territory and energy dirty
+    this.territoryCalc.markDirty();
+    this.energyCalc.markDirty();
   }
 
   /**
@@ -769,7 +1020,7 @@ export class GameRoom extends Room<GameState> {
     this.stopGameLoop();
 
     // Collect stats
-    const stats = Array.from(this.state.players.values()).map((p) => ({
+    const stats = Array.from(this.state.players.values()).map((p: PlayerState) => ({
       playerId: p.id,
       towersBuilt: p.towersBuilt,
       monstersKilled: p.monstersKilled,
@@ -855,6 +1106,13 @@ export class GameRoom extends Room<GameState> {
     this.state.currentTick = 0;
     this.state.wave.nextWaveTime = 5 * this.tickRate; // First wave in 5 seconds
 
+    // Generate mines from base positions
+    const basePositions = this.state.getAlivePlayers().map((p: PlayerState) => ({
+      x: p.basePosition.x,
+      y: p.basePosition.y,
+    }));
+    this.mineManager.generateMines(basePositions);
+
     this.broadcast(ServerMessage.GAME_STARTED, {});
 
     this.startGameLoop();
@@ -867,7 +1125,7 @@ export class GameRoom extends Room<GameState> {
    */
   private handleBuildTower(client: Client, payload: BuildTowerPayload): void {
     // Ensure territory is up-to-date
-    this.territoryCalc.recalculate(this.state.buildings, this.state.towers);
+    this.territoryCalc.recalculate(this.state.buildings, this.state.towers, this.state.mines);
 
     // Validate with InputValidator
     const result = this.inputValidator.validateBuildTower(
@@ -894,16 +1152,30 @@ export class GameRoom extends Room<GameState> {
     tower.ownerId = client.sessionId;
     tower.towerType = payload.towerType;
     tower.setPosition(payload.x, payload.y);
-    tower.hp = 1000;
-    tower.maxHp = 1000;
-    tower.radius = 15;
-    tower.attackRadius = 200;
+
+    // Apply real combat stats from metadata
+    const meta = getTowerCombatData(payload.towerType);
+    if (meta) {
+      tower.hp = meta.hp;
+      tower.maxHp = meta.hp;
+      tower.radius = meta.radius;
+      tower.attackRadius = meta.attackRadius;
+      tower.attackClock = meta.attackClock;
+      tower.attackBulletCount = meta.bulletCount;
+    } else {
+      // Fallback for non-bullet towers (Laser/Hammer/etc.)
+      tower.hp = 1000;
+      tower.maxHp = 1000;
+      tower.radius = 15;
+      tower.attackRadius = 200;
+    }
 
     this.state.towers.set(tower.id, tower);
     player.towersBuilt++;
 
-    // Mark territory dirty for recalculation
+    // Mark territory and energy dirty for recalculation
     this.territoryCalc.markDirty();
+    this.energyCalc.markDirty();
 
     console.log(
       `[GameRoom] Tower built: ${payload.towerType} at (${payload.x}, ${payload.y}) by ${player.name} (cost: ${cost})`
@@ -944,11 +1216,22 @@ export class GameRoom extends Room<GameState> {
     tower.towerType = payload.targetType;
     tower.level++;
 
-    // Update tower stats based on new type if needed
-    const targetMeta = this.towerMeta.get(payload.targetType);
-    if (targetMeta) {
-      // Could update other stats here (radius, attackRadius, etc.) based on config
+    // Update tower stats based on new type
+    const targetCombatMeta = getTowerCombatData(payload.targetType);
+    if (targetCombatMeta) {
+      tower.hp = targetCombatMeta.hp;
+      tower.maxHp = targetCombatMeta.hp;
+      tower.radius = targetCombatMeta.radius;
+      tower.attackRadius = targetCombatMeta.attackRadius;
+      tower.attackClock = targetCombatMeta.attackClock;
+      tower.attackBulletCount = targetCombatMeta.bulletCount;
     }
+
+    // Notify combat system of upgrade
+    this.combatSystem.onTowerUpgraded(tower.id, payload.targetType);
+
+    // Mark energy dirty (level change affects consumption)
+    this.energyCalc.markDirty();
 
     console.log(
       `[GameRoom] Tower upgraded: ${tower.id} -> ${payload.targetType} by ${player.name} (cost: ${upgradeCost})`
@@ -975,11 +1258,15 @@ export class GameRoom extends Room<GameState> {
     // Refund money
     player.money += refund;
 
+    // Notify combat system before removal
+    this.combatSystem.onTowerRemoved(payload.towerId);
+
     // Remove tower
     this.state.towers.delete(payload.towerId);
 
-    // Mark territory dirty
+    // Mark territory and energy dirty
     this.territoryCalc.markDirty();
+    this.energyCalc.markDirty();
 
     console.log(`[GameRoom] Tower sold: ${payload.towerId} by ${player.name} (refund: ${refund})`);
   }
@@ -989,7 +1276,7 @@ export class GameRoom extends Room<GameState> {
    */
   private handleSpawnMonster(client: Client, payload: SpawnMonsterPayload): void {
     // Ensure territory is up-to-date
-    this.territoryCalc.recalculate(this.state.buildings, this.state.towers);
+    this.territoryCalc.recalculate(this.state.buildings, this.state.towers, this.state.mines);
 
     const result = this.inputValidator.validateSpawnMonster(
       client.sessionId,
@@ -1018,10 +1305,13 @@ export class GameRoom extends Room<GameState> {
     monster.ownerId = client.sessionId;
     monster.targetPlayerId = payload.targetPlayerId;
     monster.monsterType = payload.monsterType;
-    monster.hp = 100; // Simplified
-    monster.maxHp = 100;
-    monster.radius = 10;
-    monster.speed = 2;
+
+    // Use real stats from metadata
+    const meta = SPAWNABLE_MONSTER_META[payload.monsterType];
+    monster.hp = meta?.baseHp ?? 100;
+    monster.maxHp = monster.hp;
+    monster.radius = meta?.radius ?? 10;
+    monster.speed = meta?.speed ?? 2;
 
     // Spawn at target's territory edge
     const spawnPos = this.getEdgeSpawnPosition(targetPlayer);
@@ -1065,8 +1355,11 @@ export class GameRoom extends Room<GameState> {
     const tower = this.state.towers.get(payload.towerId)!;
     tower.currentAmmo--;
 
-    // TODO: Create projectile and process hit
-    // This would integrate with the game's bullet system
+    // Create projectile via combat system
+    const bulletEvent = this.combatSystem.fireManualCannon(tower, payload.targetX, payload.targetY);
+    if (bulletEvent) {
+      this.broadcast(ServerMessage.BULLET_FIRED, bulletEvent);
+    }
 
     console.log(`[GameRoom] Cannon fired at (${payload.targetX}, ${payload.targetY})`);
   }
@@ -1081,7 +1374,12 @@ export class GameRoom extends Room<GameState> {
       return;
     }
 
-    // TODO: Store auto-target settings
+    // Store auto-target settings
+    tower.autoTargetX = payload.targetX;
+    tower.autoTargetY = payload.targetY;
+    tower.autoTargetRadius = payload.radius;
+    tower.hasAutoTarget = true;
+
     console.log(
       `[GameRoom] Cannon auto-target set at (${payload.targetX}, ${payload.targetY}) radius ${payload.radius}`
     );

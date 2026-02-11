@@ -35,8 +35,7 @@ export class ReconnectionManager {
 
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private statusCallbacks: ReconnectionCallback[] = [];
-  private sessionId: string | null = null;
-  private roomId: string | null = null;
+  private reconnectionToken: string | null = null;
 
   constructor() {
     this.setupListeners();
@@ -54,17 +53,16 @@ export class ReconnectionManager {
   }
 
   /**
-   * Save session info for reconnection
+   * Save reconnection token for game room reconnection
    */
-  saveSession(sessionId: string, roomId: string): void {
-    this.sessionId = sessionId;
-    this.roomId = roomId;
+  saveSession(reconnectionToken: string): void {
+    this.reconnectionToken = reconnectionToken;
 
     // Persist to sessionStorage for page refresh recovery
     try {
       sessionStorage.setItem(
         'cannonwar_session',
-        JSON.stringify({ sessionId, roomId, timestamp: Date.now() })
+        JSON.stringify({ reconnectionToken, timestamp: Date.now() })
       );
     } catch {
       // sessionStorage may not be available
@@ -75,8 +73,7 @@ export class ReconnectionManager {
    * Clear saved session
    */
   clearSession(): void {
-    this.sessionId = null;
-    this.roomId = null;
+    this.reconnectionToken = null;
 
     try {
       sessionStorage.removeItem('cannonwar_session');
@@ -89,16 +86,15 @@ export class ReconnectionManager {
    * Check if there's a saved session to reconnect to
    */
   hasSavedSession(): boolean {
-    if (this.sessionId && this.roomId) return true;
+    if (this.reconnectionToken) return true;
 
     try {
       const saved = sessionStorage.getItem('cannonwar_session');
       if (saved) {
         const data = JSON.parse(saved);
         // Only valid if less than 3 minutes old
-        if (Date.now() - data.timestamp < 180000) {
-          this.sessionId = data.sessionId;
-          this.roomId = data.roomId;
+        if (Date.now() - data.timestamp < 180000 && data.reconnectionToken) {
+          this.reconnectionToken = data.reconnectionToken;
           return true;
         }
         sessionStorage.removeItem('cannonwar_session');
@@ -194,13 +190,21 @@ export class ReconnectionManager {
     );
 
     this.retryTimer = setTimeout(async () => {
-      try {
-        const client = getNetworkClient();
-        await client.connectToLobby(client.playerName);
-        // If we had a game session, try to rejoin
-        // Note: The server-side handles allowReconnection
-      } catch {
-        this.attemptReconnect();
+      const client = getNetworkClient();
+
+      if (this.reconnectionToken) {
+        // Game room reconnection using Colyseus reconnectionToken
+        const success = await client.reconnectToGame(this.reconnectionToken);
+        if (!success) {
+          this.attemptReconnect();
+        }
+      } else {
+        // Lobby-only reconnection (no game session to restore)
+        try {
+          await client.connectToLobby(client.playerName);
+        } catch {
+          this.attemptReconnect();
+        }
       }
     }, delay);
   }

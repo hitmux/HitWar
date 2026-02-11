@@ -17,6 +17,7 @@ import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
 import { renderTowerLaser } from '../rendering/towerRenderer';
 import { scalePeriod } from '../../core/speedScale';
+import { isEnemy } from '../../game/player/ownership';
 import type {
     VectorLike,
     CircleLike,
@@ -208,6 +209,11 @@ export class TowerLaser extends Tower {
                         continue;
                     }
 
+                    // Skip friendly monsters
+                    if (!isEnemy(this, m)) {
+                        continue;
+                    }
+
                     // Check fog visibility
                     if (fogEnabled) {
                         const mc = m.getBodyCircle();
@@ -277,6 +283,10 @@ export class TowerLaser extends Tower {
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
         let viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
+            // Skip friendly monsters
+            if (!isEnemy(this, m)) {
+                continue;
+            }
             const mc = m.getBodyCircle() as Circle;
             if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 if (this.laserFreezeNow === this.laserFreezeMax) {

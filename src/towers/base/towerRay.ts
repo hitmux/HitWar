@@ -36,7 +36,7 @@ interface CircleLikeExt extends CircleLike {
 interface EffectLineLike {
     duration: number;
     initLineStyle(color: ReadonlyColor, width: number): void;
-    initDamage(world: unknown, damage: number): void;
+    initDamage(world: unknown, damage: number, ownerId?: string | null): void;
 }
 
 // Extended MonsterLike for ray tower (uses Vector for pos)
@@ -162,7 +162,7 @@ export class TowerRay extends Tower {
                 e.initLineStyle(this.rayColor, this.rayWidth);
                 e.duration = 50;
                 if (this.attackFunc === this.scanningAttack) {
-                    e.initDamage(this.world, actualDamage);
+                    e.initDamage(this.world, actualDamage, this.ownerId);
                 }
                 this.world.addEffect?.(e);
             }
@@ -308,6 +308,10 @@ export class TowerRay extends Tower {
             if (doCollision) {
                 let nearbyMonsters = this.world.getMonstersInRange(br.PosEnd.x, br.PosEnd.y, this.rayLen);
                 for (let m of nearbyMonsters) {
+                    // Skip friendly monsters
+                    if (!isEnemy(this, m)) {
+                        continue;
+                    }
                     // Check fog first, using circle visibility for edge detection
                     const mc = m.getBodyCircle();
                     if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {

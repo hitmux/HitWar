@@ -18,7 +18,6 @@ interface WorldLike {
         addBuildingIncremental: (building: unknown) => void;
     };
     addEffect: (effect: unknown) => void;
-    user: { money: number };
     markBuildingQuadTreeDirty?(): void;
 }
 
@@ -226,11 +225,8 @@ export class Mine extends CircleObject {
      */
     startRepair(): void {
         if (this.state === Mine.STATE_DAMAGED && !this.repairing) {
-            if ((this.world as any).user.money >= this.REPAIR_COST) {
-                (this.world as any).user.money -= this.REPAIR_COST;
-                this.repairing = true;
-                this.repairProgress = 0;
-            }
+            this.repairing = true;
+            this.repairProgress = 0;
         }
     }
 

@@ -12,7 +12,7 @@ import type { Circle } from '../core/math/circle';
 
 interface MonsterLike {
     getBodyCircle(): Circle;
-    hpChange(dh: number): void;
+    hpChange(dh: number, sourceOwnerId?: string | null): void;
 }
 
 interface WorldLike {
@@ -35,6 +35,7 @@ export class EffectLine extends Effect {
     animationFunc: () => void;
     world: WorldLike | null;
     damage: number;
+    ownerId: string | null = null;
 
     /**
      * Acquire from pool or create new EffectLine
@@ -85,6 +86,7 @@ export class EffectLine extends Effect {
         this.animationFunc = this.flashAnimation;
         this.world = null;
         this.damage = 0;
+        this.ownerId = null;
     }
 
     /**
@@ -99,9 +101,10 @@ export class EffectLine extends Effect {
     /**
      * Initialize damage properties for continuous damage dealing
      */
-    initDamage(world: WorldLike, damage: number): void {
+    initDamage(world: WorldLike, damage: number, ownerId?: string | null): void {
         this.world = world;
         this.damage = damage;
+        this.ownerId = ownerId ?? null;
     }
 
     /**
@@ -125,7 +128,7 @@ export class EffectLine extends Effect {
             const nearbyMonsters = this.world.getMonstersInRange(centerX, centerY, queryRadius);
             for (let m of nearbyMonsters) {
                 if (line.intersectWithCircle(m.getBodyCircle())) {
-                    m.hpChange(-actualDamage);
+                    m.hpChange(-actualDamage, this.ownerId);
                 }
             }
         }

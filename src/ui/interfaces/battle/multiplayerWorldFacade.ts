@@ -8,6 +8,7 @@ import type { NetworkClient } from '../../../network/networkClient';
 import type { Camera } from '../../../core/camera';
 import type { IEffect } from '../../../types/game';
 import type { GameEntity, PanelManagerWorldLike, PanelManagerTerritory, PanelManagerFog } from './types';
+import { getTowerCombatData } from '@shared/config/towerCombatMeta';
 
 /**
  * Facade class that bridges NetworkWorldAdapter to World-like interface
@@ -125,9 +126,20 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
     // === Tower Operations (via NetworkClient) ===
 
     /**
-     * Request building a tower (sends to server)
+     * Request building a tower (sends to server with client prediction)
      */
     addTower(towerConfig: { towerType: string; pos: { x: number; y: number } }): void {
+        // Immediate ghost tower feedback
+        const combatMeta = getTowerCombatData(towerConfig.towerType);
+        this._adapter.prediction.predictBuild(
+            towerConfig.towerType,
+            towerConfig.pos.x,
+            towerConfig.pos.y,
+            combatMeta?.radius ?? 15,
+            combatMeta?.attackRadius ?? 200
+        );
+
+        // Send to server
         this._networkClient.buildTower({
             towerType: towerConfig.towerType,
             x: towerConfig.pos.x,
@@ -136,9 +148,10 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
     }
 
     /**
-     * Request selling a tower (sends to server)
+     * Request selling a tower (sends to server with client prediction)
      */
     sellTower(towerId: string): void {
+        this._adapter.prediction.predictSell(towerId);
         this._networkClient.sellTower({ towerId });
     }
 
@@ -146,8 +159,8 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
      * Request upgrading a tower (sends to server)
      * Note: UpgradeTowerPayload only takes towerId, upgrade type is handled differently
      */
-    upgradeTower(towerId: string, _upgradeType?: string): void {
-        this._networkClient.upgradeTower({ towerId });
+    upgradeTower(towerId: string, upgradeType: string): void {
+        this._networkClient.upgradeTower({ towerId, targetType: upgradeType });
     }
 
     // === User State ===
@@ -193,6 +206,24 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
 
     get mines(): Set<unknown> {
         return this._adapter.getRendererContext().mines;
+    }
+
+    // === Mine Operations (via NetworkClient) ===
+
+    upgradeMine(mineId: string): void {
+        this._networkClient.upgradeMine({ mineId });
+    }
+
+    repairMine(mineId: string): void {
+        this._networkClient.repairMine({ mineId });
+    }
+
+    downgradeMine(mineId: string): void {
+        this._networkClient.downgradeMine({ mineId });
+    }
+
+    sellMine(mineId: string): void {
+        this._networkClient.sellMine({ mineId });
     }
 
     // === Base Building ===
