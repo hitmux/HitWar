@@ -7,7 +7,8 @@ import { VisionSource, RadarSweepArea, VISION_CONFIG, VisionType } from './visio
 import { FogRenderer } from './fogRenderer';
 
 // Interface definitions (for decoupling)
-interface TowerLike {
+// Exported for NetworkFogProxy to implement
+export interface TowerLike {
     pos: { x: number; y: number };
     inValidTerritory: boolean;
     visionType: VisionType;
@@ -18,7 +19,7 @@ interface TowerLike {
     ownerId?: string | null;
 }
 
-interface WorldLike {
+export interface WorldLike {
     width: number;
     height: number;
     viewWidth: number;

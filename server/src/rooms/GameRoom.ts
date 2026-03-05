@@ -19,6 +19,7 @@ import {
   ClientMessage,
   ServerMessage,
   type BuildTowerPayload,
+  type BuildBuildingPayload,
   type UpgradeTowerPayload,
   type SellTowerPayload,
   type SpawnMonsterPayload,
@@ -28,6 +29,8 @@ import {
   type RepairMinePayload,
   type DowngradeMinePayload,
   type SellMinePayload,
+  type UpgradeVisionPayload,
+  type TerritorySyncPayload,
 } from '../shared/types/messages.js';
 import { TerritoryCalculator, type TerritoryResult } from '../systems/territory/territoryCalculator.js';
 import { EnergyCalculator } from '../systems/energy/energyCalculator.js';
@@ -39,18 +42,29 @@ import {
   type CombatTickResult,
   type MeleeResult,
 } from '../systems/combat/index.js';
+import { VisionSystem } from '../systems/vision/visionSystem.js';
+import { sendToVisible, sendToEntityOwnerAndVisible } from '../systems/vision/broadcastFilter.js';
 import {
   InputValidator,
   TowerMetaRegistry,
   SpawnableMonsterRegistry,
+  BuildingMetaRegistry,
 } from '../validation/index.js';
 import { TOWER_META } from '../../../shared/config/towerMeta.js';
+import { BUILDING_META, getBuildingMeta } from '../../../shared/config/buildingMeta.js';
+import { TERRITORY_PENALTY } from '../../../shared/config/index.js';
 import {
   SPAWNABLE_MONSTER_META,
   getMonstersForWave,
   type MonsterMetaData,
 } from '../../../shared/config/monsterMeta.js';
 import { getTowerCombatData } from '../../../shared/config/towerCombatMeta.js';
+import { getTowerBaseMeta } from '../../../shared/config/towerBaseMeta.js';
+import {
+  canUpgradeVision,
+  getVisionUpgradePrice,
+  VisionType,
+} from '../../../shared/config/visionMeta.js';
 
 /**
  * Room options when creating/joining
@@ -90,7 +104,12 @@ export class GameRoom extends Room {
   private inputValidator!: InputValidator;
   private towerMeta!: TowerMetaRegistry;
   private spawnableMeta!: SpawnableMonsterRegistry;
+  private buildingMeta!: BuildingMetaRegistry;
   private mineManager!: MineManager;
+  private visionSystem!: VisionSystem;
+
+  private territorySyncCounter: number = 0;
+  private readonly TERRITORY_SYNC_INTERVAL = 120; // Every 2 seconds at 60 ticks/sec
 
   /**
    * Room creation
@@ -147,9 +166,14 @@ export class GameRoom extends Room {
 
     // Tower metadata registry - populated from shared config
     this.towerMeta = new TowerMetaRegistry();
-    // Import all tower metadata from shared config
     for (const [id, meta] of Object.entries(TOWER_META)) {
       this.towerMeta.register(id, meta.price, meta.levelUpArr);
+    }
+
+    // Building metadata registry - populated from shared config
+    this.buildingMeta = new BuildingMetaRegistry();
+    for (const [id, meta] of Object.entries(BUILDING_META)) {
+      this.buildingMeta.register(id, meta.price, meta.radius, meta.hp);
     }
 
     // Spawnable monster registry - populated from shared config
@@ -168,11 +192,16 @@ export class GameRoom extends Room {
       this.state,
       this.territoryCalc,
       this.towerMeta,
-      this.spawnableMeta
+      this.spawnableMeta,
+      this.buildingMeta
     );
 
     // Mine manager
     this.mineManager = new MineManager(this.state, this.energyCalc, this.territoryCalc);
+
+    // Vision system (fog of war)
+    this.visionSystem = new VisionSystem();
+    this.state._visionSystem = this.visionSystem;
   }
 
   /**
@@ -191,6 +220,10 @@ export class GameRoom extends Room {
     // Building actions
     this.onMessage(ClientMessage.BUILD_TOWER, (client, payload: BuildTowerPayload) => {
       this.handleBuildTower(client, payload);
+    });
+
+    this.onMessage(ClientMessage.BUILD_BUILDING, (client, payload: BuildBuildingPayload) => {
+      this.handleBuildBuilding(client, payload);
     });
 
     this.onMessage(ClientMessage.UPGRADE_TOWER, (client, payload: UpgradeTowerPayload) => {
@@ -239,6 +272,11 @@ export class GameRoom extends Room {
     this.onMessage(ClientMessage.SELL_MINE, (client, payload: SellMinePayload) => {
       this.handleSellMine(client, payload);
     });
+
+    // Vision actions
+    this.onMessage(ClientMessage.UPGRADE_VISION, (client, payload: UpgradeVisionPayload) => {
+      this.handleUpgradeVision(client, payload);
+    });
   }
 
   /**
@@ -272,6 +310,9 @@ export class GameRoom extends Room {
 
     // Add to state
     this.state.players.set(client.sessionId, player);
+
+    // Add to vision system
+    this.visionSystem.addPlayer(client.sessionId);
 
     // Store client metadata
     (client as unknown as { metadata: ClientMetadata }).metadata = {
@@ -406,6 +447,7 @@ export class GameRoom extends Room {
 
     // Remove player
     this.state.players.delete(playerId);
+    this.visionSystem.removePlayer(playerId);
 
     this.broadcast(ServerMessage.PLAYER_LEFT, { playerId });
   }
@@ -432,9 +474,10 @@ export class GameRoom extends Room {
       }
     });
 
-    // Mark territory and energy dirty after entity removal
+    // Mark territory, energy, and vision dirty after entity removal
     this.territoryCalc.markDirty();
     this.energyCalc.markDirty();
+    this.visionSystem.markDirty();
 
     // Notify
     this.broadcast(ServerMessage.PLAYER_ELIMINATED, {
@@ -498,6 +541,44 @@ export class GameRoom extends Room {
   }
 
   /**
+   * Apply territory penalties to all towers
+   */
+  private applyTerritoryPenalties(): void {
+    const results = this.territoryCalc.recalculate(
+      this.state.buildings,
+      this.state.towers,
+      this.state.mines
+    );
+
+    this.state.towers.forEach((tower) => {
+      const playerResult = results.get(tower.ownerId);
+      if (!playerResult) return;
+
+      const isValid = playerResult.validBuildings.has(tower.id);
+      if (isValid === tower.inValidTerritory) return;
+
+      tower.inValidTerritory = isValid;
+
+      if (isValid) {
+        this.removeTowerPenalty(tower);
+      } else {
+        this.applyTowerPenalty(tower);
+      }
+    });
+  }
+
+  private applyTowerPenalty(tower: TowerState): void {
+    tower.maxHp = Math.round(tower._baseMaxHp * TERRITORY_PENALTY.HP_MULTIPLIER);
+    tower.hp = Math.min(tower.hp, tower.maxHp);
+    tower.attackRadius = Math.round(tower._baseAttackRadius * TERRITORY_PENALTY.RANGE_MULTIPLIER);
+  }
+
+  private removeTowerPenalty(tower: TowerState): void {
+    tower.maxHp = tower._baseMaxHp;
+    tower.attackRadius = tower._baseAttackRadius;
+  }
+
+  /**
    * Apply energy money penalties/bonuses to player states
    */
   private applyEnergyMoneyChanges(moneyChanges: Map<string, number>): void {
@@ -545,6 +626,12 @@ export class GameRoom extends Room {
     // Phase 1.7: Sync energy state to PlayerState for client display
     this.syncEnergyToPlayerStates();
 
+    // Phase 1.75: Territory sync (periodic)
+    this.syncTerritoryToClients();
+
+    // Phase 1.8: Vision recalculation (fog of war filtering)
+    this.updateVision();
+
     // Phase 2: Combat (DamageCalculator now reads correct satisfactionRatio)
     const combatResult = this.combatSystem.update(
       this.state.currentTick,
@@ -560,7 +647,7 @@ export class GameRoom extends Room {
       this.state.towers
     );
     for (const event of autoFireEvents) {
-      this.broadcast(ServerMessage.BULLET_FIRED, event);
+      sendToVisible(this, this.visionSystem, ServerMessage.BULLET_FIRED, event, event.x, event.y);
     }
 
     // Phase 3: Monster melee (buildings + mines)
@@ -753,9 +840,9 @@ export class GameRoom extends Room {
    * Apply combat tick results (bullet hits, fired events)
    */
   private applyCombatResult(result: CombatTickResult): void {
-    // Broadcast bullet fired events to clients
+    // Send bullet fired events to visible clients
     for (const event of result.bulletsFired) {
-      this.broadcast(ServerMessage.BULLET_FIRED, event);
+      sendToVisible(this, this.visionSystem, ServerMessage.BULLET_FIRED, event, event.x, event.y);
     }
 
     // Process bullet hits
@@ -783,7 +870,7 @@ export class GameRoom extends Room {
       }
     }
 
-    // Broadcast bullet removed events
+    // Broadcast bullet removed events (IDs only, no position data to filter)
     if (result.bulletsRemoved.length > 0) {
       this.broadcast(ServerMessage.BULLET_HIT, {
         removedBullets: result.bulletsRemoved,
@@ -804,10 +891,13 @@ export class GameRoom extends Room {
           result.monsterId
         );
         if (destroyed) {
-          this.broadcast(ServerMessage.MINE_DESTROYED, {
+          const mine = this.state.mines.get(result.mineId);
+          const mx = mine?.position.x ?? 0;
+          const my = mine?.position.y ?? 0;
+          sendToVisible(this, this.visionSystem, ServerMessage.MINE_DESTROYED, {
             mineId: result.mineId,
             destroyedBy: result.monsterId,
-          });
+          }, mx, my);
         }
       } else {
         // Building hit
@@ -831,6 +921,116 @@ export class GameRoom extends Room {
       player.energyConsumption = energy.consumption;
       player.energySatisfaction = energy.satisfactionRatio;
     }
+  }
+
+
+  /**
+   * Periodically broadcast authoritative territory state to clients
+   * Runs every TERRITORY_SYNC_INTERVAL ticks (default: 2 seconds)
+   */
+  private syncTerritoryToClients(): void {
+    this.territorySyncCounter++;
+    if (this.territorySyncCounter < this.TERRITORY_SYNC_INTERVAL) return;
+    this.territorySyncCounter = 0;
+
+    const payload: TerritorySyncPayload = { territories: {} };
+
+    // Build payload from current territory calculator results
+    for (const [playerId, _player] of this.state.players) {
+      const result = this.territoryCalc.getPlayerResult(playerId);
+      if (!result) continue;
+
+      payload.territories[playerId] = {
+        validBuildings: Array.from(result.validBuildings),
+        invalidBuildings: Array.from(result.invalidBuildings),
+      };
+    }
+
+    // Broadcast to all clients
+    this.broadcast(ServerMessage.TERRITORY_SYNC, payload);
+  }
+
+  /**
+   * Recalculate vision for all players and touch entities whose visibility changed.
+   * Uses OPERATION.TOUCH to trigger @filterChildren without sending data bytes.
+   */
+  private updateVision(): void {
+    const changedIds = this.visionSystem.recalculate(
+      this.state.currentTick,
+      this.state.towers,
+      this.state.monsters,
+      this.state.buildings,
+      this.state.mines,
+    );
+
+    if (changedIds.size === 0) return;
+
+    // Touch entities whose visibility changed to force @filterChildren re-evaluation
+    // Using self-assign on a field to trigger the dirty flag
+    for (const id of changedIds) {
+      const tower = this.state.towers.get(id);
+      if (tower) { tower.hp = tower.hp; continue; }
+
+      const building = this.state.buildings.get(id);
+      if (building) { building.hp = building.hp; continue; }
+
+      const mine = this.state.mines.get(id);
+      if (mine) { mine.hp = mine.hp; continue; }
+
+      // Monsters move every tick, their filter triggers naturally
+    }
+  }
+
+  /**
+   * Handle vision upgrade request
+   */
+  private handleUpgradeVision(client: Client, payload: UpgradeVisionPayload): void {
+    const playerId = client.sessionId;
+    const { towerId, visionType } = payload;
+
+    // Whitelist validation for visionType
+    const validTypes: string[] = ['observer', 'radar'];
+    if (!validTypes.includes(visionType)) {
+      console.warn(`[GameRoom] Invalid visionType: ${visionType}`);
+      return;
+    }
+
+    // Validate tower exists and belongs to player
+    const tower = this.state.towers.get(towerId);
+    if (!tower || tower.ownerId !== playerId) {
+      this.sendActionRejected(client, 'UPGRADE_VISION', 'Tower not found or not owned');
+      return;
+    }
+
+    // Validate upgrade is possible
+    if (!canUpgradeVision(tower.visionType, tower.visionLevel, visionType)) {
+      this.sendActionRejected(client, 'UPGRADE_VISION', 'Cannot upgrade vision');
+      return;
+    }
+
+    // Calculate price and check money
+    const price = getVisionUpgradePrice(tower.visionType, tower.visionLevel, visionType);
+    const player = this.state.getPlayer(playerId);
+    if (!player || player.money < price) {
+      this.sendActionRejected(client, 'UPGRADE_VISION', 'Not enough money');
+      return;
+    }
+
+    // Apply upgrade
+    player.money -= price;
+    if (tower.visionType === visionType) {
+      tower.visionLevel++;
+    } else {
+      tower.visionType = visionType;
+      tower.visionLevel = 1;
+    }
+
+    // Mark vision dirty for recalculation
+    this.visionSystem.markDirty();
+
+    console.log(
+      `[GameRoom] Vision upgraded: ${towerId} -> ${visionType} lv${tower.visionLevel} by ${player.name} (cost: ${price})`
+    );
   }
 
   // === Mine Message Handlers ===
@@ -899,11 +1099,11 @@ export class GameRoom extends Room {
   private damageMonster(monster: MonsterState, damage: number, sourceId: string): void {
     monster.hp -= damage;
 
-    this.broadcast(ServerMessage.MONSTER_DAMAGED, {
+    sendToVisible(this, this.visionSystem, ServerMessage.MONSTER_DAMAGED, {
       monsterId: monster.id,
       damage,
       sourceId,
-    });
+    }, monster.position.x, monster.position.y);
 
     if (monster.hp <= 0) {
       this.killMonster(monster, sourceId);
@@ -928,11 +1128,11 @@ export class GameRoom extends Room {
         player.money += reward;
         player.monstersKilled++;
 
-        this.broadcast(ServerMessage.MONSTER_KILLED, {
+        sendToEntityOwnerAndVisible(this, this.visionSystem, ServerMessage.MONSTER_KILLED, {
           monsterId: monster.id,
           killerId,
           reward,
-        });
+        }, killerOwnerId, monster.position.x, monster.position.y);
       }
     }
 
@@ -963,11 +1163,11 @@ export class GameRoom extends Room {
   private damageBuilding(building: BuildingState, damage: number, sourceId: string): void {
     building.hp -= damage;
 
-    this.broadcast(ServerMessage.BUILDING_DAMAGED, {
+    sendToEntityOwnerAndVisible(this, this.visionSystem, ServerMessage.BUILDING_DAMAGED, {
       buildingId: building.id,
       damage,
       sourceId,
-    });
+    }, building.ownerId, building.position.x, building.position.y);
 
     if (building.hp <= 0) {
       this.destroyBuilding(building, sourceId);
@@ -978,11 +1178,12 @@ export class GameRoom extends Room {
    * Destroy a building
    */
   private destroyBuilding(building: BuildingState, sourceId: string): void {
-    this.broadcast(ServerMessage.BUILDING_DESTROYED, {
+    // Building owner always receives destruction event
+    sendToEntityOwnerAndVisible(this, this.visionSystem, ServerMessage.BUILDING_DESTROYED, {
       buildingId: building.id,
       sourceId,
       wasBase: building.isBase,
-    });
+    }, building.ownerId, building.position.x, building.position.y);
 
     // If this was a base, eliminate the player
     if (building.isBase && building.ownerId) {
@@ -991,9 +1192,10 @@ export class GameRoom extends Room {
 
     this.state.buildings.delete(building.id);
 
-    // Mark territory and energy dirty
+    // Mark territory, energy, and vision dirty
     this.territoryCalc.markDirty();
     this.energyCalc.markDirty();
+    this.visionSystem.markDirty();
   }
 
   /**
@@ -1156,6 +1358,8 @@ export class GameRoom extends Room {
     // Apply real combat stats from metadata
     const meta = getTowerCombatData(payload.towerType);
     if (meta) {
+      tower._baseMaxHp = meta.hp;
+      tower._baseAttackRadius = meta.attackRadius;
       tower.hp = meta.hp;
       tower.maxHp = meta.hp;
       tower.radius = meta.radius;
@@ -1163,22 +1367,84 @@ export class GameRoom extends Room {
       tower.attackClock = meta.attackClock;
       tower.attackBulletCount = meta.bulletCount;
     } else {
-      // Fallback for non-bullet towers (Laser/Hammer/etc.)
-      tower.hp = 1000;
-      tower.maxHp = 1000;
-      tower.radius = 15;
-      tower.attackRadius = 200;
+      // Fallback for non-bullet towers (Laser/Hammer/Boomerang/Hell/Ray/ManualCannon)
+      const baseMeta = getTowerBaseMeta(payload.towerType);
+      if (baseMeta) {
+        tower._baseMaxHp = baseMeta.hp;
+        tower._baseAttackRadius = baseMeta.attackRadius;
+        tower.hp = baseMeta.hp;
+        tower.maxHp = baseMeta.hp;
+        tower.radius = baseMeta.radius;
+        tower.attackRadius = baseMeta.attackRadius;
+        if (baseMeta.isManual) {
+          tower.isManual = true;
+          tower.maxAmmo = baseMeta.maxAmmo!;
+          tower.currentAmmo = baseMeta.maxAmmo!; // start fully loaded
+        }
+      } else {
+        console.warn(`[GameRoom] No combat/base meta found for tower type: ${payload.towerType}`);
+      }
     }
 
     this.state.towers.set(tower.id, tower);
     player.towersBuilt++;
 
-    // Mark territory and energy dirty for recalculation
+    // Mark territory, energy, and vision dirty for recalculation
     this.territoryCalc.markDirty();
     this.energyCalc.markDirty();
+    this.visionSystem.markDirty();
+
+    // Apply territory penalties
+    this.applyTerritoryPenalties();
 
     console.log(
       `[GameRoom] Tower built: ${payload.towerType} at (${payload.x}, ${payload.y}) by ${player.name} (cost: ${cost})`
+    );
+  }
+
+  private handleBuildBuilding(client: Client, payload: BuildBuildingPayload): void {
+    this.territoryCalc.recalculate(this.state.buildings, this.state.towers, this.state.mines);
+
+    const result = this.inputValidator.validateBuildBuilding(
+      client.sessionId,
+      payload.buildingType,
+      payload.x,
+      payload.y
+    );
+
+    if (!result.valid) {
+      this.sendActionRejected(client, 'BUILD_BUILDING', result.errorMessage || 'Validation failed', result.errorCode);
+      return;
+    }
+
+    const player = this.state.getPlayer(client.sessionId)!;
+    const cost = result.data?.cost as number;
+
+    player.money -= cost;
+
+    const building = new BuildingState();
+    building.id = this.state.generateEntityId('building');
+    building.ownerId = client.sessionId;
+    building.buildingType = payload.buildingType;
+    building.setPosition(payload.x, payload.y);
+
+    const meta = getBuildingMeta(payload.buildingType);
+    if (meta) {
+      building.hp = meta.hp;
+      building.maxHp = meta.hp;
+      building.radius = meta.radius;
+    }
+
+    this.state.buildings.set(building.id, building);
+
+    this.territoryCalc.markDirty();
+    this.energyCalc.markDirty();
+    this.visionSystem.markDirty();
+
+    this.applyTerritoryPenalties();
+
+    console.log(
+      `[GameRoom] Building built: ${payload.buildingType} at (${payload.x}, ${payload.y}) by ${player.name} (cost: ${cost})`
     );
   }
 
@@ -1212,6 +1478,11 @@ export class GameRoom extends Room {
     // Deduct money
     player.money -= upgradeCost;
 
+    // Preserve vision properties across tower type change
+    const savedVisionType = tower.visionType;
+    const savedVisionLevel = tower.visionLevel;
+    const wasInValidTerritory = tower.inValidTerritory;
+
     // Upgrade tower: change type and increment level
     tower.towerType = payload.targetType;
     tower.level++;
@@ -1219,16 +1490,43 @@ export class GameRoom extends Room {
     // Update tower stats based on new type
     const targetCombatMeta = getTowerCombatData(payload.targetType);
     if (targetCombatMeta) {
+      tower._baseMaxHp = targetCombatMeta.hp;
+      tower._baseAttackRadius = targetCombatMeta.attackRadius;
       tower.hp = targetCombatMeta.hp;
       tower.maxHp = targetCombatMeta.hp;
       tower.radius = targetCombatMeta.radius;
       tower.attackRadius = targetCombatMeta.attackRadius;
       tower.attackClock = targetCombatMeta.attackClock;
       tower.attackBulletCount = targetCombatMeta.bulletCount;
+    } else {
+      // Fallback for non-bullet towers (Laser/Hammer/Boomerang/Hell/Ray/ManualCannon)
+      const baseMeta = getTowerBaseMeta(payload.targetType);
+      if (baseMeta) {
+        tower._baseMaxHp = baseMeta.hp;
+        tower._baseAttackRadius = baseMeta.attackRadius;
+        tower.hp = baseMeta.hp;
+        tower.maxHp = baseMeta.hp;
+        tower.radius = baseMeta.radius;
+        tower.attackRadius = baseMeta.attackRadius;
+        if (baseMeta.isManual) {
+          tower.isManual = true;
+          tower.maxAmmo = baseMeta.maxAmmo!;
+          tower.currentAmmo = baseMeta.maxAmmo!;
+        }
+      }
+    }
+
+    // Reapply territory penalty if needed
+    if (!wasInValidTerritory) {
+      this.applyTowerPenalty(tower);
     }
 
     // Notify combat system of upgrade
     this.combatSystem.onTowerUpgraded(tower.id, payload.targetType);
+
+    // Restore vision properties after type change
+    tower.visionType = savedVisionType;
+    tower.visionLevel = savedVisionLevel;
 
     // Mark energy dirty (level change affects consumption)
     this.energyCalc.markDirty();
@@ -1264,9 +1562,10 @@ export class GameRoom extends Room {
     // Remove tower
     this.state.towers.delete(payload.towerId);
 
-    // Mark territory and energy dirty
+    // Mark territory, energy, and vision dirty
     this.territoryCalc.markDirty();
     this.energyCalc.markDirty();
+    this.visionSystem.markDirty();
 
     console.log(`[GameRoom] Tower sold: ${payload.towerId} by ${player.name} (refund: ${refund})`);
   }
@@ -1358,7 +1657,7 @@ export class GameRoom extends Room {
     // Create projectile via combat system
     const bulletEvent = this.combatSystem.fireManualCannon(tower, payload.targetX, payload.targetY);
     if (bulletEvent) {
-      this.broadcast(ServerMessage.BULLET_FIRED, bulletEvent);
+      sendToVisible(this, this.visionSystem, ServerMessage.BULLET_FIRED, bulletEvent, bulletEvent.x, bulletEvent.y);
     }
 
     console.log(`[GameRoom] Cannon fired at (${payload.targetX}, ${payload.targetY})`);
@@ -1371,6 +1670,15 @@ export class GameRoom extends Room {
     const tower = this.state.towers.get(payload.towerId);
     if (!tower || tower.ownerId !== client.sessionId || !tower.isManual) {
       this.sendError(client, 'INVALID_CANNON', 'Cannot set target: invalid cannon');
+      return;
+    }
+
+    // Clear auto-target if requested
+    if (payload.clear) {
+      tower.hasAutoTarget = false;
+      tower.autoTargetX = 0;
+      tower.autoTargetY = 0;
+      tower.autoTargetRadius = 0;
       return;
     }
 

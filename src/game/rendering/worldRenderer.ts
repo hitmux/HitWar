@@ -62,6 +62,7 @@ export interface WorldRendererContext {
 
     // Systems
     territory?: { renderer: { render: (ctx: CanvasRenderingContext2D) => void } };
+    allTerritories?: Array<{ renderer: { render: (ctx: CanvasRenderingContext2D) => void } }>;
     fog?: {
         enabled: boolean;
         renderer: { render: (ctx: CanvasRenderingContext2D, width: number, height: number) => void };
@@ -220,8 +221,12 @@ export class WorldRenderer {
             );
         }
 
-        // Render territory
-        if (this._context.territory) {
+        // Render territory (all players in multiplayer, or single player)
+        if (this._context.allTerritories) {
+            for (const territory of this._context.allTerritories) {
+                territory.renderer.render(ctx);
+            }
+        } else if (this._context.territory) {
             this._context.territory.renderer.render(ctx);
         }
 

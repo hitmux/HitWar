@@ -9,6 +9,8 @@ import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { createStatusBarCache, type StatusBarCache } from '../../entities/statusBar';
 import { getInterpolationSystem } from './interpolation';
+import { getVisionRadius, RADAR_SWEEP_SPEED, VisionType } from '../../../shared/config/visionMeta.js';
+import type { TowerLike as FogTowerLike } from '../../systems/fog/fogOfWar';
 
 // ============================================================================
 // Server state view interfaces (mirrors Colyseus schema, avoids cross-project import)
@@ -26,6 +28,14 @@ export interface TowerStateView {
     attackRadius: number;
     attackClock: number;
     isManual: boolean;
+    autoTargetX: number;
+    autoTargetY: number;
+    autoTargetRadius: number;
+    hasAutoTarget: boolean;
+    currentAmmo: number;
+    maxAmmo: number;
+    visionType: string;
+    visionLevel: number;
 }
 
 export interface MonsterStateView {
@@ -90,7 +100,7 @@ const BUILDING_FILL_COLOR = new MyColor(100, 100, 100, 1);
 /**
  * Tower render proxy - wraps TowerState and provides rendering interface
  */
-export class TowerRenderProxy {
+export class TowerRenderProxy implements FogTowerLike {
     // Reference to server state
     private _state: TowerStateView;
 
@@ -182,6 +192,77 @@ export class TowerRenderProxy {
     // Territory flag (network mode always valid)
     get inValidTerritory(): boolean {
         return true;
+    }
+
+    // Whether this tower can attack buildings (ManualCannon)
+    get canAttackBuildings(): boolean {
+        return this._state.isManual;
+    }
+
+    // Whether this is a manual cannon
+    get isManual(): boolean {
+        return this._state.isManual;
+    }
+
+    // Semi-auto mode status (from server hasAutoTarget)
+    get semiAutoMode(): boolean {
+        return this._state.hasAutoTarget;
+    }
+
+    // Auto-target properties
+    get hasAutoTarget(): boolean {
+        return this._state.hasAutoTarget;
+    }
+
+    get autoTargetX(): number {
+        return this._state.autoTargetX;
+    }
+
+    get autoTargetY(): number {
+        return this._state.autoTargetY;
+    }
+
+    get autoTargetRadius(): number {
+        return this._state.autoTargetRadius;
+    }
+
+    // Ammo properties
+    get currentAmmo(): number {
+        return this._state.currentAmmo;
+    }
+
+    get maxAmmo(): number {
+        return this._state.maxAmmo;
+    }
+
+    // Vision system properties (for FogOfWar TowerLike interface)
+    get visionType(): VisionType {
+        return (this._state.visionType as VisionType) || VisionType.NONE;
+    }
+
+    get visionLevel(): number {
+        return this._state.visionLevel || 0;
+    }
+
+    radarAngle: number = 0;
+
+    /** Advance radar angle for local rendering (call per frame) */
+    updateRadarAngle(): void {
+        if (this.visionType === VisionType.RADAR && this.visionLevel > 0) {
+            this.radarAngle += RADAR_SWEEP_SPEED;
+            if (this.radarAngle > Math.PI * 2) {
+                this.radarAngle -= Math.PI * 2;
+            }
+        }
+    }
+
+    getVisionRadius(): number {
+        return getVisionRadius(this.visionType, this.visionLevel);
+    }
+
+    // Game type identifier (for PanelManager detection)
+    get gameType(): string {
+        return 'Tower';
     }
 
     // Dead check
@@ -470,7 +551,7 @@ export class BuildingRenderProxy {
 
 /**
  * Local bullet for visual effects (not synchronized)
- * Used for showing attack animations between TOWER_ATTACK and hit events
+ * Used for showing attack animations between BULLET_FIRED and hit events
  */
 export class BulletRenderProxy {
     private _pos: Vector;

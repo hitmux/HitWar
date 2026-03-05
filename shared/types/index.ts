@@ -23,7 +23,6 @@ export {
   type ChatMessagePayload,
   type GameEndedPayload,
   type WaveStartingPayload,
-  type TowerAttackPayload,
   type MonsterDamagedPayload,
   type MonsterKilledPayload,
   type BuildingDamagedPayload,

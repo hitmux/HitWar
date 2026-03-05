@@ -18,6 +18,7 @@ export type {
   BuildTowerPayload,
   UpgradeTowerPayload,
   SellTowerPayload,
+  BuildBuildingPayload,
   SpawnMonsterPayload,
   CannonAimPayload,
   CannonFirePayload,
@@ -29,7 +30,6 @@ export type {
 export type {
   GameEndedPayload,
   WaveStartingPayload,
-  TowerAttackPayload,
   MonsterDamagedPayload,
   MonsterKilledPayload,
   BuildingDamagedPayload,
@@ -41,6 +41,7 @@ export type {
   BulletHitPayload,
   BulletExplosionPayload,
   MineDestroyedPayload,
+  TerritorySyncPayload,
 } from '@shared/types/messages';
 
 // Mine message payloads
@@ -50,6 +51,9 @@ export type {
   DowngradeMinePayload,
   SellMinePayload,
 } from '@shared/types/messages';
+
+// Vision message payloads
+export type { UpgradeVisionPayload } from '@shared/types/messages';
 
 // Lobby / Room payloads
 export type { RoomInfo, MatchFoundPayload } from '@shared/types/messages';

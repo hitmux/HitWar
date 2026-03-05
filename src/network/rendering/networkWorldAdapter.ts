@@ -10,6 +10,8 @@ import { Camera } from '../../core/camera';
 import { Vector } from '../../core/math/vector';
 import type { WorldRendererContext } from '../../game/rendering/worldRenderer';
 import type { IEffect } from '../../types/game';
+import { Territory } from '../../systems/territory/territory';
+import { TerritoryRenderer } from '../../systems/territory/territoryRenderer';
 
 import {
     TowerRenderProxy,
@@ -26,19 +28,32 @@ import { LocalEffectsManager, getLocalEffectsManager } from './localEffects';
 import { ClientPrediction, getClientPrediction } from './clientPrediction';
 import type { NetworkClient } from '../networkClient';
 import { NetworkEvent } from '../networkClient';
-import { ServerMessage } from '../messages';
+import { ServerMessage, type BulletFiredPayload, type TerritorySyncPayload } from '../messages';
 import { MineRenderProxy } from './mineRenderProxy';
+import { NetworkFogProxy } from './networkFog';
 
 // ============================================================================
 // Types for Colyseus state access
 // ============================================================================
+
+interface MineStateSchemaView {
+    id: string;
+    position: { x: number; y: number };
+    mineState: string;
+    ownerId: string;
+    level: number;
+    hp: number;
+    maxHp: number;
+    radius: number;
+    repairing: boolean;
+    repairProgress: number;
+}
 
 /**
  * Minimal GameState interface for type safety
  * Mirrors the Colyseus GameState schema without importing server code
  */
 interface GameStateView {
-    currentTick: number;
     mapConfig: { width: number; height: number };
     wave: {
         currentWave: number;
@@ -50,6 +65,7 @@ interface GameStateView {
     towers: Map<string, TowerStateView>;
     monsters: Map<string, MonsterStateView>;
     buildings: Map<string, BuildingStateView>;
+    mines?: Map<string, MineStateSchemaView>;
 }
 
 interface PlayerStateView {
@@ -98,6 +114,13 @@ export class NetworkWorldAdapter {
     private _mineProxies: Map<string, MineRenderProxy> = new Map();
     private _mineSet: Set<MineRenderProxy> = new Set();
 
+    // Fog of war
+    private _fogProxy: NetworkFogProxy | null = null;
+
+    // Territory system
+    private _territories: Map<string, Territory> = new Map();
+    private _territoryArray: Territory[] = [];
+
     // User state cache
     private _userState = {
         money: 0,
@@ -110,6 +133,11 @@ export class NetworkWorldAdapter {
 
     // Event handlers bound once
     private _eventHandlersBound: boolean = false;
+
+
+    // Territory sync counters
+    private _territoryIncrementalCounter: number = 0;
+    private readonly TERRITORY_FULL_RECALC_INTERVAL = 300; // Every 5 seconds at 60fps
 
     constructor(
         networkClient: NetworkClient,
@@ -155,6 +183,19 @@ export class NetworkWorldAdapter {
         // Initialize interpolation
         this._interpolation.initRenderTime(Date.now());
 
+        // Initialize fog of war
+        this._fogProxy = new NetworkFogProxy(
+            this._localPlayerId,
+            this._camera,
+            gameState.mapConfig.width,
+            gameState.mapConfig.height,
+            this._camera.viewWidth,
+            this._camera.viewHeight,
+        );
+
+        // Initialize territories for all players
+        this._initTerritories(gameState);
+
         // Build initial proxy caches
         this._rebuildAllProxies();
     }
@@ -168,16 +209,23 @@ export class NetworkWorldAdapter {
 
         const events = this._networkClient.events;
 
-        // Tower attack events → local bullet effects
-        events.on(ServerMessage.TOWER_ATTACK, (...args: unknown[]) => {
-            const data = args[0] as { towerId: string; targetId: string; targetX: number; targetY: number };
+        // Bullet fired events → local bullet effects
+        events.on(ServerMessage.BULLET_FIRED, (...args: unknown[]) => {
+            const data = args[0] as BulletFiredPayload;
             const tower = this._towerProxies.get(data.towerId);
             if (tower) {
+                // Calculate pseudo-target from velocity for BulletRenderProxy
+                const speed = Math.sqrt(data.vx * data.vx + data.vy * data.vy);
+                // Server bullet flies maxRange * slideRate (slideRate=2)
+                const maxDist = data.maxRange * 2;
+                const targetX = data.x + (speed > 0 ? (data.vx / speed) * maxDist : 0);
+                const targetY = data.y + (speed > 0 ? (data.vy / speed) * maxDist : 0);
+
                 this._localEffects.onTowerAttack(
-                    tower.pos.x,
-                    tower.pos.y,
-                    data.targetX,
-                    data.targetY
+                    data.x, data.y,
+                    targetX, targetY,
+                    data.radius,
+                    speed
                 );
             }
         });
@@ -230,6 +278,106 @@ export class NetworkWorldAdapter {
                     break;
             }
         });
+
+        // Territory sync from server
+        events.on(ServerMessage.TERRITORY_SYNC, (...args: unknown[]) => {
+            const data = args[0] as TerritorySyncPayload;
+            this._applyTerritorySync(data);
+        });
+    }
+
+    /**
+     * Initialize territory system for all players
+     */
+    private _initTerritories(gameState: GameStateView): void {
+        this._territories.clear();
+
+        // Create minimal world-like object for Territory
+        const self = this;
+        const pseudoWorld = {
+            width: gameState.mapConfig.width,
+            height: gameState.mapConfig.height,
+            viewWidth: this._camera.viewWidth,
+            viewHeight: this._camera.viewHeight,
+            camera: this._camera,
+            getBaseBuilding: (playerId?: string) => {
+                return self._buildingArray.find(b => b.ownerId === playerId && b.gameType === 'Base') || self._buildingArray[0];
+            },
+            get batterys() { return self._towerArray as any; },
+            get buildings() { return self._buildingArray as any; },
+            get mines() { return self._mineSet as any; },
+            fog: undefined,
+        };
+
+        // Create territory for each player
+        for (const [playerId] of gameState.players) {
+            const territory = new Territory(pseudoWorld as any, playerId);
+            this._territories.set(playerId, territory);
+        }
+
+        this._territoryArray = Array.from(this._territories.values());
+    }
+
+    /**
+     * Update territories when buildings change
+     */
+    private _updateTerritories(): void {
+        this._territoryIncrementalCounter++;
+
+        // Every N updates, do full recalc to prevent drift
+        if (this._territoryIncrementalCounter >= this.TERRITORY_FULL_RECALC_INTERVAL) {
+            this._territoryIncrementalCounter = 0;
+            for (const territory of this._territories.values()) {
+                territory.recalculate();
+            }
+        } else {
+            // Normal incremental update (mark dirty for next frame)
+            for (const territory of this._territories.values()) {
+                territory.markDirty();
+            }
+        }
+    }
+
+
+    /**
+     * Apply authoritative territory state from server
+     * Directly updates Territory valid/invalid building sets
+     */
+    private _applyTerritorySync(data: TerritorySyncPayload): void {
+        for (const [playerId, territoryData] of Object.entries(data.territories)) {
+            const territory = this._territories.get(playerId);
+            if (!territory) continue;
+
+            // Clear existing sets
+            territory.validBuildings.clear();
+            territory.invalidBuildings.clear();
+
+            // Rebuild valid buildings set
+            for (const id of territoryData.validBuildings) {
+                const entity = this._buildingProxies.get(id) ||
+                              this._towerProxies.get(id) ||
+                              this._mineProxies.get(id);
+                if (entity) {
+                    territory.validBuildings.add(entity as any);
+                    (entity as any).inValidTerritory = true;
+                }
+            }
+
+            // Rebuild invalid buildings set
+            for (const id of territoryData.invalidBuildings) {
+                const entity = this._buildingProxies.get(id) ||
+                              this._towerProxies.get(id) ||
+                              this._mineProxies.get(id);
+                if (entity) {
+                    territory.invalidBuildings.add(entity as any);
+                    (entity as any).inValidTerritory = false;
+                }
+            }
+
+            // Rebuild internal grid cache for fast position queries
+            (territory as any)._rebuildRefCountGrid();
+            territory.renderer.invalidateCache();
+        }
     }
 
     // ==================== Per-Frame Update ====================
@@ -256,6 +404,11 @@ export class NetworkWorldAdapter {
 
         // Build render arrays
         this._buildRenderCollections();
+
+        // Update fog of war (after render collections are built)
+        if (this._fogProxy) {
+            this._fogProxy.update(this._towerArray, this._buildingArray);
+        }
 
         // Reset circle pool for this frame
         resetCirclePool();
@@ -325,6 +478,9 @@ export class NetworkWorldAdapter {
 
         // Sync mines
         this._syncMines();
+
+        // Update territories when buildings change
+        this._updateTerritories();
     }
 
     /**
@@ -333,8 +489,7 @@ export class NetworkWorldAdapter {
     private _syncMines(): void {
         if (!this._gameState) return;
 
-        const serverMines = (this._gameState as Record<string, unknown>).mines as
-            Map<string, { id: string; position: { x: number; y: number }; mineState: string; ownerId: string; level: number; hp: number; maxHp: number; radius: number; repairing: boolean; repairProgress: number }> | undefined;
+        const serverMines = this._gameState.mines;
 
         if (!serverMines) return;
 
@@ -453,6 +608,7 @@ export class NetworkWorldAdapter {
         this._towerArray.length = 0;
         for (const proxy of this._towerProxies.values()) {
             if (!proxy.isDead()) {
+                proxy.updateRadarAngle();
                 this._towerArray.push(proxy);
             }
         }
@@ -534,7 +690,8 @@ export class NetworkWorldAdapter {
 
             // Systems (optional in network mode)
             territory: undefined,
-            fog: undefined,
+            allTerritories: this._territoryArray.length > 0 ? this._territoryArray : undefined,
+            fog: this._fogProxy ?? undefined,
             energy: energyProxy,
             energyRenderer: undefined,
             monsterFlow: this._gameState ? {
@@ -590,6 +747,7 @@ export class NetworkWorldAdapter {
      */
     updateViewSize(width: number, height: number): void {
         this._camera.updateViewSize(width, height);
+        this._fogProxy?.resize(width, height);
     }
 
     /**
@@ -602,6 +760,7 @@ export class NetworkWorldAdapter {
         this._interpolation.clear();
         this._localEffects.clear();
         this._prediction.clear();
+        this._fogProxy = null;
         this._gameState = null;
         this._eventHandlersBound = false;
     }

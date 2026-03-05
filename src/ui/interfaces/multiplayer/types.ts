@@ -3,19 +3,6 @@
  */
 
 /**
- * Room display info for UI
- */
-export interface RoomDisplayInfo {
-  roomId: string;
-  name: string;
-  playerCount: number;
-  maxPlayers: number;
-  mapSize: string;
-  isPrivate: boolean;
-  host: string;
-}
-
-/**
  * Player display info for waiting room
  */
 export interface PlayerDisplayInfo {
@@ -37,7 +24,5 @@ export const MAP_SIZE_OPTIONS = [
 
 export type MapSize = (typeof MAP_SIZE_OPTIONS)[number]['value'];
 
-/**
- * Player colors for display
- */
-export const PLAYER_COLORS = ['#4a9eff', '#ff6b6b', '#6bff6b', '#ffdd6b'] as const;
+// Re-export from shared config (single source of truth)
+export { PLAYER_COLORS } from '@shared/config/playerMeta';

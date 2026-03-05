@@ -120,7 +120,7 @@ export class PanelManager {
         this.spawnerPanel = new SpawnerPanel(eventSignal);
 
         // Initialize manual cannon panel
-        this.manualCannonPanel = new ManualCannonPanel(eventSignal);
+        this.manualCannonPanel = new ManualCannonPanel(eventSignal, this.networkClient ?? undefined);
     }
 
     /**
@@ -407,7 +407,14 @@ export class PanelManager {
                     }
                 } else if (target.classList.contains("visionUpgrade")) {
                     const visionType = (target.dataset.visionType || VisionType.NONE) as VisionType;
-                    if (this.currentPanelEntity.canUpgradeVision?.(visionType)) {
+                    if (this.networkClient && this.currentPanelEntity.id) {
+                        // Multiplayer: send to server
+                        this.networkClient.sendUpgradeVision({
+                            towerId: this.currentPanelEntity.id,
+                            visionType: visionType as 'observer' | 'radar',
+                        });
+                    } else if (this.currentPanelEntity.canUpgradeVision?.(visionType)) {
+                        // Single-player: local handling
                         const price = this.currentPanelEntity.getVisionUpgradePrice?.(visionType) ?? 0;
                         if (this.world.spendMoney(price)) {
                             this.currentPanelEntity.upgradeVision?.(visionType);

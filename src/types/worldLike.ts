@@ -234,9 +234,9 @@ export interface WorldLike {
 
     // Money management (multiplayer compatible)
     addMoneyToOwner?(ownerId: string | null, amount: number): void;
-    getMoney?(): number;
-    setMoney?(amount: number): void;
-    addMoney?(amount: number): void;
+    getMoney?(playerId?: string): number;
+    setMoney?(amount: number, playerId?: string): void;
+    addMoney?(amount: number, playerId?: string): void;
     spendMoney?(amount: number, force?: boolean): boolean;
 
     // Base building accessor (multiplayer compatible)

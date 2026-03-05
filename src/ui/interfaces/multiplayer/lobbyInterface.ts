@@ -30,6 +30,13 @@ export function lobbyInterface(): void {
 
   const client = getNetworkClient();
 
+  // Reset module-level state to prevent stale data on re-entry
+  if (refreshIntervalId !== null) {
+    clearInterval(refreshIntervalId);
+    refreshIntervalId = null;
+  }
+  isSearching = false;
+
   // Setup back button (disconnect and return)
   setupBackButton(container, 'multiplayer-connect-interface', {
     beforeNavigate: () => {

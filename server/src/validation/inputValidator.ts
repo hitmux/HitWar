@@ -65,6 +65,25 @@ export class SpawnableMonsterRegistry {
 }
 
 /**
+ * Building metadata registry for server-side validation
+ */
+export class BuildingMetaRegistry {
+  private metas: Map<string, { id: string; price: number; radius: number; hp: number }> = new Map();
+
+  register(id: string, price: number, radius: number, hp: number): void {
+    this.metas.set(id, { id, price, radius, hp });
+  }
+
+  get(id: string): { id: string; price: number; radius: number; hp: number } | undefined {
+    return this.metas.get(id);
+  }
+
+  has(id: string): boolean {
+    return this.metas.has(id);
+  }
+}
+
+/**
  * Adapt PlayerState to PlayerValidationState interface
  */
 function toPlayerValidation(
@@ -136,17 +155,20 @@ export class InputValidator {
   private territory: TerritoryCalculator;
   private towerMeta: TowerMetaRegistry;
   private spawnableMeta: SpawnableMonsterRegistry;
+  private buildingMeta: BuildingMetaRegistry;
 
   constructor(
     state: GameState,
     territory: TerritoryCalculator,
     towerMeta: TowerMetaRegistry,
-    spawnableMeta: SpawnableMonsterRegistry
+    spawnableMeta: SpawnableMonsterRegistry,
+    buildingMeta: BuildingMetaRegistry
   ) {
     this.state = state;
     this.territory = territory;
     this.towerMeta = towerMeta;
     this.spawnableMeta = spawnableMeta;
+    this.buildingMeta = buildingMeta;
   }
 
   /**
@@ -251,6 +273,98 @@ export class InputValidator {
       inEnemyTerritory,
       costMultiplier,
       towerType,
+    });
+  }
+
+  validateBuildBuilding(
+    playerId: string,
+    buildingType: string,
+    x: number,
+    y: number
+  ): ValidationResult {
+    const player = this.state.getPlayer(playerId);
+    const meta = this.buildingMeta.get(buildingType);
+    const bounds = {
+      width: this.state.mapConfig.width,
+      height: this.state.mapConfig.height,
+    };
+
+    // Step 1: Basic validation
+    if (!player || !player.isAlive) {
+      return validationFailure(ValidationErrorCode.PLAYER_NOT_FOUND);
+    }
+    if (!meta) {
+      return validationFailure(ValidationErrorCode.TOWER_TYPE_INVALID);
+    }
+    if (x < 0 || x > bounds.width || y < 0 || y > bounds.height) {
+      return validationFailure(ValidationErrorCode.POSITION_OUT_OF_BOUNDS);
+    }
+
+    // Step 2: Territory check
+    const inOwnTerritory = this.territory.isPositionInValidTerritory(
+      x,
+      y,
+      playerId,
+      this.state.buildings,
+      this.state.towers
+    );
+
+    let inEnemyTerritory = false;
+    for (const otherPlayer of this.state.players.values()) {
+      if (otherPlayer.id === playerId || !otherPlayer.isAlive) continue;
+      if (
+        this.territory.isPositionInValidTerritory(
+          x,
+          y,
+          otherPlayer.id,
+          this.state.buildings,
+          this.state.towers
+        )
+      ) {
+        inEnemyTerritory = true;
+        break;
+      }
+    }
+
+    if (!inOwnTerritory && !inEnemyTerritory) {
+      return validationFailure(ValidationErrorCode.POSITION_NOT_IN_TERRITORY);
+    }
+
+    // Step 3: Collision check
+    const collisionResult = checkBuildCollision(
+      x,
+      y,
+      meta.radius,
+      toSpatialIterable(this.state.towers),
+      toSpatialIterable(this.state.buildings)
+    );
+    if (collisionResult.collides) {
+      return validationFailure(
+        ValidationErrorCode.POSITION_COLLISION,
+        `Collision with entity: ${collisionResult.collidingEntityId}`
+      );
+    }
+
+    // Step 4: Calculate final cost
+    const basePrice = meta.price;
+    const costMultiplier = inEnemyTerritory && !inOwnTerritory
+      ? PVP_CONFIG.territory.enemyBuildCostMultiplier
+      : 1;
+    const finalCost = basePrice * costMultiplier;
+
+    // Step 5: Check money
+    if (player.money < finalCost) {
+      return validationFailure(
+        ValidationErrorCode.INSUFFICIENT_MONEY,
+        `Need ${finalCost}, have ${player.money}`
+      );
+    }
+
+    return validationSuccess({
+      cost: finalCost,
+      inEnemyTerritory,
+      costMultiplier,
+      buildingType,
     });
   }
 

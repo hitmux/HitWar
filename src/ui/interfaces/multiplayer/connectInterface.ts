@@ -62,17 +62,21 @@ export function connectInterface(): void {
     localStorage.setItem(STORAGE_KEY_PLAYER_NAME, playerName);
     localStorage.setItem(STORAGE_KEY_SERVER_URL, serverUrl);
 
-    // Update network config if URL changed
+    const client = getNetworkClient();
+
+    // Update server URL if changed
     if (serverUrl !== NETWORK_CONFIG.serverUrl) {
-      // Note: In production, this would need to recreate the client
-      console.log(`[ConnectInterface] Custom server URL: ${serverUrl}`);
+      try {
+        client.setServerUrl(serverUrl);
+      } catch (error) {
+        updateStatus('无法更改服务器地址: ' + (error instanceof Error ? error.message : '未知错误'), 'error');
+        return;
+      }
     }
 
     // Disable button and show connecting status
     connectBtn.disabled = true;
     updateStatus('正在连接...', 'info');
-
-    const client = getNetworkClient();
 
     try {
       // Setup event listeners

@@ -11,6 +11,7 @@ import {
   ServerMessage,
   LobbyMessage,
   type BuildTowerPayload,
+  type BuildBuildingPayload,
   type UpgradeTowerPayload,
   type SellTowerPayload,
   type SpawnMonsterPayload,
@@ -25,6 +26,7 @@ import {
   type RepairMinePayload,
   type DowngradeMinePayload,
   type SellMinePayload,
+  type UpgradeVisionPayload,
 } from './messages';
 
 /**
@@ -69,7 +71,7 @@ export const NetworkEvent = {
   WAVE_COMPLETED: 'wave_completed',
 
   // Combat events
-  TOWER_ATTACK: 'tower_attack',
+  BULLET_FIRED: 'bullet_fired',
   MONSTER_DAMAGED: 'monster_damaged',
   MONSTER_KILLED: 'monster_killed',
   BUILDING_DAMAGED: 'building_damaged',
@@ -188,6 +190,17 @@ export class NetworkClient {
     console.log('[NetworkClient] Disconnected');
   }
 
+  /**
+   * Set server URL and recreate Colyseus client
+   */
+  setServerUrl(url: string): void {
+    if (this.isConnected()) {
+      throw new Error('Cannot change server URL while connected');
+    }
+    this.colyseusClient = new Colyseus.Client(url);
+    console.log(`[NetworkClient] Server URL updated to: ${url}`);
+  }
+
   // ==================== Lobby Actions ====================
 
   /**
@@ -265,6 +278,12 @@ export class NetworkClient {
     this.gameRoom.send(ClientMessage.BUILD_TOWER, payload);
   }
 
+  buildBuilding(payload: BuildBuildingPayload): void {
+    if (!this.gameRoom) return;
+
+    this.gameRoom.send(ClientMessage.BUILD_BUILDING, payload);
+  }
+
   /**
    * Upgrade a tower
    */
@@ -306,6 +325,14 @@ export class NetworkClient {
   }
 
   /**
+   * Upgrade tower vision (observer/radar)
+   */
+  sendUpgradeVision(payload: UpgradeVisionPayload): void {
+    if (!this.gameRoom) return;
+    this.gameRoom.send(ClientMessage.UPGRADE_VISION, payload);
+  }
+
+  /**
    * Spawn a monster
    */
   spawnMonster(payload: SpawnMonsterPayload): void {
@@ -330,6 +357,17 @@ export class NetworkClient {
     if (!this.gameRoom) return;
 
     this.gameRoom.send(ClientMessage.CANNON_SET_AUTO_TARGET, payload);
+  }
+
+  cannonClearAutoTarget(towerId: string): void {
+    if (!this.gameRoom) return;
+    this.gameRoom.send(ClientMessage.CANNON_SET_AUTO_TARGET, {
+      towerId,
+      targetX: 0,
+      targetY: 0,
+      radius: 0,
+      clear: true,
+    });
   }
 
   /**
@@ -485,8 +523,8 @@ export class NetworkClient {
     });
 
     // Combat events
-    room.onMessage(ServerMessage.TOWER_ATTACK, (data) => {
-      this.events.emit(NetworkEvent.TOWER_ATTACK, data);
+    room.onMessage(ServerMessage.BULLET_FIRED, (data) => {
+      this.events.emit(NetworkEvent.BULLET_FIRED, data);
     });
 
     room.onMessage(ServerMessage.MONSTER_DAMAGED, (data) => {

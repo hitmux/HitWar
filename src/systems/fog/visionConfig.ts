@@ -1,61 +1,67 @@
 /**
  * Vision Configuration for Fog of War System
- * Defines vision types, sources, and configuration constants
+ * Shared constants are imported from shared/config/visionMeta.ts.
+ * This file retains client-only rendering params and re-exports shared types.
  */
 
-export enum VisionType {
-    NONE = 'none',           // No special vision (use basic 120px)
-    OBSERVER = 'observer',   // Observer tower
-    RADAR = 'radar'          // Radar tower
-}
+// Re-export shared types and constants for backward compatibility
+export { VisionType } from '../../../shared/config/visionMeta.js';
+export type { VisionSource, RadarSweepArea };
 
-export interface VisionSource {
+import {
+    HEADQUARTERS_VISION, BASIC_TOWER_VISION,
+    OBSERVER_RADIUS, OBSERVER_PRICE,
+    RADAR_RADIUS, RADAR_PRICE,
+    RADAR_SWEEP_ANGLE, RADAR_SWEEP_SPEED,
+} from '../../../shared/config/visionMeta.js';
+
+interface VisionSource {
     x: number;
     y: number;
     radius: number;
-    type: 'static' | 'radar';  // Static vision or radar sweep
+    type: 'static' | 'radar';
 }
 
-export interface RadarSweepArea {
+interface RadarSweepArea {
     x: number;
     y: number;
     radius: number;
     startAngle: number;
     endAngle: number;
-    alpha: number;  // Opacity for trail gradient
+    alpha: number;
 }
 
 export const VISION_CONFIG = {
-    // Basic vision radius
-    headquarters: 200,       // Headquarters vision
-    basicTower: 120,         // Tower basic vision
+    // Basic vision radius (from shared)
+    headquarters: HEADQUARTERS_VISION,
+    basicTower: BASIC_TOWER_VISION,
 
-    // Observer tower config
+    // Observer tower config (from shared)
     observer: {
-        radius: { 1: 180, 2: 250, 3: 350 } as Record<number, number>,
-        price: { 1: 60, 2: 120, 3: 180 } as Record<number, number>  // Cumulative: 60, 180, 360
+        radius: OBSERVER_RADIUS,
+        price: OBSERVER_PRICE,
     },
 
-    // Radar tower config
+    // Radar tower config (from shared)
     radar: {
-        radius: { 1: 300, 2: 550, 3: 800, 4: 1050, 5: 1300 } as Record<number, number>,
-        price: { 1: 100, 2: 150, 3: 200, 4: 250, 5: 300 } as Record<number, number>,  // Cumulative: 100, 250, 450, 700, 1000
-        sweepAngle: Math.PI / 6,      // 30 degree sweep width
-        sweepSpeed: 0.03,             // Rotation speed (rad/frame) - 1.5x faster
-        revealDuration: 180,          // Temp reveal duration in frames (~3s @60fps)
-        tailSegments: 6               // Trail segments (base value, adjusted by radar count)
+        radius: RADAR_RADIUS,
+        price: RADAR_PRICE,
+        sweepAngle: RADAR_SWEEP_ANGLE,
+        sweepSpeed: RADAR_SWEEP_SPEED,
+        revealDuration: 180,
+        tailSegments: 6,
     },
 
-    // Fog appearance
-    fogColor: { r: 40, g: 40, b: 45, a: 1.0 },  // Dark gray fog (100% opacity - fully opaque)
-    edgeGradientRatio: 0.15,         // Edge gradient as ratio of radar radius (15%, 0% -> 100% fog)
-    outerGradientSize: 80,           // Outer gradient width for static vision (extends beyond visible radius)
-    innerEdgeFogOpacity: 0.25,       // Fog opacity at gradient inner edge (25%)
+    // Client-only: fog appearance
+    fogColor: { r: 40, g: 40, b: 45, a: 1.0 },
+    edgeGradientRatio: 0.15,
+    outerGradientSize: 80,
+    innerEdgeFogOpacity: 0.25,
 
-    // Performance: visibility grid
-    visibilityGridCellSize: 25,      // Grid cell size (px) - smaller = better edge precision
+    // Client-only: performance
+    visibilityGridCellSize: 25,
 
-    // Vision fade timing
-    visionFadeDelay: 30,             // Frames before vision starts fading (~0.5s)
-    visionFadeDuration: 60           // Fade duration in frames (~1s)
+    // Client-only: vision fade timing
+    visionFadeDelay: 30,
+    visionFadeDuration: 60,
 };

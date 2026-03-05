@@ -10,8 +10,14 @@ import { TowerRegistry } from '../towerRegistry';
 import { TOWER_IMG_PRE_WIDTH, TOWER_IMG_PRE_HEIGHT, getTowersImg } from '../towerConstants';
 import { renderTower } from '../rendering/towerRenderer';
 import { VisionType, VISION_CONFIG } from '@/systems/fog/visionConfig';
+import {
+    getVisionRadius as sharedGetVisionRadius,
+    getVisionUpgradePrice as sharedGetVisionUpgradePrice,
+    canUpgradeVision as sharedCanUpgradeVision,
+} from '../../../shared/config/visionMeta.js';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 import { isEnemy } from '@/game/player/ownership';
+import { TERRITORY_PENALTY } from '../../../shared/config/index';
 import type {
     MonsterLike as BaseMonsterLike,
     TerritoryLike,
@@ -475,7 +481,7 @@ export class Tower extends CircleObject {
     }
 
     getDamageMultiplier(): number {
-        let multiplier = this.inValidTerritory ? 1 : (1 / 3);
+        let multiplier = this.inValidTerritory ? 1 : TERRITORY_PENALTY.DAMAGE_MULTIPLIER;
         // Apply energy deficit penalty (multiplayer: use owner's energy system)
         const energy = this.world.getEnergyForOwner?.(this.ownerId) ?? this.world.energy;
         const energyRatio = energy.getSatisfactionRatio();
@@ -483,7 +489,7 @@ export class Tower extends CircleObject {
     }
 
     getEffectiveRangeR(): number {
-        return this.inValidTerritory ? this.rangeR : this.rangeR * (2 / 3);
+        return this.inValidTerritory ? this.rangeR : this.rangeR * TERRITORY_PENALTY.RANGE_MULTIPLIER;
     }
 
     isUpLevelAble(): boolean {
@@ -498,36 +504,15 @@ export class Tower extends CircleObject {
 
     // Vision system methods
     getVisionRadius(): number {
-        switch (this.visionType) {
-            case VisionType.OBSERVER:
-                return VISION_CONFIG.observer.radius[this.visionLevel] || VISION_CONFIG.basicTower;
-            case VisionType.RADAR:
-                if (VISION_CONFIG.radar.radius[this.visionLevel] !== undefined) {
-                    return VISION_CONFIG.radar.radius[this.visionLevel];
-                }
-                const maxDefinedRadarLevel = Math.max(...Object.keys(VISION_CONFIG.radar.radius).map(Number));
-                return VISION_CONFIG.radar.radius[maxDefinedRadarLevel] || VISION_CONFIG.basicTower;
-            default:
-                return VISION_CONFIG.basicTower;
-        }
+        return sharedGetVisionRadius(this.visionType, this.visionLevel);
     }
 
     getVisionUpgradePrice(type: VisionType): number {
-        const nextLevel = this.visionType === type ? this.visionLevel + 1 : 1;
-        if (type === VisionType.OBSERVER) {
-            return VISION_CONFIG.observer.price[nextLevel] || 0;
-        } else if (type === VisionType.RADAR) {
-            return VISION_CONFIG.radar.price[nextLevel] || 0;
-        }
-        return 0;
+        return sharedGetVisionUpgradePrice(this.visionType, this.visionLevel, type);
     }
 
     canUpgradeVision(type: VisionType): boolean {
-        if (this.visionType !== VisionType.NONE && this.visionType !== type) {
-            return false;  // Already has other type
-        }
-        const maxLevel = type === VisionType.OBSERVER ? 3 : 5;
-        return this.visionLevel < maxLevel;
+        return sharedCanUpgradeVision(this.visionType, this.visionLevel, type);
     }
 
     upgradeVision(type: VisionType): boolean {

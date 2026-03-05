@@ -35,9 +35,8 @@ export class MultiPlayerFogOfWar {
         this._world = world;
         this._localPlayerId = localPlayerId;
 
-        for (const playerId of playerIds) {
-            this._fogByPlayer.set(playerId, new FogOfWar(world as any, playerId));
-        }
+        // Only create FogOfWar for the local player - non-local instances are never used
+        this._fogByPlayer.set(localPlayerId, new FogOfWar(world as any, localPlayerId));
     }
 
     /**

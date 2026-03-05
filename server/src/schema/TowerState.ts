@@ -31,6 +31,17 @@ export class TowerState extends Schema {
   @type('number') autoTargetRadius: number = 0;
   @type('boolean') hasAutoTarget: boolean = false;
 
+  // Vision system
+  @type('string') visionType: string = 'none';  // 'none' | 'observer' | 'radar'
+  @type('uint8') visionLevel: number = 0;
+
+  // Territory system
+  @type('boolean') inValidTerritory: boolean = true;
+
+  // Internal fields (not synced)
+  _baseMaxHp: number = 0;
+  _baseAttackRadius: number = 0;
+
   constructor() {
     super();
     this.position = new VectorSchema();

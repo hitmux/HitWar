@@ -37,7 +37,5 @@ export class PlayerState extends Schema {
   }
 }
 
-/**
- * Player colors for multiplayer
- */
-export const PLAYER_COLORS = ['#4a90d9', '#d94a4a', '#4ad94a', '#d9d94a'];
+// Re-export from shared config (single source of truth)
+export { PLAYER_COLORS } from '../../../shared/config/playerMeta.js';

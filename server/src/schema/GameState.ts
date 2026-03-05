@@ -2,13 +2,19 @@
  * Game State Schema
  * Main state container for multiplayer game
  */
-import { Schema, type, MapSchema, ArraySchema } from '@colyseus/schema';
+import { Schema, type, MapSchema, ArraySchema, filterChildren } from '@colyseus/schema';
 import { PlayerState } from './PlayerState.js';
 import { TowerState } from './TowerState.js';
 import { MonsterState } from './MonsterState.js';
 import { BuildingState } from './BuildingState.js';
 import { BulletState } from './BulletState.js';
 import { MineState } from './MineState.js';
+import type { VisionSystem } from '../systems/vision/visionSystem.js';
+
+/** Minimal client type matching Colyseus @filterChildren callback signature */
+interface FilterClient {
+  sessionId: string;
+}
 
 /**
  * Game phase enum
@@ -34,6 +40,20 @@ export const GameEndReason = {
 } as const;
 
 export type GameEndReasonType = (typeof GameEndReason)[keyof typeof GameEndReason];
+
+/**
+ * Vision filter callback for @filterChildren.
+ * Own entities are always visible; others checked via VisionSystem.
+ */
+function visionFilter(
+  this: GameState,
+  client: FilterClient,
+  _key: string,
+  value: { id: string; ownerId: string },
+): boolean {
+  if (value.ownerId === client.sessionId) return true;
+  return this._visionSystem?.isEntityVisible(client.sessionId, value.id, value.ownerId) ?? false;
+}
 
 /**
  * Map configuration
@@ -65,7 +85,7 @@ export class GameState extends Schema {
   @type('string') endReason: string = '';
 
   // Timing
-  @type('number') currentTick: number = 0;
+  currentTick: number = 0; // Server-side only, not synced
   @type('number') startTime: number = 0; // Timestamp when game started
   @type('number') pauseTime: number = 0; // Timestamp when paused
   @type('number') countdownTicks: number = 0; // Countdown before game starts
@@ -78,11 +98,26 @@ export class GameState extends Schema {
 
   // Entity collections (using MapSchema for efficient delta sync)
   @type({ map: PlayerState }) players: MapSchema<PlayerState> = new MapSchema<PlayerState>();
+
+  @filterChildren(visionFilter)
   @type({ map: TowerState }) towers: MapSchema<TowerState> = new MapSchema<TowerState>();
+
+  @filterChildren(visionFilter)
   @type({ map: MonsterState }) monsters: MapSchema<MonsterState> = new MapSchema<MonsterState>();
+
+  @filterChildren(visionFilter)
   @type({ map: BuildingState }) buildings: MapSchema<BuildingState> = new MapSchema<BuildingState>();
+
+  @filterChildren(visionFilter)
   @type({ map: BulletState }) bullets: MapSchema<BulletState> = new MapSchema<BulletState>();
+
+  @filterChildren(visionFilter)
   @type({ map: MineState }) mines: MapSchema<MineState> = new MapSchema<MineState>();
+
+  // Non-serialized: runtime vision system reference (injected by GameRoom)
+  _visionSystem: VisionSystem | null = null;
+
+  private _nextEntityId = 0;
 
   // Disconnection handling
   @type('string') disconnectedPlayerId: string = '';
@@ -133,6 +168,6 @@ export class GameState extends Schema {
    * Generate unique entity ID
    */
   generateEntityId(prefix: string): string {
-    return `${prefix}_${this.currentTick}_${Math.random().toString(36).substr(2, 9)}`;
+    return `${prefix}_${this._nextEntityId++}`;
   }
 }

@@ -15,10 +15,10 @@ import {
   validationFailure,
   validateBuildTowerBasic,
   validateCannonFire,
+  checkBuildCollision,
   type TowerMetaData,
   type TowerValidationState,
   type PlayerValidationState,
-  hasCollision,
 } from '../../../shared/validation';
 import { SPAWNABLE_MONSTERS } from '../../buildings/spawnerConfig';
 
@@ -108,14 +108,16 @@ export class ClientValidator {
     const towerColliders = towers.map((t: any) => ({
       position: { x: t.pos?.x ?? t.x, y: t.pos?.y ?? t.y },
       radius: t.r,
+      id: t.id,
     }));
     const buildingColliders = (buildings as any[]).map((b: any) => ({
       position: { x: b.pos?.x ?? b.x, y: b.pos?.y ?? b.y },
       radius: b.r,
+      id: b.id,
     }));
 
-    const allColliders = [...towerColliders, ...buildingColliders];
-    if (hasCollision(x, y, 15, allColliders, 5)) {
+    const collisionResult = checkBuildCollision(x, y, 15, towerColliders, buildingColliders);
+    if (collisionResult.collides) {
       return validationFailure(ValidationErrorCode.POSITION_COLLISION);
     }
 

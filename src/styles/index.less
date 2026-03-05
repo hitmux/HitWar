@@ -2219,3 +2219,120 @@ button {
     }
   }
 }
+
+/* Game End Modal Styles */
+.game-end-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+
+  &.show {
+    opacity: 1;
+  }
+}
+
+.game-end-content {
+  background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+  border-radius: 20px;
+  padding: 50px 60px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(74, 158, 255, 0.3);
+  transform: scale(0.8);
+  animation: modalAppear 0.3s ease forwards;
+}
+
+@keyframes modalAppear {
+  to {
+    transform: scale(1);
+  }
+}
+
+.game-end-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  animation: iconBounce 0.6s ease;
+
+  &.victory {
+    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
+  }
+
+  &.defeat {
+    filter: drop-shadow(0 0 20px rgba(255, 69, 58, 0.6));
+  }
+}
+
+@keyframes iconBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.game-end-title {
+  font-size: 48px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  background: linear-gradient(45deg, #4a9eff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+
+.game-end-message {
+  font-size: 20px;
+  color: #ccc;
+  margin-bottom: 40px;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+
+.game-end-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+
+.game-end-btn {
+  padding: 15px 40px;
+  font-size: 18px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: "Microsoft YaHei", sans-serif;
+  transition: all 0.3s ease;
+  font-weight: bold;
+
+  &.primary {
+    background: linear-gradient(135deg, #4a9eff, #00d4ff);
+    color: white;
+    box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(74, 158, 255, 0.6);
+    }
+  }
+
+  &.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #4a9eff;
+    border: 2px solid #4a9eff;
+
+    &:hover {
+      background: rgba(74, 158, 255, 0.2);
+      transform: translateY(-2px);
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}

@@ -9,6 +9,7 @@ import type { Camera } from '../../../core/camera';
 import type { IEffect } from '../../../types/game';
 import type { GameEntity, PanelManagerWorldLike, PanelManagerTerritory, PanelManagerFog } from './types';
 import { getTowerCombatData } from '@shared/config/towerCombatMeta';
+import { getBuildingMeta } from '@shared/config/buildingMeta';
 
 /**
  * Facade class that bridges NetworkWorldAdapter to World-like interface
@@ -270,10 +271,23 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
      * Add building - sends request to server
      * Note: In multiplayer, building placement is validated by server
      */
-    addBuilding(_building: unknown): void {
-        // In multiplayer mode, building operations would be sent to server
-        // For now, this is a no-op as building placement logic differs
-        console.log('[MultiplayerWorldFacade] addBuilding called - not implemented for multiplayer');
+    addBuilding(building: { buildingType: string; pos: { x: number; y: number } }): void {
+        const meta = getBuildingMeta(building.buildingType);
+        if (!meta) return;
+
+        this._adapter.prediction.predictBuild(
+            building.buildingType,
+            building.pos.x,
+            building.pos.y,
+            meta.radius,
+            0
+        );
+
+        this._networkClient.buildBuilding({
+            buildingType: building.buildingType,
+            x: building.pos.x,
+            y: building.pos.y
+        });
     }
 
     // === Static Layer ===

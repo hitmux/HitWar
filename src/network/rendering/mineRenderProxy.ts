@@ -7,7 +7,7 @@
 import { Vector } from '../../core/math/vector';
 import { Circle } from '../../core/math/circle';
 import { MINE_CONFIG, MineStateType } from '@shared/config/mineMeta';
-import { renderStatusBar, BAR_OFFSET, type StatusBarCache } from '../../entities/statusBar';
+import { renderStatusBar, createStatusBarCache, BAR_OFFSET, type StatusBarCache } from '../../entities/statusBar';
 import { MyColor } from '../../entities/myColor';
 
 /** HP bar color for mines (green, same as towers) */
@@ -40,7 +40,7 @@ export class MineRenderProxy {
   UPGRADE_PRICES: readonly number[] = MINE_CONFIG.upgradePrices;
 
   // HP bar rendering cache
-  private _hpBarCache: StatusBarCache | null = null;
+  private _hpBarCache: StatusBarCache = createStatusBarCache();
   private _bodyCircle: Circle | null = null;
 
   constructor() {
@@ -108,7 +108,7 @@ export class MineRenderProxy {
 
   getBodyCircle(): Circle {
     if (!this._bodyCircle) {
-      this._bodyCircle = new Circle(this.pos.copy(), this.r);
+      this._bodyCircle = new Circle(this.pos.x, this.pos.y, this.r);
     }
     this._bodyCircle.pos.x = this.pos.x;
     this._bodyCircle.pos.y = this.pos.y;
@@ -136,13 +136,21 @@ export class MineRenderProxy {
 
       // Draw HP bar
       if (this.maxHp > 0) {
-        this._hpBarCache = renderStatusBar(
-          ctx, x, y, this.r,
-          this.hp, this.maxHp,
-          MINE_HP_COLOR,
-          3, BAR_OFFSET,
-          this._hpBarCache
-        );
+        const barH = 3;
+        const barX = x - this.r;
+        const barY = y - this.r + BAR_OFFSET.HP_TOP * barH;
+        const barW = this.r * 2;
+        const hpRate = this.hp / this.maxHp;
+
+        renderStatusBar(ctx, {
+          x: barX,
+          y: barY,
+          width: barW,
+          height: barH,
+          fillRate: hpRate,
+          fillColor: MINE_HP_COLOR,
+          cache: this._hpBarCache,
+        });
       }
 
       // Draw ⚡ symbol

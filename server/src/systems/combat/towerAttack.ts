@@ -159,7 +159,7 @@ export class TowerAttackSystem {
     const nearbyMonsters = monsterGrid.queryRange(
       tower.position.x,
       tower.position.y,
-      config.attackRadius + 50 // Small buffer for edge cases
+      tower.attackRadius + 50 // Small buffer for edge cases
     );
 
     for (const entity of nearbyMonsters) {
@@ -175,7 +175,7 @@ export class TowerAttackSystem {
         collides(
           tower.position.x,
           tower.position.y,
-          config.attackRadius,
+          tower.attackRadius,
           monster.position.x,
           monster.position.y,
           monster.radius
@@ -242,7 +242,7 @@ export class TowerAttackSystem {
       vy: direction.y * config.bulletSpeed,
       damage,
       radius: config.bulletRadius,
-      maxRange: config.attackRadius,
+      maxRange: tower.attackRadius,
       targetId: config.isTracking ? targetId : undefined,
       isExplosive: config.isExplosive ?? false,
       explosionRadius: config.explosionRadius ?? 0,

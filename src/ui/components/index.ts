@@ -5,3 +5,4 @@
 
 export * from './backButton';
 export * from './entityCard';
+export * from './gameEndModal';

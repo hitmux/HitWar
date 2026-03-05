@@ -1,27 +1,51 @@
 /**
  * ManualCannonPanel - UI panel for ManualCannon tower targeting
  *
- * Displays ammo status and allows manual targeting of enemies.
+ * Supports both single-player (direct cannon manipulation) and
+ * multiplayer (network message dispatch) modes.
  */
 
-import type { TowerManualCannon } from '../../../towers/base/towerManualCannon';
+import type { NetworkClient } from '../../../network/networkClient';
 import { Vector } from '../../../core/math/vector';
 import { scalePeriod } from '../../../core/speedScale';
+
+/** Union type for cannon-like objects (real TowerManualCannon or TowerRenderProxy) */
+interface CannonLike {
+    id: string | null;
+    currentAmmo: number;
+    maxAmmo: number;
+    rangeR: number;
+    inValidTerritory: boolean;
+    semiAutoMode: boolean;
+    // Optional fields only present in single-player mode
+    explosionDamage?: number;
+    getDamageMultiplier?: () => number;
+    reloadProgress?: number;
+    reloadTime?: number;
+    // Single-player local methods
+    setMarkedTarget?: (pos: Vector, radius: number) => void;
+    clearMarkedTarget?: () => void;
+    fireAt?: (pos: Vector) => boolean;
+    isValidTargetPosition?: (pos: Vector) => boolean;
+}
 
 /**
  * ManualCannonPanel class - Manages the manual cannon targeting UI
  */
 export class ManualCannonPanel {
     private panelEl: HTMLElement | null = null;
-    private currentCannon: TowerManualCannon | null = null;
+    private currentCannon: CannonLike | null = null;
     private refreshInterval: ReturnType<typeof setInterval> | null = null;
     private isTargetingMode: boolean = false;
+    private _semiAutoSelection: boolean = false;
     private abortSignal: AbortSignal;
+    private networkClient: NetworkClient | undefined;
     private onTargetCallback: ((pos: Vector) => void) | null = null;
     private onSemiAutoCallback: ((pos: Vector, radius: number) => void) | null = null;
 
-    constructor(abortSignal: AbortSignal) {
+    constructor(abortSignal: AbortSignal, networkClient?: NetworkClient) {
         this.abortSignal = abortSignal;
+        this.networkClient = networkClient;
         this.createPanel();
     }
 
@@ -85,7 +109,7 @@ export class ManualCannonPanel {
     /**
      * Show panel for a cannon
      */
-    show(cannon: TowerManualCannon, screenPos: { x: number; y: number }): void {
+    show(cannon: CannonLike, screenPos: { x: number; y: number }): void {
         if (!this.panelEl) return;
 
         this.currentCannon = cannon;
@@ -131,7 +155,7 @@ export class ManualCannonPanel {
     /**
      * Get current cannon
      */
-    getCurrentCannon(): TowerManualCannon | null {
+    getCurrentCannon(): CannonLike | null {
         return this.currentCannon;
     }
 
@@ -149,11 +173,15 @@ export class ManualCannonPanel {
             ammoEl.textContent = `${cannon.currentAmmo}/${cannon.maxAmmo}`;
         }
 
-        // Update damage
+        // Update damage (only available in single-player mode)
         const damageEl = this.panelEl.querySelector('.cannon-damage');
         if (damageEl) {
-            const actualDamage = Math.round(cannon.explosionDamage * cannon.getDamageMultiplier());
-            damageEl.textContent = `${actualDamage}`;
+            if (cannon.explosionDamage !== undefined && cannon.getDamageMultiplier) {
+                const actualDamage = Math.round(cannon.explosionDamage * cannon.getDamageMultiplier());
+                damageEl.textContent = `${actualDamage}`;
+            } else {
+                damageEl.textContent = '-';
+            }
         }
 
         // Update range
@@ -162,10 +190,11 @@ export class ManualCannonPanel {
             rangeEl.textContent = `${cannon.rangeR}`;
         }
 
-        // Update reload bar
+        // Update reload bar (only available in single-player mode)
         const reloadBar = this.panelEl.querySelector('.cannon-reload-progress') as HTMLElement;
         if (reloadBar) {
-            if (cannon.currentAmmo < cannon.maxAmmo) {
+            if (cannon.reloadProgress !== undefined && cannon.reloadTime !== undefined
+                && cannon.currentAmmo < cannon.maxAmmo) {
                 const progress = (cannon.reloadProgress / cannon.reloadTime) * 100;
                 reloadBar.style.width = `${progress}%`;
                 reloadBar.style.display = 'block';
@@ -201,9 +230,12 @@ export class ManualCannonPanel {
                 hintEl.textContent = '领地无效，无法使用';
             } else if (this.isTargetingMode) {
                 hintEl.textContent = '点击地图选择目标位置';
-            } else if (cannon.currentAmmo <= 0) {
+            } else if (cannon.currentAmmo <= 0 && cannon.reloadTime !== undefined
+                       && cannon.reloadProgress !== undefined) {
                 const seconds = Math.ceil((cannon.reloadTime - cannon.reloadProgress) / scalePeriod(60));
                 hintEl.textContent = `装填中... ${seconds}秒`;
+            } else if (cannon.currentAmmo <= 0) {
+                hintEl.textContent = '装填中...';
             } else if (cannon.semiAutoMode) {
                 hintEl.textContent = '半自动模式：自动攻击标记区域';
             } else {
@@ -243,8 +275,8 @@ export class ManualCannonPanel {
             hintEl.textContent = '点击地图选择半自动目标区域';
         }
 
-        // Store callback type for later
-        (this as any)._semiAutoSelection = true;
+        // Store selection type for handleTargetSelected
+        this._semiAutoSelection = true;
     }
 
     /**
@@ -253,7 +285,11 @@ export class ManualCannonPanel {
     private clearSemiAuto(): void {
         if (!this.currentCannon) return;
 
-        this.currentCannon.clearMarkedTarget();
+        if (this.networkClient && this.currentCannon.id) {
+            this.networkClient.cannonClearAutoTarget(this.currentCannon.id);
+        } else if (this.currentCannon.clearMarkedTarget) {
+            this.currentCannon.clearMarkedTarget();
+        }
         this.updateDisplay();
     }
 
@@ -264,27 +300,54 @@ export class ManualCannonPanel {
         if (!this.currentCannon || !this.isTargetingMode) return false;
 
         const cannon = this.currentCannon;
+        const cannonId = cannon.id;
 
         // Check if this is semi-auto selection
-        if ((this as any)._semiAutoSelection) {
-            // Set marked target for semi-auto mode
-            cannon.setMarkedTarget(worldPos, 100);
-            (this as any)._semiAutoSelection = false;
+        if (this._semiAutoSelection) {
+            const radius = 100;
+            if (this.networkClient && cannonId) {
+                this.networkClient.cannonSetAutoTarget({
+                    towerId: cannonId,
+                    targetX: worldPos.x,
+                    targetY: worldPos.y,
+                    radius,
+                });
+            } else if (cannon.setMarkedTarget) {
+                cannon.setMarkedTarget(worldPos, radius);
+            }
+            this._semiAutoSelection = false;
             this.isTargetingMode = false;
             this.updateDisplay();
             return true;
         }
 
         // Regular fire mode
-        if (cannon.isValidTargetPosition(worldPos)) {
-            const success = cannon.fireAt(worldPos);
-            if (success) {
-                // Stay in targeting mode if still have ammo
-                if (cannon.currentAmmo <= 0) {
-                    this.isTargetingMode = false;
+        if (this.networkClient && cannonId) {
+            this.networkClient.cannonFire({
+                towerId: cannonId,
+                targetX: worldPos.x,
+                targetY: worldPos.y,
+            });
+            // In multiplayer, assume server handles ammo
+            if (cannon.currentAmmo <= 1) {
+                this.isTargetingMode = false;
+            }
+            this.updateDisplay();
+            return true;
+        }
+
+        // Single-player: validate and fire locally
+        if (cannon.isValidTargetPosition && cannon.fireAt) {
+            if (cannon.isValidTargetPosition(worldPos)) {
+                const success = cannon.fireAt(worldPos);
+                if (success) {
+                    // Stay in targeting mode if still have ammo
+                    if (cannon.currentAmmo <= 0) {
+                        this.isTargetingMode = false;
+                    }
+                    this.updateDisplay();
+                    return true;
                 }
-                this.updateDisplay();
-                return true;
             }
         }
 

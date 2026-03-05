@@ -10,23 +10,18 @@ import { Building } from '../building';
 import { BuildingRegistry } from '../buildingRegistry';
 import { MonsterRegistry } from '../../monsters/monsterRegistry';
 import { SPAWNABLE_MONSTERS, SpawnableMonster } from '../spawnerConfig';
-
-// Type for monster instances
-interface MonsterInstance {
-    ownerId: string | null;
-    pos: Vector;
-    destination: Vector;
-}
+import type { PlayerManager } from '../../game/player/playerManager';
+import type { MonsterLike } from '../../types/worldLike';
 
 // Extended world interface (uses type assertion at runtime)
 interface SpawnerWorld {
-    getPlayerManager(): any;
+    getPlayerManager(): PlayerManager | null;
     monsterFlow?: { level: number };
-    addMonster(monster: any): void;
+    addMonster(monster: MonsterLike): void;
     width: number;
     height: number;
     getMoney(playerId?: string): number;
-    spendMoney(amount: number, playerId?: string): boolean;
+    spendMoneyFromOwner(ownerId: string | null, amount: number): boolean;
     addMoneyToOwner(playerId: string | null, amount: number): void;
 }
 
@@ -140,13 +135,13 @@ export class MonsterSpawner extends Building {
 
         // Deduct cost
         const world = this.spawnerWorld;
-        const success = world.spendMoney(config.cost, this.ownerId ?? undefined);
+        const success = world.spendMoneyFromOwner(this.ownerId, config.cost);
         if (!success) {
             return false;
         }
 
         // Create monster
-        const monster = MonsterRegistry.create(config.monsterId, this.world) as MonsterInstance | null;
+        const monster = MonsterRegistry.create(config.monsterId, this.world) as MonsterLike | null;
         if (!monster) {
             // Refund if monster creation failed
             world.addMoneyToOwner(this.ownerId, config.cost);

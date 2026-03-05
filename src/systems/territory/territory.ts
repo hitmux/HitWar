@@ -7,6 +7,7 @@ import { TerritoryRenderer } from './territoryRenderer';
 import { Vector } from '../../core/math/vector';
 import { QuadTree } from '../../core/physics/quadTree';
 import type { FogOfWarLike } from '../../types/systems';
+import { TERRITORY_PENALTY } from '../../../shared/config/index';
 
 interface BuildingLike {
     pos: Vector;
@@ -756,8 +757,8 @@ export class Territory {
 
         // HP halved (all buildings receive this penalty)
         building._originalMaxHp = building.maxHp;
-        building.maxHp = Math.round(building.maxHp / 2);
-        building.hp = Math.round(building.hp / 2);
+        building.maxHp = Math.round(building.maxHp * TERRITORY_PENALTY.HP_MULTIPLIER);
+        building.hp = Math.round(building.hp * TERRITORY_PENALTY.HP_MULTIPLIER);
 
         // Towers: save original range (for display, actual range calculated dynamically via getEffectiveRangeR())
         if (building.gameType === 'Tower') {

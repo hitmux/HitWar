@@ -8,6 +8,7 @@ import { NetworkWorldAdapter } from '../../../network/rendering/networkWorldAdap
 import { WorldRenderer } from '../../../game/rendering/worldRenderer';
 import { Sounds } from '../../../systems/sound/sounds';
 import { gotoPage } from '../../navigation/router';
+import { showGameEndModal } from '../../components';
 
 import { MultiplayerWorldFacade } from './multiplayerWorldFacade';
 import { MultiplayerGameController } from './multiplayerGameController';
@@ -100,8 +101,11 @@ export function startMultiplayerBattleMode(): void {
         gameController.gameEnd = true;
         cleanup();
 
-        alert(message);
-        gotoPage('multiplayer-lobby-interface');
+        showGameEndModal({
+            isWinner,
+            message,
+            onReturnToLobby: () => gotoPage('multiplayer-lobby-interface')
+        });
     };
 
     // Player eliminated handler
@@ -111,8 +115,11 @@ export function startMultiplayerBattleMode(): void {
             console.log('[MultiplayerBattle] Local player eliminated');
             gameController.gameEnd = true;
             cleanup();
-            alert('你的基地被摧毁了！');
-            gotoPage('multiplayer-lobby-interface');
+            showGameEndModal({
+                isWinner: false,
+                message: '你的基地被摧毁了！',
+                onReturnToLobby: () => gotoPage('multiplayer-lobby-interface')
+            });
         }
     };
 

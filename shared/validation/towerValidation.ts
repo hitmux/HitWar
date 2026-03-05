@@ -85,8 +85,15 @@ export function isPositionInBounds(
 }
 
 /**
- * Check for collision with existing entities
- * Returns true if there's a collision
+ * Minimum distance gap between entity edges when building.
+ * With tower radius ~15 and building radius ~30, this ensures
+ * a comfortable spacing between placed entities.
+ */
+export const MIN_BUILD_DISTANCE = 35;
+
+/**
+ * Check for collision with existing entities.
+ * Returns the colliding entity if found, null otherwise.
  */
 export function hasCollision(
   x: number,
@@ -106,6 +113,30 @@ export function hasCollision(
     }
   }
   return null;
+}
+
+/**
+ * Check if a build position collides with any existing tower or building.
+ * Uses MIN_BUILD_DISTANCE as the spacing requirement.
+ */
+export function checkBuildCollision(
+  x: number,
+  y: number,
+  radius: number,
+  towers: Iterable<CollidableEntity>,
+  buildings: Iterable<CollidableEntity>
+): { collides: boolean; collidingEntityId?: string } {
+  const collidingTower = hasCollision(x, y, radius, towers, MIN_BUILD_DISTANCE);
+  if (collidingTower) {
+    return { collides: true, collidingEntityId: collidingTower.id };
+  }
+
+  const collidingBuilding = hasCollision(x, y, radius, buildings, MIN_BUILD_DISTANCE);
+  if (collidingBuilding) {
+    return { collides: true, collidingEntityId: collidingBuilding.id };
+  }
+
+  return { collides: false };
 }
 
 /**

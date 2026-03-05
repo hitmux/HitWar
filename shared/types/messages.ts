@@ -16,6 +16,7 @@ export const ClientMessage = {
   UPGRADE_TOWER: 'upgrade_tower',
   SELL_TOWER: 'sell_tower',
   BUILD_SPAWNER: 'build_spawner',
+  BUILD_BUILDING: 'build_building',
 
   // Spawner actions
   SPAWN_MONSTER: 'spawn_monster',
@@ -31,6 +32,9 @@ export const ClientMessage = {
   REPAIR_MINE: 'repair_mine',
   DOWNGRADE_MINE: 'downgrade_mine',
   SELL_MINE: 'sell_mine',
+
+  // Vision actions
+  UPGRADE_VISION: 'upgrade_vision',
 
   // Game control
   SURRENDER: 'surrender',
@@ -59,7 +63,6 @@ export const ServerMessage = {
   WAVE_COMPLETED: 'wave_completed',
 
   // Combat events (for client visual effects)
-  TOWER_ATTACK: 'tower_attack',
   BULLET_FIRED: 'bullet_fired',
   BULLET_HIT: 'bullet_hit',
   BULLET_EXPLOSION: 'bullet_explosion',
@@ -84,6 +87,9 @@ export const ServerMessage = {
 
   // Chat (optional)
   CHAT_MESSAGE: 'chat_message',
+
+  // Territory sync
+  TERRITORY_SYNC: 'territory_sync',
 } as const;
 
 export type ServerMessageType = (typeof ServerMessage)[keyof typeof ServerMessage];
@@ -128,6 +134,17 @@ export interface SellTowerPayload {
   towerId: string;
 }
 
+export interface BuildBuildingPayload {
+  buildingType: string;
+  x: number;
+  y: number;
+}
+
+export interface UpgradeVisionPayload {
+  towerId: string;
+  visionType: 'observer' | 'radar';
+}
+
 export interface SpawnMonsterPayload {
   spawnerId: string;
   monsterType: string;
@@ -151,6 +168,7 @@ export interface CannonSetAutoTargetPayload {
   targetX: number;
   targetY: number;
   radius: number;
+  clear?: boolean;
 }
 
 export interface ChatMessagePayload {
@@ -172,12 +190,6 @@ export interface GameEndedPayload {
 export interface WaveStartingPayload {
   waveNumber: number;
   monsterCount: number;
-}
-
-export interface TowerAttackPayload {
-  towerId: string;
-  targetId: string;
-  attackType: string;
 }
 
 export interface MonsterDamagedPayload {
@@ -231,6 +243,7 @@ export interface BulletFiredPayload {
   vx: number;
   vy: number;
   radius: number;
+  maxRange: number;
 }
 
 export interface BulletHitPayload {
@@ -290,4 +303,18 @@ export interface SellMinePayload {
 export interface MineDestroyedPayload {
   mineId: string;
   destroyedBy: string;
+}
+
+
+/**
+ * Territory synchronization payload
+ * Server sends authoritative territory state to clients
+ */
+export interface TerritorySyncPayload {
+  territories: {
+    [playerId: string]: {
+      validBuildings: string[];
+      invalidBuildings: string[];
+    };
+  };
 }

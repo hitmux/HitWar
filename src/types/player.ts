@@ -91,12 +91,5 @@ export const PVP_CONFIG = {
     },
 } as const;
 
-/**
- * Player colors for multi-player mode
- */
-export const PLAYER_COLORS = [
-    '#3498db', // Blue - Player 1
-    '#e74c3c', // Red - Player 2
-    '#2ecc71', // Green - Player 3
-    '#f1c40f', // Yellow - Player 4
-] as const;
+// Re-export from shared config (single source of truth)
+export { PLAYER_COLORS } from '@shared/config/playerMeta';

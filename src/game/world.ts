@@ -116,6 +116,7 @@ export class World {
 
     // Territory and energy systems
     territory!: Territory;
+    allTerritories?: Territory[];
     energy!: Energy;
     energyRenderer!: EnergyRenderer;
 
@@ -333,6 +334,7 @@ export class World {
 
         // Facade compatibility: point to local player's instances
         this.territory = this._multiTerritory.getTerritory(localPlayerId)!;
+        this.allTerritories = this._multiTerritory.getAllTerritories();
         this.fog = this._multiFog.getLocalFog()!;
         this.energy = this._multiEnergy.getEnergy(localPlayerId)!;
 
@@ -526,7 +528,10 @@ export class World {
      * Get the current player's money
      * In multiplayer, this will return the local player's money
      */
-    getMoney(): number {
+    getMoney(playerId?: string): number {
+        if (this._playerManager?.isMultiplayer) {
+            return this._playerManager.getMoney(playerId);
+        }
         return this.user.money;
     }
 
@@ -534,9 +539,13 @@ export class World {
      * Set the current player's money (for save/load and initialization)
      * In multiplayer, this will set the local player's money
      */
-    setMoney(amount: number): void {
+    setMoney(amount: number, playerId?: string): void {
         if (Number.isNaN(amount)) {
             console.error('[World.setMoney] NaN detected!', new Error().stack);
+            return;
+        }
+        if (this._playerManager?.isMultiplayer) {
+            this._playerManager.setMoney(amount, playerId);
             return;
         }
         this.user.money = amount;
@@ -546,9 +555,13 @@ export class World {
      * Add money to the current player
      * In multiplayer, this will add to the local player's money
      */
-    addMoney(amount: number): void {
+    addMoney(amount: number, playerId?: string): void {
         if (Number.isNaN(amount)) {
             console.error('[World.addMoney] NaN detected!', new Error().stack);
+            return;
+        }
+        if (this._playerManager?.isMultiplayer) {
+            this._playerManager.addMoney(amount, playerId);
             return;
         }
         this.user.money += amount;
@@ -563,6 +576,17 @@ export class World {
         if (Number.isNaN(amount)) {
             console.error('[World.spendMoney] NaN detected!', new Error().stack);
             return false;
+        }
+        if (this._playerManager?.isMultiplayer) {
+            const success = this._playerManager.spendMoney(amount);
+            if (!success && force) {
+                const player = this._playerManager.getPlayer(
+                    this._playerManager.localPlayerId
+                );
+                if (player) player.money = 0;
+                return true;
+            }
+            return success;
         }
         if (this.user.money >= amount) {
             this.user.money -= amount;

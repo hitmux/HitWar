@@ -7,6 +7,8 @@ export {
   type ValidationResult,
   isPositionInBounds,
   hasCollision,
+  checkBuildCollision,
+  MIN_BUILD_DISTANCE,
   validateBuildTowerBasic,
   validateUpgradeTower,
   validateSellTower,

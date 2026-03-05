@@ -49,6 +49,7 @@ export interface BulletFiredEvent {
   vx: number;
   vy: number;
   radius: number;
+  maxRange: number;
 }
 
 /**
@@ -135,6 +136,7 @@ export class BulletManager {
       vx: bullet.velocity.x,
       vy: bullet.velocity.y,
       radius: bullet.radius,
+      maxRange: bullet.maxRange,
     };
   }
 

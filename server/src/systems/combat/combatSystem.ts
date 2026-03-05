@@ -164,6 +164,9 @@ export class CombatSystem {
     const towerMeta = TOWER_COMBAT_META['ManualCannon'] as TowerCombatData | undefined;
     const bulletSpeed = towerMeta?.bulletSpeed ?? 24; // scaleSpeed(8)
 
+    // Apply damage multiplier (territory + energy) — same as regular towers
+    const damageMultiplier = this.damageCalc.getDamageMultiplier(tower.id, tower.ownerId);
+
     const dir = normalize(
       sub(
         { x: targetX, y: targetY },
@@ -177,12 +180,12 @@ export class CombatSystem {
       y: tower.position.y,
       vx: dir.x * bulletSpeed,
       vy: dir.y * bulletSpeed,
-      damage: bulletMeta.damage,
+      damage: bulletMeta.damage * damageMultiplier,
       radius: bulletMeta.radius,
       maxRange: tower.attackRadius || 300,
       isExplosive: bulletMeta.isExplosive,
       explosionRadius: bulletMeta.explosionRadius,
-      explosionDamage: bulletMeta.explosionDamage,
+      explosionDamage: (bulletMeta.explosionDamage ?? 0) * damageMultiplier,
       isPenetrating: bulletMeta.isPenetrating,
       penetrationCount: bulletMeta.penetrationCount,
       freezeMultiplier: bulletMeta.freezeMultiplier,

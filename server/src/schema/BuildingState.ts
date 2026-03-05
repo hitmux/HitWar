@@ -10,7 +10,7 @@ import { VectorSchema } from './VectorSchema.js';
  */
 export class SpawnerCooldown extends Schema {
   @type('string') monsterType: string = '';
-  @type('number') remainingTicks: number = 0;
+  remainingTicks: number = 0; // Server-side only, not synced
   @type('number') totalTicks: number = 0;
 
   constructor(monsterType: string = '', totalTicks: number = 0) {
