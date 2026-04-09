@@ -43,7 +43,7 @@ export type GameEndReasonType = (typeof GameEndReason)[keyof typeof GameEndReaso
 
 /**
  * Vision filter callback for @filterChildren.
- * Own entities are always visible; others checked via VisionSystem.
+ * Own entities are always visible; others checked via pre-computed cache.
  */
 function visionFilter(
   this: GameState,
@@ -52,7 +52,7 @@ function visionFilter(
   value: { id: string; ownerId: string },
 ): boolean {
   if (value.ownerId === client.sessionId) return true;
-  return this._visionSystem?.isEntityVisible(client.sessionId, value.id, value.ownerId) ?? false;
+  return this._visionSystem?.isFilterCached(client.sessionId, value.id) ?? false;
 }
 
 /**

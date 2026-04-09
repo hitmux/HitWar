@@ -8,7 +8,7 @@
 import { Vector } from '../../core/math/vector';
 import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
-import { Tower } from './tower';
+import { Tower, type TowerBulletLike } from './tower';
 import { TowerRegistry } from '../towerRegistry';
 import { BulletRegistry } from '../../bullets/bulletRegistry';
 import { isEnemy } from '../../game/player/ownership';
@@ -23,6 +23,15 @@ import {
     BAR_COLORS,
     type StatusBarCache
 } from '../../entities/statusBar';
+
+// Bullet with explosion properties for manual cannon shells
+type CannonShell = TowerBulletLike & {
+    haveBomb?: boolean;
+    bombDamage?: number;
+    bombRange?: number;
+    targetPos?: Vector | null;
+    canHitBuildings?: boolean;
+};
 
 // Sound manager reference
 declare const SoundManager: { play(src: string): void } | undefined;
@@ -194,7 +203,7 @@ export class TowerManualCannon extends Tower {
         }
 
         // Create shell bullet
-        const bullet = BulletRegistry.create('ManualCannon_Shell', this.world) as any;
+        const bullet = BulletRegistry.create('ManualCannon_Shell', this.world) as CannonShell | null;
         if (!bullet) {
             return false;
         }
@@ -217,7 +226,7 @@ export class TowerManualCannon extends Tower {
 
         // Add to world
         this.cannonWorld.addBully(bullet);
-        this.bullys.add(bullet as any);
+        this.bullys.add(bullet);
 
         // Consume ammo
         this.currentAmmo--;
@@ -340,14 +349,47 @@ export class TowerManualCannon extends Tower {
     }
 
     /**
-     * Override render to show ammo bar
+     * Override renderBars to include ammo bar
+     */
+    renderBars(ctx: CanvasRenderingContext2D): void {
+        super.renderBars(ctx);
+        this.renderAmmoBar(ctx);
+    }
+
+    /**
+     * Override renderBody to add aiming range circle and marked area
+     */
+    renderBody(ctx: CanvasRenderingContext2D): void {
+        super.renderBody(ctx);
+
+        // Render prominent range circle when aiming
+        if (this.isAiming) {
+            const range = this.getEffectiveRangeR();
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 80, 80, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 6]);
+            ctx.beginPath();
+            ctx.arc(this.pos.x, this.pos.y, range, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Render marked target area if in semi-auto mode
+        if (this.semiAutoMode && this.markedTargetPos) {
+            this.renderMarkedArea(ctx);
+        }
+    }
+
+    /**
+     * Full render (legacy path)
      */
     render(ctx: CanvasRenderingContext2D): void {
         if (this.isDead()) return;
 
         // Render base tower
-        renderTowerBody(this as any, ctx);
-        renderTowerBars(this as any, ctx);
+        renderTowerBody(this, ctx);
+        renderTowerBars(this, ctx);
 
         // Render ammo bar
         this.renderAmmoBar(ctx);

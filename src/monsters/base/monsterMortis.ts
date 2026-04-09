@@ -106,7 +106,7 @@ export class MonsterMortis extends Monster {
             if (!isEnemy(this, building)) {
                 continue;
             }
-            if (building.getBodyCircle().impact(new Circle(this.pos.x, this.pos.y, this.viewRadius) as any)) {
+            if (building.getBodyCircle().impact(new Circle(this.pos.x, this.pos.y, this.viewRadius))) {
                 this.target = building;
                 return;
             }
@@ -221,7 +221,7 @@ export class MonsterMortis extends Monster {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderMonsterMortis(this as any, ctx);
+        renderMonsterMortis(this, ctx);
     }
 }
 

@@ -156,7 +156,7 @@ export class UIController {
         if (oldBtn) {
             oldBtn.remove();
         }
-        SaveUI.addExportButton(rightTopArea, () => this.world as any);
+        SaveUI.addExportButton(rightTopArea, () => this.world);
     }
 
     /**

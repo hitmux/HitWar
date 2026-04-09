@@ -5,19 +5,15 @@
  */
 import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
-import { Building } from '../building';
+import { Building, BuildingWorldLike } from '../building';
 import { BuildingRegistry } from '../buildingRegistry';
 import { scalePeriod } from '../../core/speedScale';
-
-interface WorldLike {
-    [key: string]: unknown;
-}
 
 /**
  * Root Building (Headquarters)
  */
-export function Root(world: WorldLike): Building {
-    const res = new Building(Vector.zero(), world as any);
+export function Root(world: BuildingWorldLike): Building {
+    const res = new Building(Vector.zero(), world);
     res.name = "Headquarters";
     res.r = 20;
     res.hpInit(10000);
@@ -31,8 +27,8 @@ export function Root(world: WorldLike): Building {
 /**
  * Gold Mine (Collector)
  */
-export function Collector(world: WorldLike): Building {
-    const res = new Building(Vector.zero(), world as any);
+export function Collector(world: BuildingWorldLike): Building {
+    const res = new Building(Vector.zero(), world);
     res.name = "金矿";
     res.moneyAddedAble = true;
     res.moneyAddedNum = 50;
@@ -51,8 +47,8 @@ export function Collector(world: WorldLike): Building {
 /**
  * Treatment Tower (Repair Tower)
  */
-export function Treatment(world: WorldLike): Building {
-    const res = new Building(Vector.zero(), world as any);
+export function Treatment(world: BuildingWorldLike): Building {
+    const res = new Building(Vector.zero(), world);
     res.name = "维修塔";
     res.otherHpAddAble = true;
     res.otherHpAddNum = 200;
@@ -69,6 +65,6 @@ export function Treatment(world: WorldLike): Building {
 }
 
 // Register all building variants
-BuildingRegistry.register('Root', Root as any);
-BuildingRegistry.register('Collector', Collector as any);
-BuildingRegistry.register('Treatment', Treatment as any);
+BuildingRegistry.register('Root', Root);
+BuildingRegistry.register('Collector', Collector);
+BuildingRegistry.register('Treatment', Treatment);

@@ -6,7 +6,7 @@
 import { Vector } from '../core/math/vector';
 import { Circle } from '../core/math/circle';
 import { MyColor } from '../entities/myColor';
-import { CircleObject } from '../entities/base/circleObject';
+import { CircleObject, CircleObjectWorldLike } from '../entities/base/circleObject';
 import { EffectCircle } from '../effects/effectCircle';
 import { BuildingRegistry } from './buildingRegistry';
 import { renderBuilding, renderBuildingStatic, renderBuildingDynamic } from './rendering/buildingRenderer';
@@ -34,9 +34,7 @@ interface TowerLike {
     hpChange(delta: number): void;
 }
 
-interface WorldLike {
-    width: number;
-    height: number;
+export interface BuildingWorldLike extends CircleObjectWorldLike {
     territory?: TerritoryLike;
     buildings: Set<Building>;
     batterys: TowerLike[];
@@ -75,7 +73,7 @@ export class Building extends CircleObject {
     // Cached render circle
     protected _hpAddRangeCircle: Circle | null;
 
-    declare world: WorldLike;
+    declare world: BuildingWorldLike;
 
     constructor(pos: Vector, world: any) {
         super(pos, world);
@@ -163,27 +161,27 @@ export class Building extends CircleObject {
         this.hpSet(0);
         // Use incremental update instead of markDirty
         if (this.world.territory) {
-            this.world.territory.removeBuildingIncremental(this as any);
+            this.world.territory.removeBuildingIncremental(this);
         }
         super.remove();
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderBuilding(this as any, ctx);
+        renderBuilding(this, ctx);
     }
 
     /**
      * Render static parts (body, healing range) - can be cached to static layer
      */
     renderStatic(ctx: CanvasRenderingContext2D): void {
-        renderBuildingStatic(this as any, ctx);
+        renderBuildingStatic(this, ctx);
     }
 
     /**
      * Render dynamic parts (HP bar) - must be rendered every frame
      */
     renderDynamic(ctx: CanvasRenderingContext2D): void {
-        renderBuildingDynamic(this as any, ctx);
+        renderBuildingDynamic(this, ctx);
     }
 }
 

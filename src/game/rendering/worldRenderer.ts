@@ -6,7 +6,7 @@
 import { Circle } from '../../core/math/circle';
 import { Camera } from '../../core/camera';
 import { Obstacle } from '../../core/physics/obstacle';
-import { SpatialHashGrid } from '../../core/physics/spatialHashGrid';
+import { SpatialHashGrid, SpatialGridObject } from '../../core/physics/spatialHashGrid';
 import { PR } from '../../core/staticInitData';
 import { renderStatusBar, BAR_OFFSET, type StatusBarCache } from '../../entities/statusBar';
 
@@ -44,8 +44,8 @@ export interface WorldRendererContext {
     obstacles: Obstacle[];
 
     // Spatial grids (只读)
-    monsterGrid: SpatialHashGrid<MonsterLike> | null;
-    bullyGrid: SpatialHashGrid<BullyLike> | null;
+    monsterGrid: SpatialHashGrid<SpatialGridObject> | null;
+    bullyGrid: SpatialHashGrid<SpatialGridObject> | null;
 
     // User state
     user: {
@@ -54,7 +54,7 @@ export interface WorldRendererContext {
             x: number;
             y: number;
             able: boolean;
-            building: { r: number; rangeR: number } | null;
+            building: { r: number; rangeR: number; otherHpAddAble?: boolean; otherHpAddRadius?: number } | null;
         };
         /** 移动模式下选中的建筑位置和半径 */
         moveTarget: { x: number; y: number; r: number } | null;
@@ -657,7 +657,7 @@ export class WorldRenderer {
         if (user.putLoc.building !== null && user.putLoc.building !== undefined) {
             const x = user.putLoc.x;
             const y = user.putLoc.y;
-            const building = user.putLoc.building as any;
+            const building = user.putLoc.building;
 
             // 渲染建筑体圆圈
             if (!this._previewBodyCircle) {
@@ -767,10 +767,12 @@ export class WorldRenderer {
         };
 
         let changed = false;
+        // Cast for dynamic key comparison; all UiStateCache values are number | string
+        const cache = this._uiStateCache as unknown as Record<keyof UiStateCache, number | string>;
         for (const key of Object.keys(nextState) as (keyof UiStateCache)[]) {
             const nextValue = nextState[key];
-            if ((this._uiStateCache as any)[key] !== nextValue) {
-                (this._uiStateCache as any)[key] = nextValue;
+            if (cache[key] !== nextValue) {
+                cache[key] = nextValue;
                 changed = true;
             }
         }
@@ -840,7 +842,7 @@ export class WorldRenderer {
     }
 
     private _getBodyVersion(entity: any): number {
-        const v = (entity as any)._bodyVersion;
+        const v = entity._bodyVersion;
         return typeof v === "number" ? v : 0;
     }
 

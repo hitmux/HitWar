@@ -4,10 +4,11 @@
  */
 
 import { World } from '../../../game/world';
-import { SaveManager } from '../../../systems/save/saveManager';
+import { SaveManager, type SaveData } from '../../../systems/save/saveManager';
 import { SaveUI } from '../../../systems/save/saveUI';
 import { Sounds } from '../../../systems/sound/sounds';
 import { MonsterGroup } from '../../../monsters/monsterGroup';
+import { initWorkerRendering, disposeWorkerRendering } from '../../../workers';
 import { GameController } from './gameController';
 import { UIController } from './uiController';
 import { PanelManager } from './panelManager';
@@ -27,7 +28,7 @@ export { startMultiplayerBattleMode } from './multiplayerBattleMode';
  * @param haveGroup - Whether to have monster waves, false for infinite time mode
  * @param loadedSaveData - If has save data, load it directly
  */
-export function startBattleMode(mode: string, haveGroup: boolean = true, loadedSaveData: unknown = null): void {
+export function startBattleMode(mode: string, haveGroup: boolean = true, loadedSaveData: SaveData | null = null): void {
     const canvasEle = document.querySelector("#mainCanvas") as CanvasWithInputHandler;
 
     // Switch background music
@@ -56,7 +57,7 @@ export function startBattleMode(mode: string, haveGroup: boolean = true, loadedS
 
     // If loaded from file import, apply save data directly
     if (loadedSaveData) {
-        SaveManager.deserialize(loadedSaveData as any, world as any, MonsterGroup);
+        SaveManager.deserialize(loadedSaveData, world, MonsterGroup);
         startGame();
         return;
     }
@@ -68,7 +69,7 @@ export function startBattleMode(mode: string, haveGroup: boolean = true, loadedS
             SaveUI.showContinueDialog(
                 saveData.timestamp,
                 () => {
-                    SaveManager.deserialize(saveData, world as any, MonsterGroup);
+                    SaveManager.deserialize(saveData, world, MonsterGroup);
                     startGame();
                 },
                 () => {
@@ -92,6 +93,9 @@ function initGameLoop(
     mode: string,
     haveGroup: boolean
 ): void {
+    // Initialize Worker rendering pipeline (fog + territory offloading)
+    initWorkerRendering(world.fog, world.allTerritories);
+
     // Generate unique session ID
     const sessionId = Date.now().toString() + Math.random().toString(36).slice(2);
 
@@ -105,6 +109,7 @@ function initGameLoop(
             onGameEnd: () => {
                 keyboardHandler.detach();
                 panelManager.destroy();
+                disposeWorkerRendering();
             },
             onFailure: () => {
                 alert("你失败了");

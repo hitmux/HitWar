@@ -10,7 +10,7 @@ import { Camera } from '../../core/camera';
 import { Vector } from '../../core/math/vector';
 import type { WorldRendererContext } from '../../game/rendering/worldRenderer';
 import type { IEffect } from '../../types/game';
-import { Territory } from '../../systems/territory/territory';
+import { Territory, type TerritoryWorldLike, type BuildingLike as TerritoryBuildingLike } from '../../systems/territory/territory';
 import { TerritoryRenderer } from '../../systems/territory/territoryRenderer';
 
 import {
@@ -47,6 +47,7 @@ interface MineStateSchemaView {
     radius: number;
     repairing: boolean;
     repairProgress: number;
+    inValidTerritory: boolean;
 }
 
 /**
@@ -133,11 +134,8 @@ export class NetworkWorldAdapter {
 
     // Event handlers bound once
     private _eventHandlersBound: boolean = false;
+    private _eventUnsubscribers: (() => void)[] = [];
 
-
-    // Territory sync counters
-    private _territoryIncrementalCounter: number = 0;
-    private readonly TERRITORY_FULL_RECALC_INTERVAL = 300; // Every 5 seconds at 60fps
 
     constructor(
         networkClient: NetworkClient,
@@ -204,13 +202,18 @@ export class NetworkWorldAdapter {
      * Bind server message handlers for visual effects
      */
     bindEventHandlers(): void {
-        if (this._eventHandlersBound) return;
+        // Clean up old event handlers before rebinding (fix reconnection issue)
+        if (this._eventHandlersBound) {
+            this._eventUnsubscribers.forEach(unsub => unsub());
+            this._eventUnsubscribers = [];
+        }
         this._eventHandlersBound = true;
 
         const events = this._networkClient.events;
+        const unsubs = this._eventUnsubscribers;
 
         // Bullet fired events → local bullet effects
-        events.on(ServerMessage.BULLET_FIRED, (...args: unknown[]) => {
+        unsubs.push(events.on(ServerMessage.BULLET_FIRED, (...args: unknown[]) => {
             const data = args[0] as BulletFiredPayload;
             const tower = this._towerProxies.get(data.towerId);
             if (tower) {
@@ -228,62 +231,75 @@ export class NetworkWorldAdapter {
                     speed
                 );
             }
-        });
+        }));
 
         // Monster damaged → hit effect
-        events.on(ServerMessage.MONSTER_DAMAGED, (...args: unknown[]) => {
+        unsubs.push(events.on(ServerMessage.MONSTER_DAMAGED, (...args: unknown[]) => {
             const data = args[0] as { monsterId: string; damage: number };
             const monster = this._monsterProxies.get(data.monsterId);
             if (monster) {
                 this._localEffects.onMonsterDamaged(monster.pos.x, monster.pos.y, data.damage);
             }
-        });
+        }));
 
         // Monster killed → death effect
-        events.on(ServerMessage.MONSTER_KILLED, (...args: unknown[]) => {
+        unsubs.push(events.on(ServerMessage.MONSTER_KILLED, (...args: unknown[]) => {
             const data = args[0] as { monsterId: string };
             const monster = this._monsterProxies.get(data.monsterId);
             if (monster) {
                 this._localEffects.onMonsterKilled(monster.pos.x, monster.pos.y);
             }
-        });
+        }));
 
         // Building damaged → damage effect
-        events.on(ServerMessage.BUILDING_DAMAGED, (...args: unknown[]) => {
+        unsubs.push(events.on(ServerMessage.BUILDING_DAMAGED, (...args: unknown[]) => {
             const data = args[0] as { buildingId: string; damage: number };
             const building = this._buildingProxies.get(data.buildingId);
             if (building) {
                 this._localEffects.onBuildingDamaged(building.pos.x, building.pos.y, data.damage);
             }
-        });
+        }));
 
         // Building destroyed → destruction effect
-        events.on(ServerMessage.BUILDING_DESTROYED, (...args: unknown[]) => {
+        unsubs.push(events.on(ServerMessage.BUILDING_DESTROYED, (...args: unknown[]) => {
             const data = args[0] as { buildingId: string };
             const building = this._buildingProxies.get(data.buildingId);
             if (building) {
                 this._localEffects.onBuildingDestroyed(building.pos.x, building.pos.y);
             }
-        });
+        }));
 
-        // Action rejected → reject corresponding prediction
-        events.on(NetworkEvent.ACTION_REJECTED, (...args: unknown[]) => {
-            const data = args[0] as { action: string; reason: string; errorCode?: string };
+        // Action rejected → reject corresponding prediction (prefer requestId matching)
+        unsubs.push(events.on(NetworkEvent.ACTION_REJECTED, (...args: unknown[]) => {
+            const data = args[0] as { action: string; reason: string; errorCode?: string; requestId?: string };
             switch (data.action) {
                 case 'BUILD_TOWER':
-                    this._prediction.rejectOldestPendingBuild();
+                case 'BUILD_BUILDING':
+                    if (data.requestId) {
+                        if (!this._prediction.rejectBuildByRequestId(data.requestId)) {
+                            this._prediction.rejectOldestPendingBuild();
+                        }
+                    } else {
+                        this._prediction.rejectOldestPendingBuild();
+                    }
                     break;
                 case 'SELL_TOWER':
-                    this._prediction.rejectOldestPendingSell();
+                    if (data.requestId) {
+                        if (!this._prediction.rejectSellByRequestId(data.requestId)) {
+                            this._prediction.rejectOldestPendingSell();
+                        }
+                    } else {
+                        this._prediction.rejectOldestPendingSell();
+                    }
                     break;
             }
-        });
+        }));
 
         // Territory sync from server
-        events.on(ServerMessage.TERRITORY_SYNC, (...args: unknown[]) => {
+        unsubs.push(events.on(ServerMessage.TERRITORY_SYNC, (...args: unknown[]) => {
             const data = args[0] as TerritorySyncPayload;
             this._applyTerritorySync(data);
-        });
+        }));
     }
 
     /**
@@ -294,7 +310,7 @@ export class NetworkWorldAdapter {
 
         // Create minimal world-like object for Territory
         const self = this;
-        const pseudoWorld = {
+        const pseudoWorld: TerritoryWorldLike = {
             width: gameState.mapConfig.width,
             height: gameState.mapConfig.height,
             viewWidth: this._camera.viewWidth,
@@ -303,39 +319,19 @@ export class NetworkWorldAdapter {
             getBaseBuilding: (playerId?: string) => {
                 return self._buildingArray.find(b => b.ownerId === playerId && b.gameType === 'Base') || self._buildingArray[0];
             },
-            get batterys() { return self._towerArray as any; },
-            get buildings() { return self._buildingArray as any; },
-            get mines() { return self._mineSet as any; },
+            get batterys() { return self._towerArray as unknown as TerritoryBuildingLike[]; },
+            get buildings() { return self._buildingArray as unknown as TerritoryBuildingLike[]; },
+            get mines() { return self._mineSet as unknown as Set<TerritoryBuildingLike>; },
             fog: undefined,
         };
 
         // Create territory for each player
         for (const [playerId] of gameState.players) {
-            const territory = new Territory(pseudoWorld as any, playerId);
+            const territory = new Territory(pseudoWorld, playerId);
             this._territories.set(playerId, territory);
         }
 
         this._territoryArray = Array.from(this._territories.values());
-    }
-
-    /**
-     * Update territories when buildings change
-     */
-    private _updateTerritories(): void {
-        this._territoryIncrementalCounter++;
-
-        // Every N updates, do full recalc to prevent drift
-        if (this._territoryIncrementalCounter >= this.TERRITORY_FULL_RECALC_INTERVAL) {
-            this._territoryIncrementalCounter = 0;
-            for (const territory of this._territories.values()) {
-                territory.recalculate();
-            }
-        } else {
-            // Normal incremental update (mark dirty for next frame)
-            for (const territory of this._territories.values()) {
-                territory.markDirty();
-            }
-        }
     }
 
 
@@ -358,8 +354,8 @@ export class NetworkWorldAdapter {
                               this._towerProxies.get(id) ||
                               this._mineProxies.get(id);
                 if (entity) {
-                    territory.validBuildings.add(entity as any);
-                    (entity as any).inValidTerritory = true;
+                    territory.validBuildings.add(entity as unknown as TerritoryBuildingLike);
+                    entity.inValidTerritory = true;
                 }
             }
 
@@ -369,13 +365,13 @@ export class NetworkWorldAdapter {
                               this._towerProxies.get(id) ||
                               this._mineProxies.get(id);
                 if (entity) {
-                    territory.invalidBuildings.add(entity as any);
-                    (entity as any).inValidTerritory = false;
+                    territory.invalidBuildings.add(entity as unknown as TerritoryBuildingLike);
+                    entity.inValidTerritory = false;
                 }
             }
 
             // Rebuild internal grid cache for fast position queries
-            (territory as any)._rebuildRefCountGrid();
+            territory.rebuildRefCountGrid();
             territory.renderer.invalidateCache();
         }
     }
@@ -479,8 +475,8 @@ export class NetworkWorldAdapter {
         // Sync mines
         this._syncMines();
 
-        // Update territories when buildings change
-        this._updateTerritories();
+        // Territory is fully driven by server TERRITORY_SYNC events,
+        // no client-side BFS recalculation needed.
     }
 
     /**
@@ -721,6 +717,20 @@ export class NetworkWorldAdapter {
         return this._localPlayerId;
     }
 
+    /** Get the local player's territory for validation */
+    getLocalTerritory(): Territory | undefined {
+        return this._territories.get(this._localPlayerId);
+    }
+
+    /** Check if position is in any player's territory (for enemy territory detection) */
+    isPositionInAnyTerritory(pos: Vector, excludePlayerId?: string): boolean {
+        for (const [playerId, territory] of this._territories) {
+            if (excludePlayerId && playerId === excludePlayerId) continue;
+            if (territory.isPositionInAnyTerritory(pos)) return true;
+        }
+        return false;
+    }
+
     /**
      * Get prediction manager (for UI integration)
      */
@@ -751,9 +761,30 @@ export class NetworkWorldAdapter {
     }
 
     /**
+     * Get fog proxy (for Worker rendering initialization)
+     */
+    getFogProxy(): NetworkFogProxy | null {
+        return this._fogProxy;
+    }
+
+    /**
+     * Get all territory instances (for Worker rendering initialization)
+     */
+    getAllTerritories(): Territory[] {
+        return this._territoryArray;
+    }
+
+    /**
      * Clean up all resources
      */
     dispose(): void {
+        // Remove all event listeners to prevent accumulation on reconnect
+        for (const unsub of this._eventUnsubscribers) {
+            unsub();
+        }
+        this._eventUnsubscribers.length = 0;
+        this._eventHandlersBound = false;
+
         this._towerProxies.clear();
         this._monsterProxies.clear();
         this._buildingProxies.clear();
@@ -762,7 +793,6 @@ export class NetworkWorldAdapter {
         this._prediction.clear();
         this._fogProxy = null;
         this._gameState = null;
-        this._eventHandlersBound = false;
     }
 
     // ==================== Debug ====================

@@ -194,7 +194,7 @@ export class NetworkClient {
    * Set server URL and recreate Colyseus client
    */
   setServerUrl(url: string): void {
-    if (this.isConnected()) {
+    if (this.isConnected) {
       throw new Error('Cannot change server URL while connected');
     }
     this.colyseusClient = new Colyseus.Client(url);
@@ -571,7 +571,7 @@ export class NetworkClient {
     });
 
     // Action rejection feedback (e.g. insufficient funds, invalid position)
-    room.onMessage(ServerMessage.ACTION_REJECTED, (data: { action: string; reason: string; errorCode?: string }) => {
+    room.onMessage(ServerMessage.ACTION_REJECTED, (data: { action: string; reason: string; errorCode?: string; requestId?: string }) => {
       this.events.emit(NetworkEvent.ACTION_REJECTED, data);
     });
 

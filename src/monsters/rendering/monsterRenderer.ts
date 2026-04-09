@@ -16,7 +16,7 @@ import { getMonstersImg, MONSTER_IMG_PRE_WIDTH, MONSTER_IMG_PRE_HEIGHT } from '.
 // Type interfaces for loose coupling (avoid circular dependencies)
 // ============================================================================
 
-interface MonsterLike {
+export interface MonsterLike {
     pos: Vector;
     r: number;
     hp: number;
@@ -49,16 +49,16 @@ interface MonsterLike {
     getImgStartPosByIndex(n: number): Vector;
 }
 
-interface MonsterMortisLike extends MonsterLike {
+export interface MonsterMortisLike extends MonsterLike {
     viewRadius: number;
 }
 
-interface MonsterShooterLike extends MonsterLike {
+export interface MonsterShooterLike extends MonsterLike {
     rangeR: number;
     bullys: Set<{ render(ctx: CanvasRenderingContext2D): void }>;
 }
 
-interface MonsterTerminatorLike extends MonsterLike {
+export interface MonsterTerminatorLike extends MonsterLike {
     scar: Set<{ render(ctx: CanvasRenderingContext2D): void }>;
 }
 
@@ -275,9 +275,4 @@ export function renderMonsterTerminator(monster: MonsterTerminatorLike, ctx: Can
 // Export types for external use
 // ============================================================================
 
-export type {
-    MonsterLike,
-    MonsterMortisLike,
-    MonsterShooterLike,
-    MonsterTerminatorLike
-};
+// Types are exported directly from their interface definitions above

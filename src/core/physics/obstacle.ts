@@ -4,7 +4,7 @@
 import { Vector } from '../math/vector';
 import type { Circle } from '../math/circle';
 
-interface ObstacleSaveData {
+export interface ObstacleSaveData {
     x: number;
     y: number;
     radius: number;

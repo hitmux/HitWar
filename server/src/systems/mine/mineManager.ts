@@ -276,6 +276,9 @@ export class MineManager {
       const inTerritory = playerValid?.has(mine.id) ?? false;
       const production = inTerritory ? mine.level * MINE_CONFIG.productionPerLevel : 0;
 
+      // Sync territory validity to MineState schema for client display
+      mine.inValidTerritory = inTerritory;
+
       this.energyCalc.registerMine(mine.id, mine.ownerId, production);
     });
   }

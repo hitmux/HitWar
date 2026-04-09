@@ -130,8 +130,8 @@ export class InterpolationSystem {
         }
 
         // How far into the interpolation are we?
-        const timeSinceCurr = now - curr.timestamp - INTERPOLATION_CONFIG.BUFFER_DELAY_MS;
-        const t = Math.max(0, Math.min(1, (timeSinceCurr + snapshotDuration) / snapshotDuration));
+        const elapsedSinceSnapshot = now - curr.timestamp;
+        const t = Math.min(1, elapsedSinceSnapshot / snapshotDuration);
 
         // Check teleport threshold
         const dx = curr.x - prev.x;

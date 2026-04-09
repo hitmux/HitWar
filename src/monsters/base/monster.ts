@@ -231,7 +231,7 @@ export class Monster extends CircleObject {
     laserRecoverFreeze: number;
     laserRecoverNum: number;
     laserRadius: number;
-    protected _laserBarCache: StatusBarCache;
+    _laserBarCache: StatusBarCache;
 
     // Death summon ability
     deadSummonAble: boolean;
@@ -628,7 +628,7 @@ export class Monster extends CircleObject {
                         let av = diffVec.to1().mul(this.bullyChangeDetails.bullyAN);
                         let q = 1 - diffVec.abs() / this.bullyChangeDetails.r;
                         av = av.mul(q);
-                        b.acceleration = av as any;
+                        b.acceleration = av;
                         b.damageChange(this.bullyChangeDetails.bullyDD);
                     }
                 }
@@ -647,7 +647,7 @@ export class Monster extends CircleObject {
                 }
                 if (this.pos.disSq(b.pos as Vector) < gAreaRSq) {
                     // Power plants (Mine in buildings array) cannot be moved, take damage instead
-                    if ((b as any).gameType === "Mine") {
+                    if (b.gameType === "Mine") {
                         b.hpChange(-Math.abs(this.gAreaNum) * 2);
                         continue;
                     }
@@ -674,7 +674,7 @@ export class Monster extends CircleObject {
                 if (!isEnemy(this, b)) {
                     continue;
                 }
-                if (b.getBodyCircle().impact(bC as any)) {
+                if (b.getBodyCircle().impact(bC)) {
                     // Use disSq for distance calculation, only sqrt when needed for damage
                     let disSq = this.pos.disSq(b.pos as Vector);
                     let dis = Math.sqrt(disSq);
@@ -821,7 +821,7 @@ export class Monster extends CircleObject {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderMonster(this as any, ctx);
+        renderMonster(this, ctx);
     }
 
     getImgStartPosByIndex(n: number): Vector {

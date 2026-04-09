@@ -6,9 +6,11 @@
 import { getNetworkClient, NetworkEvent } from '../../../network/networkClient';
 import { NetworkWorldAdapter } from '../../../network/rendering/networkWorldAdapter';
 import { WorldRenderer } from '../../../game/rendering/worldRenderer';
+import type { World } from '../../../game/world';
 import { Sounds } from '../../../systems/sound/sounds';
 import { gotoPage } from '../../navigation/router';
 import { showGameEndModal } from '../../components';
+import { initWorkerRendering, disposeWorkerRendering } from '../../../workers';
 
 import { MultiplayerWorldFacade } from './multiplayerWorldFacade';
 import { MultiplayerGameController } from './multiplayerGameController';
@@ -54,8 +56,15 @@ export function startMultiplayerBattleMode(): void {
     );
 
     // Bind adapter to game state
-    adapter.bindGameState(gameState as any);
+    // Structural mismatch: gameState is Colyseus schema, adapter expects local view interface
+    adapter.bindGameState(gameState as unknown as Parameters<typeof adapter.bindGameState>[0]);
     adapter.bindEventHandlers();
+
+    // Initialize Worker rendering pipeline (fog + territory offloading)
+    const fogProxy = adapter.getFogProxy();
+    if (fogProxy) {
+        initWorkerRendering(fogProxy.fog, adapter.getAllTerritories());
+    }
 
     // Create world renderer
     const renderer = new WorldRenderer(adapter.getRendererContext());
@@ -77,6 +86,9 @@ export function startMultiplayerBattleMode(): void {
         // Remove event listeners
         client.events.off(NetworkEvent.GAME_ENDED, onGameEnded);
         client.events.off(NetworkEvent.PLAYER_ELIMINATED, onPlayerEliminated);
+
+        // Dispose Worker rendering pipeline
+        disposeWorkerRendering();
 
         // Cleanup controllers
         keyboardHandler.detach();
@@ -153,7 +165,8 @@ export function startMultiplayerBattleMode(): void {
     uiController.initInputHandler();
 
     // Create keyboard handler (limited functionality in multiplayer)
-    const keyboardHandler = new KeyboardHandler(worldFacade as any, {
+    // WorldFacade bridges NetworkWorldAdapter to World-like interface for KeyboardHandler
+    const keyboardHandler = new KeyboardHandler(worldFacade as unknown as World, {
         togglePause: () => {
             // No pause in multiplayer
             console.log('[MultiplayerBattle] Pause not available in multiplayer');

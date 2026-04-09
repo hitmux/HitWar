@@ -79,7 +79,7 @@ export class TowerHammer extends Tower {
 
     initAdditionItem(): CircleObject {
         let loc = this.pos.plus(Vector.randCircle().mul(this.itemRange));
-        let c = new CircleObject(loc, this.world as any);
+        let c = new CircleObject(loc, this.world as unknown as ConstructorParameters<typeof CircleObject>[1]);
         c.r = this.itemRidus;
 
         c.hpInit(-1);
@@ -112,24 +112,9 @@ export class TowerHammer extends Tower {
     }
 
     toTarget(): void {
-        let effectiveRange = this.getEffectiveRangeR();
-        let effectiveRangeSq = effectiveRange * effectiveRange;
-        let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
-        for (let m of nearbyMonsters) {
-            // Filter friendly monsters (same owner)
-            if (!isEnemy(this, m)) {
-                continue;
-            }
-            // Check fog first, using circle visibility for edge detection
-            const mc = m.getBodyCircle();
-            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
-                continue;
-            }
-            let distanceSq = m.pos.disSq(this.pos);
-            if (distanceSq < effectiveRangeSq) {
-                this.itemRange = Math.sqrt(distanceSq);
-                break;
-            }
+        const target = this.findFirstTarget();
+        if (target) {
+            this.itemRange = Math.sqrt(target.pos.disSq(this.pos));
         }
     }
 
@@ -142,7 +127,7 @@ export class TowerHammer extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderTowerHammer(this as any, ctx);
+        renderTowerHammer(this, ctx);
     }
 
     /**

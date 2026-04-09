@@ -10,7 +10,6 @@ import type { TowerState } from '../schema/TowerState.js';
 import type { BuildingState } from '../schema/BuildingState.js';
 import type { MapSchema } from '@colyseus/schema';
 import type { TerritoryCalculator } from '../systems/territory/territoryCalculator.js';
-import { PVP_CONFIG } from '../config.js';
 import {
   type ValidationResult,
   ValidationErrorCode,
@@ -20,6 +19,7 @@ import {
   validateUpgradeTower,
   validateSellTower,
   validateCannonFire,
+  validateCannonSetAutoTarget,
   validateSpawnMonster,
   type TowerMetaData,
   type PlayerValidationState,
@@ -207,7 +207,7 @@ export class InputValidator {
     );
     if (!basicResult.valid) return basicResult;
 
-    // Step 2: Territory check
+    // Step 2: Territory check - must be in own territory
     const inOwnTerritory = this.territory.isPositionInValidTerritory(
       x,
       y,
@@ -216,25 +216,7 @@ export class InputValidator {
       this.state.towers
     );
 
-    // Check if in any enemy territory
-    let inEnemyTerritory = false;
-    for (const otherPlayer of this.state.players.values()) {
-      if (otherPlayer.id === playerId || !otherPlayer.isAlive) continue;
-      if (
-        this.territory.isPositionInValidTerritory(
-          x,
-          y,
-          otherPlayer.id,
-          this.state.buildings,
-          this.state.towers
-        )
-      ) {
-        inEnemyTerritory = true;
-        break;
-      }
-    }
-
-    if (!inOwnTerritory && !inEnemyTerritory) {
+    if (!inOwnTerritory) {
       return validationFailure(ValidationErrorCode.POSITION_NOT_IN_TERRITORY);
     }
 
@@ -253,27 +235,16 @@ export class InputValidator {
       );
     }
 
-    // Step 4: Calculate final cost (enemy territory = 2x cost)
-    const basePrice = meta!.price;
-    const costMultiplier = inEnemyTerritory && !inOwnTerritory
-      ? PVP_CONFIG.territory.enemyBuildCostMultiplier
-      : 1;
-    const finalCost = basePrice * costMultiplier;
-
-    // Step 5: Check money
-    if (player!.money < finalCost) {
+    // Step 4: Check money
+    const cost = meta!.price;
+    if (player!.money < cost) {
       return validationFailure(
         ValidationErrorCode.INSUFFICIENT_MONEY,
-        `Need ${finalCost}, have ${player!.money}`
+        `Need ${cost}, have ${player!.money}`
       );
     }
 
-    return validationSuccess({
-      cost: finalCost,
-      inEnemyTerritory,
-      costMultiplier,
-      towerType,
-    });
+    return validationSuccess({ cost, towerType });
   }
 
   validateBuildBuilding(
@@ -300,7 +271,7 @@ export class InputValidator {
       return validationFailure(ValidationErrorCode.POSITION_OUT_OF_BOUNDS);
     }
 
-    // Step 2: Territory check
+    // Step 2: Territory check - must be in own territory
     const inOwnTerritory = this.territory.isPositionInValidTerritory(
       x,
       y,
@@ -309,24 +280,7 @@ export class InputValidator {
       this.state.towers
     );
 
-    let inEnemyTerritory = false;
-    for (const otherPlayer of this.state.players.values()) {
-      if (otherPlayer.id === playerId || !otherPlayer.isAlive) continue;
-      if (
-        this.territory.isPositionInValidTerritory(
-          x,
-          y,
-          otherPlayer.id,
-          this.state.buildings,
-          this.state.towers
-        )
-      ) {
-        inEnemyTerritory = true;
-        break;
-      }
-    }
-
-    if (!inOwnTerritory && !inEnemyTerritory) {
+    if (!inOwnTerritory) {
       return validationFailure(ValidationErrorCode.POSITION_NOT_IN_TERRITORY);
     }
 
@@ -345,27 +299,16 @@ export class InputValidator {
       );
     }
 
-    // Step 4: Calculate final cost
-    const basePrice = meta.price;
-    const costMultiplier = inEnemyTerritory && !inOwnTerritory
-      ? PVP_CONFIG.territory.enemyBuildCostMultiplier
-      : 1;
-    const finalCost = basePrice * costMultiplier;
-
-    // Step 5: Check money
-    if (player.money < finalCost) {
+    // Step 4: Check money
+    const cost = meta.price;
+    if (player.money < cost) {
       return validationFailure(
         ValidationErrorCode.INSUFFICIENT_MONEY,
-        `Need ${finalCost}, have ${player.money}`
+        `Need ${cost}, have ${player.money}`
       );
     }
 
-    return validationSuccess({
-      cost: finalCost,
-      inEnemyTerritory,
-      costMultiplier,
-      buildingType,
-    });
+    return validationSuccess({ cost, buildingType });
   }
 
   /**
@@ -468,6 +411,28 @@ export class InputValidator {
       toTowerValidation(tower),
       targetX,
       targetY
+    );
+  }
+
+  /**
+   * Validate CANNON_SET_AUTO_TARGET action
+   */
+  validateCannonSetAutoTarget(
+    playerId: string,
+    towerId: string,
+    targetX: number,
+    targetY: number,
+    radius: number
+  ): ValidationResult {
+    const player = this.state.getPlayer(playerId);
+    const tower = this.state.towers.get(towerId);
+
+    return validateCannonSetAutoTarget(
+      toPlayerValidation(player),
+      toTowerValidation(tower),
+      targetX,
+      targetY,
+      radius
     );
   }
 }

@@ -22,11 +22,11 @@ declare const UP_LEVEL_ICON: HTMLImageElement | undefined;
 // Type interfaces for loose coupling
 // ============================================================================
 
-interface Renderable {
+export interface Renderable {
     render(ctx: CanvasRenderingContext2D): void;
 }
 
-interface CircleObjectLike {
+export interface CircleObjectLike {
     pos: Vector;
     r: number;
     hp: number;
@@ -41,7 +41,7 @@ interface CircleObjectLike {
     getBodyCircle(): Circle;
 }
 
-interface TowerLike extends CircleObjectLike {
+export interface TowerLike extends CircleObjectLike {
     imgIndex: number;
     selected: boolean;
     bullys: Set<Renderable>;
@@ -52,7 +52,7 @@ interface TowerLike extends CircleObjectLike {
     isUpLevelAble(): boolean;
 }
 
-interface TowerLaserLike extends TowerLike {
+export interface TowerLaserLike extends TowerLike {
     laserFreezeNow: number;
     laserFreezeMax: number;
     laserDamageAdd: number;
@@ -61,15 +61,15 @@ interface TowerLaserLike extends TowerLike {
     _chargeBarCache: StatusBarCache;
 }
 
-interface TowerHammerLike extends TowerLike {
+export interface TowerHammerLike extends TowerLike {
     additionItem: CircleObjectLike & Renderable & { pos: Vector; bodyColor: MyColor };
 }
 
-interface TowerRayLike extends TowerLike {
+export interface TowerRayLike extends TowerLike {
     rayBullys: Set<Renderable>;
 }
 
-interface TowerBoomerangLike extends TowerLike {
+export interface TowerBoomerangLike extends TowerLike {
     bar: Line & { strokeColor: MyColor; getCenter(): Vector };
 }
 

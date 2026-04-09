@@ -103,8 +103,8 @@ export class TowerLaser extends Tower {
     zapInitColor: MyColor;
 
     // Cached status bar caches
-    protected _cooldownBarCache: StatusBarCache;
-    protected _chargeBarCache: StatusBarCache;
+    _cooldownBarCache: StatusBarCache;
+    _chargeBarCache: StatusBarCache;
 
     declare attackFunc: LaserAttackFunc;
 
@@ -351,7 +351,7 @@ export class TowerLaser extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderTowerLaser(this as any, ctx);
+        renderTowerLaser(this, ctx);
     }
 
     /**

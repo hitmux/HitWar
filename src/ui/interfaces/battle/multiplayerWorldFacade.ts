@@ -6,6 +6,7 @@
 import type { NetworkWorldAdapter } from '../../../network/rendering/networkWorldAdapter';
 import type { NetworkClient } from '../../../network/networkClient';
 import type { Camera } from '../../../core/camera';
+import type { Vector } from '../../../core/math/vector';
 import type { IEffect } from '../../../types/game';
 import type { GameEntity, PanelManagerWorldLike, PanelManagerTerritory, PanelManagerFog } from './types';
 import { getTowerCombatData } from '@shared/config/towerCombatMeta';
@@ -132,7 +133,7 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
     addTower(towerConfig: { towerType: string; pos: { x: number; y: number } }): void {
         // Immediate ghost tower feedback
         const combatMeta = getTowerCombatData(towerConfig.towerType);
-        this._adapter.prediction.predictBuild(
+        const requestId = this._adapter.prediction.predictBuild(
             towerConfig.towerType,
             towerConfig.pos.x,
             towerConfig.pos.y,
@@ -140,11 +141,12 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
             combatMeta?.attackRadius ?? 200
         );
 
-        // Send to server
+        // Send to server with requestId for precise rejection matching
         this._networkClient.buildTower({
             towerType: towerConfig.towerType,
             x: towerConfig.pos.x,
-            y: towerConfig.pos.y
+            y: towerConfig.pos.y,
+            requestId
         });
     }
 
@@ -152,8 +154,8 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
      * Request selling a tower (sends to server with client prediction)
      */
     sellTower(towerId: string): void {
-        this._adapter.prediction.predictSell(towerId);
-        this._networkClient.sellTower({ towerId });
+        const requestId = this._adapter.prediction.predictSell(towerId);
+        this._networkClient.sellTower({ towerId, requestId });
     }
 
     /**
@@ -176,15 +178,15 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
     // === Territory/Fog (disabled in multiplayer for now) ===
 
     get territory(): PanelManagerTerritory | null {
-        const t = this._adapter.getRendererContext().territory;
-        if (!t) return null;
-        // Return a wrapper that satisfies PanelManagerTerritory
-        // In multiplayer, territory operations are no-ops
+        // Use the real local player territory for position validation
+        const localTerritory = this._adapter.getLocalTerritory();
+        if (!localTerritory) return null;
         return {
-            isPositionInValidTerritory: () => true, // Allow building anywhere in multiplayer
+            isPositionInValidTerritory: (pos: Vector) => localTerritory.isPositionInValidTerritory(pos),
+            // Territory mutations are server-authoritative in multiplayer; no-op on client
             markDirty: () => {},
             removeBuildingIncremental: () => {},
-            addBuildingIncremental: () => {}
+            addBuildingIncremental: () => {},
         };
     }
 
@@ -234,10 +236,11 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
      */
     getBaseBuilding(): unknown {
         const buildings = this._adapter.getRendererContext().buildings;
+        const localPlayerId = this._adapter.localPlayerId;
         // Find the base building owned by local player
         for (const building of buildings) {
             const b = building as { gameType?: string; ownerId?: string };
-            if (b.gameType === 'Base') {
+            if (b.gameType === 'Base' && b.ownerId === localPlayerId) {
                 return building;
             }
         }
@@ -275,7 +278,7 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
         const meta = getBuildingMeta(building.buildingType);
         if (!meta) return;
 
-        this._adapter.prediction.predictBuild(
+        const requestId = this._adapter.prediction.predictBuild(
             building.buildingType,
             building.pos.x,
             building.pos.y,
@@ -286,7 +289,8 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
         this._networkClient.buildBuilding({
             buildingType: building.buildingType,
             x: building.pos.x,
-            y: building.pos.y
+            y: building.pos.y,
+            requestId
         });
     }
 

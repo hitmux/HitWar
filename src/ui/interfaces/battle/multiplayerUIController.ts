@@ -5,6 +5,7 @@
  */
 
 import { InputHandler } from '../../../core/input/inputHandler';
+import { Vector } from '../../../core/math/vector';
 import type { MultiplayerWorldFacade } from './multiplayerWorldFacade';
 import type { MultiplayerGameController } from './multiplayerGameController';
 import type { NetworkClient } from '../../../network/networkClient';
@@ -234,7 +235,7 @@ export class MultiplayerUIController {
             homeBtn.addEventListener('click', () => {
                 const base = this._worldFacade.getBaseBuilding() as { pos?: { x: number; y: number } };
                 if (base?.pos) {
-                    this._worldFacade.camera.centerOn(base.pos as any);
+                    this._worldFacade.camera.centerOn(base.pos as Vector);
                     this._callbacks.requestPauseRender();
                 }
             }, { signal });
@@ -288,7 +289,7 @@ export class MultiplayerUIController {
                     this._networkClient.surrender();
                     this._gameController.gameEnd = true;
                 }
-            });
+            }, { signal: this._eventSignal ?? undefined });
 
             controlPanel.appendChild(this._surrenderBtn);
         }

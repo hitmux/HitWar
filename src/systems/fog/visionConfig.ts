@@ -1,7 +1,8 @@
 /**
  * Vision Configuration for Fog of War System
  * Shared constants are imported from shared/config/visionMeta.ts.
- * This file retains client-only rendering params and re-exports shared types.
+ * This file defines client-only types (VisionSource, RadarSweepArea) and
+ * re-exports VisionType from shared, alongside client-only rendering params.
  */
 
 // Re-export shared types and constants for backward compatibility

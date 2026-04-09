@@ -6,37 +6,21 @@
  * local player's fog is updated each frame.
  */
 
-import { FogOfWar } from './fogOfWar';
-
-interface WorldLike {
-    width: number;
-    height: number;
-    viewWidth: number;
-    viewHeight: number;
-    camera: { x: number; y: number; zoom: number; viewWidth: number; viewHeight: number };
-    getBaseBuilding(playerId?: string): { pos: { x: number; y: number } };
-    batterys: Array<{
-        pos: { x: number; y: number };
-        inValidTerritory: boolean;
-        ownerId?: string | null;
-    }>;
-    territory?: {
-        validBuildings: Set<unknown>;
-        recalculate(): void;
-    };
-}
+import { FogOfWar, WorldLike as FogWorldLike } from './fogOfWar';
 
 export class MultiPlayerFogOfWar {
     private _fogByPlayer: Map<string, FogOfWar> = new Map();
     private _localPlayerId: string;
-    private _world: WorldLike;
+    private _world: FogWorldLike;
 
-    constructor(world: WorldLike, playerIds: string[], localPlayerId: string) {
+    constructor(world: FogWorldLike, playerIds: string[], localPlayerId: string) {
         this._world = world;
         this._localPlayerId = localPlayerId;
 
-        // Only create FogOfWar for the local player - non-local instances are never used
-        this._fogByPlayer.set(localPlayerId, new FogOfWar(world as any, localPlayerId));
+        // Create FogOfWar for all players
+        for (const playerId of playerIds) {
+            this._fogByPlayer.set(playerId, new FogOfWar(world, playerId));
+        }
     }
 
     /**

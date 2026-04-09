@@ -154,11 +154,13 @@ export class Bully extends CircleObject {
 
     // Target is tower instead of monster
     targetTower: boolean;
+    // Can also hit buildings (used by ManualCannon shells)
+    canHitBuildings: boolean;
 
     declare world: WorldLike;
 
     constructor(pos: Vector, speed: Vector, father: TowerLike | null, damage: number, r: number) {
-        super(pos, null as any);
+        super(pos, null as unknown as ConstructorParameters<typeof CircleObject>[1]);
         if (father !== null) {
             this.world = father.world;
         }
@@ -220,6 +222,8 @@ export class Bully extends CircleObject {
 
         // Target is tower instead of monster
         this.targetTower = false;
+        // Can also hit buildings (used by ManualCannon shells)
+        this.canHitBuildings = false;
     }
 
     goStep(): void {
@@ -340,6 +344,11 @@ export class Bully extends CircleObject {
         } else {
             // Use quadtree for monster collision detection
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.r + 100);
+            if (this.canHitBuildings) {
+                // Also check buildings (used by ManualCannon shells)
+                const buildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
+                arr = arr.concat(buildings);
+            }
         }
         for (const m of arr) {
             // Skip friendly entities (same owner)
@@ -490,12 +499,16 @@ export class Bully extends CircleObject {
         bC.x = this.pos.x;
         bC.y = this.pos.y;
         bC.r = this.bombRange;
-        
+
         let arr: EntityLike[];
         if (this.targetTower) {
             arr = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.bombRange + 50);
         } else {
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.bombRange + 50);
+            if (this.canHitBuildings) {
+                const buildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.bombRange + 50);
+                arr = arr.concat(buildings);
+            }
         }
         for (const m of arr) {
             // Skip friendly entities (same owner)
@@ -503,7 +516,7 @@ export class Bully extends CircleObject {
                 continue;
             }
 
-            if (m.getBodyCircle().impact(bC as any)) {
+            if (m.getBodyCircle().impact(bC)) {
                 // Use disSq for distance calculation, only sqrt when needed for damage
                 const disSq = this.pos.disSq(m.pos as Vector);
                 const dis = Math.sqrt(disSq);
@@ -530,12 +543,16 @@ export class Bully extends CircleObject {
         bC.x = this.pos.x;
         bC.y = this.pos.y;
         bC.r = this.bombRange;
-        
+
         let arr: EntityLike[];
         if (this.targetTower) {
             arr = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.bombRange + 50);
         } else {
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.bombRange + 50);
+            if (this.canHitBuildings) {
+                const buildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.bombRange + 50);
+                arr = arr.concat(buildings);
+            }
         }
         for (const m of arr) {
             // Skip friendly entities (same owner)
@@ -543,7 +560,7 @@ export class Bully extends CircleObject {
                 continue;
             }
 
-            if (m.getBodyCircle().impact(bC as any)) {
+            if (m.getBodyCircle().impact(bC)) {
                 // Spread damage (pass ownerId for kill reward tracking)
                 m.hpChange(-this.bombDamage, this.ownerId);
                 if (m.speedFreezeNumb !== undefined) {

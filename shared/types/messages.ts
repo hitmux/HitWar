@@ -123,6 +123,7 @@ export interface BuildTowerPayload {
   towerType: string;
   x: number;
   y: number;
+  requestId?: string; // Client prediction ID for matching server response
 }
 
 export interface UpgradeTowerPayload {
@@ -132,12 +133,14 @@ export interface UpgradeTowerPayload {
 
 export interface SellTowerPayload {
   towerId: string;
+  requestId?: string; // Client prediction ID for matching server response
 }
 
 export interface BuildBuildingPayload {
   buildingType: string;
   x: number;
   y: number;
+  requestId?: string; // Client prediction ID for matching server response
 }
 
 export interface UpgradeVisionPayload {

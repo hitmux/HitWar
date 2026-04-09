@@ -9,7 +9,7 @@ import { QuadTree } from '../../core/physics/quadTree';
 import type { FogOfWarLike } from '../../types/systems';
 import { TERRITORY_PENALTY } from '../../../shared/config/index';
 
-interface BuildingLike {
+export interface BuildingLike {
     pos: Vector;
     gameType?: string;
     otherHpAddAble?: boolean;
@@ -18,14 +18,15 @@ interface BuildingLike {
     hp: number;
     rangeR?: number;
     inValidTerritory: boolean;
-    _territoryPenaltyApplied: boolean;
-    _originalMaxHp: number | null;
+    // Penalty fields (optional for network proxies where server handles penalties)
+    _territoryPenaltyApplied?: boolean;
+    _originalMaxHp?: number | null;
     _originalRangeR?: number | null;
     // Owner ID for multiplayer (null = neutral/single-player)
     ownerId?: string | null;
 }
 
-interface WorldLike {
+export interface TerritoryWorldLike {
     width: number;
     height: number;
     viewWidth: number;
@@ -39,7 +40,7 @@ interface WorldLike {
 }
 
 export class Territory {
-    world: WorldLike;
+    world: TerritoryWorldLike;
 
     // Player ID for multiplayer (null = single-player mode, includes all entities)
     playerId: string | null = null;
@@ -66,7 +67,7 @@ export class Territory {
     // Renderer
     renderer: TerritoryRenderer;
 
-    constructor(world: WorldLike, playerId?: string) {
+    constructor(world: TerritoryWorldLike, playerId?: string) {
         this.world = world;
         this.playerId = playerId ?? null;
         this.renderer = new TerritoryRenderer(this);
@@ -117,12 +118,12 @@ export class Territory {
         const posToBuilding = new Map<string, BuildingLike>();
         
         for (const provider of providers) {
-            const posKey = `${provider.pos.x},${provider.pos.y}`;
+            const posKey = `${Math.round(provider.pos.x)},${Math.round(provider.pos.y)}`;
             posToBuilding.set(posKey, provider);
             quadTree.insert({
                 pos: { x: provider.pos.x, y: provider.pos.y },
                 r: this.territoryRadius * 2
-            } as any);
+            });
         }
 
         const visited = new Set<BuildingLike>();
@@ -132,7 +133,7 @@ export class Territory {
         let queueIndex = 0;
         visited.add(baseBuilding);
         // Reusable array for QuadTree queries to avoid GC pressure
-        const retrieveBuffer: any[] = [];
+        const retrieveBuffer: { pos: { x: number; y: number }; r: number }[] = [];
 
         // BFS traversal (only between territory providers)
         // Optimized: Use QuadTree to only check nearby buildings instead of all providers
@@ -147,11 +148,11 @@ export class Territory {
                 current.pos.y,
                 searchRadius,
                 retrieveBuffer
-            ) as any[];
+            ) as { pos: { x: number; y: number }; r: number }[];
 
             // Check each nearby building
             for (const quadObj of nearbyObjects) {
-                const posKey = `${quadObj.pos.x},${quadObj.pos.y}`;
+                const posKey = `${Math.round(quadObj.pos.x)},${Math.round(quadObj.pos.y)}`;
                 const other = posToBuilding.get(posKey);
                 
                 if (other && !visited.has(other)) {
@@ -222,7 +223,7 @@ export class Territory {
         this.renderer.invalidateCache();
 
         // Rebuild reference counting grid (incremental update needs this)
-        this._rebuildRefCountGrid();
+        this.rebuildRefCountGrid();
 
         // Invalidate old grid cache (for isPositionInAnyTerritory which still uses old mechanism)
         this._gridCacheValid = false;
@@ -400,7 +401,8 @@ export class Territory {
     /**
      * Rebuild reference counting grid from validBuildings (used in recalculate)
      */
-    private _rebuildRefCountGrid(): void {
+    /** Rebuild the reference count grid from validBuildings (public for network sync) */
+    rebuildRefCountGrid(): void {
         this._validGridRefCount.clear();
         this._buildingGridCells.clear();
 
@@ -779,7 +781,7 @@ export class Territory {
         building.inValidTerritory = true;
 
         // Restore max HP (current HP not restored)
-        if (building._originalMaxHp !== null) {
+        if (building._originalMaxHp !== null && building._originalMaxHp !== undefined) {
             building.maxHp = building._originalMaxHp;
             building._originalMaxHp = null;
         }

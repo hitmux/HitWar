@@ -7,36 +7,21 @@
  * enemy territory.
  */
 
-import { Territory } from './territory';
+import { Territory, TerritoryWorldLike, type BuildingLike as TerritoryBuildingLike } from './territory';
 import { Vector } from '../../core/math/vector';
-import { PVP_CONFIG } from '../../types/player';
 
-interface BuildingLike {
-    pos: Vector;
-    ownerId?: string | null;
-}
 
-interface WorldLike {
-    width: number;
-    height: number;
-    viewWidth: number;
-    viewHeight: number;
-    camera: { x: number; y: number; zoom: number; viewWidth: number; viewHeight: number };
-    getBaseBuilding(playerId?: string): BuildingLike;
-    batterys: BuildingLike[];
-    buildings: BuildingLike[];
-    mines: Set<BuildingLike>;
-    fog?: { markDirty(): void };
+interface BuildingLike extends TerritoryBuildingLike {
 }
 
 export class MultiPlayerTerritory {
     private _territoryByPlayer: Map<string, Territory> = new Map();
-    private _world: WorldLike;
+    private _world: TerritoryWorldLike;
 
-    constructor(world: WorldLike, playerIds: string[]) {
+    constructor(world: TerritoryWorldLike, playerIds: string[]) {
         this._world = world;
         for (const playerId of playerIds) {
-            this._territoryByPlayer.set(playerId, new Territory(world as any, playerId));
+            this._territoryByPlayer.set(playerId, new Territory(world, playerId));
         }
     }
 
@@ -52,31 +37,6 @@ export class MultiPlayerTerritory {
      */
     getAllTerritories(): Territory[] {
         return Array.from(this._territoryByPlayer.values());
-    }
-
-    /**
-     * Check if a position is in an enemy's valid territory
-     * Returns true if the position is in any player's valid territory other than the specified player
-     */
-    isPositionInEnemyTerritory(pos: Vector, playerId: string): boolean {
-        for (const [id, territory] of this._territoryByPlayer) {
-            if (id === playerId) continue;
-            if (territory.isPositionInValidTerritory(pos)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Get build cost multiplier for a position
-     * Returns 2x (PVP_CONFIG.territory.enemyBuildCostMultiplier) if in enemy territory, 1x otherwise
-     */
-    getBuildCostMultiplier(pos: Vector, playerId: string): number {
-        if (this.isPositionInEnemyTerritory(pos, playerId)) {
-            return PVP_CONFIG.territory.enemyBuildCostMultiplier;
-        }
-        return 1;
     }
 
     /**
@@ -104,7 +64,7 @@ export class MultiPlayerTerritory {
     addBuildingIncremental(building: BuildingLike): void {
         if (building.ownerId) {
             const territory = this._territoryByPlayer.get(building.ownerId);
-            territory?.addBuildingIncremental(building as any);
+            territory?.addBuildingIncremental(building);
         }
     }
 
@@ -114,7 +74,24 @@ export class MultiPlayerTerritory {
     removeBuildingIncremental(building: BuildingLike): void {
         if (building.ownerId) {
             const territory = this._territoryByPlayer.get(building.ownerId);
-            territory?.removeBuildingIncremental(building as any);
+            territory?.removeBuildingIncremental(building);
         }
+    }
+
+    /**
+     * Check if position is in ANY player's territory (for enemy territory detection)
+     * @param pos Position to check
+     * @param excludePlayerId Optional player ID to exclude from check (e.g., local player)
+     */
+    isPositionInAnyTerritory(pos: Vector, excludePlayerId?: string): boolean {
+        for (const [playerId, territory] of this._territoryByPlayer) {
+            if (excludePlayerId && playerId === excludePlayerId) {
+                continue;
+            }
+            if (territory.isPositionInAnyTerritory(pos)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

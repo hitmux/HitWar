@@ -8,6 +8,7 @@ export type {
     BuildingLike,
     MonsterLike,
     BullyLike,
+    TerritoryCompatibleEntity,
     EntityManagerContext,
     EntityRemovalCallbacks
 } from './entityManager';

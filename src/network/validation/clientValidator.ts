@@ -8,6 +8,7 @@
 import type { World } from '../../game/world';
 import type { TowerRegistry } from '../../towers/towerRegistry';
 import { TowerRegistry as TowerReg } from '../../towers/towerRegistry';
+import { Vector } from '../../core/math/vector';
 import {
   type ValidationResult,
   ValidationErrorCode,
@@ -93,25 +94,37 @@ export class ClientValidator {
     const basicResult = validateBuildTowerBasic(player, towerType, x, y, meta, bounds);
     if (!basicResult.valid) return basicResult;
 
-    // Simple territory check (in own territory)
+    // Territory check
+    const pos = new Vector(x, y);
     const territory = this.world.territory;
-    if (territory && !territory.isPositionInValidTerritory({ x, y } as any)) {
-      // Check if in enemy territory (for PVP, need different check)
-      // For now, just fail if not in own territory
+
+    // Check if in own territory
+    if (territory && !territory.isPositionInValidTerritory(pos)) {
       return validationFailure(ValidationErrorCode.POSITION_NOT_IN_TERRITORY);
+    }
+
+    // Check if in enemy territory (multiplayer only)
+    if ('isPositionInAnyTerritory' in this.world && typeof (this.world as any).isPositionInAnyTerritory === 'function') {
+      const localPlayerId = this.getLocalPlayer()?.id;
+      if ((this.world as any).isPositionInAnyTerritory(pos, localPlayerId)) {
+        return validationFailure(ValidationErrorCode.POSITION_IN_ENEMY_TERRITORY);
+      }
     }
 
     // Collision check with existing towers and buildings
     const towers = this.world.batterys || [];
     const buildings = this.world.buildings || [];
 
-    const towerColliders = towers.map((t: any) => ({
-      position: { x: t.pos?.x ?? t.x, y: t.pos?.y ?? t.y },
+    // Entity collider type: towers/buildings expose pos, r, and optionally id
+    type EntityCollider = { pos: { x: number; y: number }; r: number; id?: string };
+
+    const towerColliders = (towers as EntityCollider[]).map((t) => ({
+      position: { x: t.pos.x, y: t.pos.y },
       radius: t.r,
       id: t.id,
     }));
-    const buildingColliders = (buildings as any[]).map((b: any) => ({
-      position: { x: b.pos?.x ?? b.x, y: b.pos?.y ?? b.y },
+    const buildingColliders = (buildings as EntityCollider[]).map((b) => ({
+      position: { x: b.pos.x, y: b.pos.y },
       radius: b.r,
       id: b.id,
     }));
@@ -186,7 +199,14 @@ export class ClientValidator {
 
     // Find tower in world
     const towers = this.world.batterys || [];
-    const tower = towers.find((t: any) => t.id === towerId) as any;
+    // Find tower in world (towers expose id, rangeR, isManual, currentAmmo in multiplayer)
+    type CannonTower = { pos: { x: number; y: number }; r: number; id?: string } & {
+      rangeR?: number;
+      isManual?: boolean;
+      currentAmmo?: number;
+      constructor: { name: string };
+    };
+    const tower = (towers as CannonTower[]).find((t) => t.id === towerId);
 
     if (!tower) {
       return validationFailure(ValidationErrorCode.CANNON_NOT_FOUND);
@@ -196,7 +216,7 @@ export class ClientValidator {
       id: towerId,
       ownerId: 'local',
       towerType: tower.constructor.name,
-      position: { x: tower.pos?.x ?? tower.x, y: tower.pos?.y ?? tower.y },
+      position: { x: tower.pos.x, y: tower.pos.y },
       radius: tower.r,
       attackRadius: tower.rangeR || 200,
       isManual: tower.isManual || false,

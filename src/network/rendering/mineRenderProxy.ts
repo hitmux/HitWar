@@ -61,6 +61,7 @@ export class MineRenderProxy {
     radius: number;
     repairing: boolean;
     repairProgress: number;
+    inValidTerritory: boolean;
   }): void {
     this.id = schema.id;
     this.pos.x = schema.position.x;
@@ -73,6 +74,7 @@ export class MineRenderProxy {
     this.r = schema.radius;
     this.repairing = schema.repairing;
     this.repairProgress = schema.repairProgress;
+    this.inValidTerritory = schema.inValidTerritory;
     this._bodyCircle = null; // Invalidate cache
   }
 

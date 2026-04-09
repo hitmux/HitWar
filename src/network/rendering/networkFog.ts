@@ -39,6 +39,11 @@ export class NetworkFogProxy {
         return this._fog.renderer;
     }
 
+    /** Underlying FogOfWar instance (for Worker rendering initialization) */
+    get fog() {
+        return this._fog;
+    }
+
     /** Check if a circle is visible through fog */
     isCircleVisible(x: number, y: number, radius: number): boolean {
         return this._fog.isCircleVisible(x, y, radius);

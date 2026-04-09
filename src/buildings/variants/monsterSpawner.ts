@@ -285,5 +285,5 @@ export function MonsterSpawnerFactory(world: unknown): MonsterSpawner {
 }
 
 // Register with BuildingRegistry
-BuildingRegistry.register('MonsterSpawner', MonsterSpawnerFactory as any);
+BuildingRegistry.register('MonsterSpawner', MonsterSpawnerFactory);
 BuildingRegistry.registerClassType('MonsterSpawner', () => MonsterSpawner);

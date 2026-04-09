@@ -14,7 +14,7 @@ import {
 // Type interfaces for loose coupling
 // ============================================================================
 
-interface BuildingLike {
+export interface BuildingLike {
     pos: Vector;
     r: number;
     hp: number;

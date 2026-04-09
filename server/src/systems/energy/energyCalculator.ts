@@ -110,6 +110,17 @@ export class EnergyCalculator {
     this.markDirty();
   }
 
+  removePlayer(playerId: string): void {
+    this.playerStates.delete(playerId);
+    // Remove mines owned by eliminated player
+    for (const [id, mine] of this.mines) {
+      if (mine.ownerId === playerId) {
+        this.mines.delete(id);
+      }
+    }
+    this.markDirty();
+  }
+
   /**
    * Recalculate energy for all players
    */
@@ -169,7 +180,7 @@ export class EnergyCalculator {
       if (tower.ownerId !== playerId) return;
       if (!validTerritoryIds.has(tower.id)) return;
 
-      consumption += this.config.consumptionPerTowerLevel * tower.level;
+      consumption += this.config.consumptionPerTowerLevel * Math.max(0, tower.level);
     });
 
     // Consumption: repair buildings in valid territory
@@ -189,6 +200,7 @@ export class EnergyCalculator {
     if (consumption > 0 && production < consumption) {
       satisfactionRatio = production / consumption;
     }
+    satisfactionRatio = Math.max(0, Math.min(1, satisfactionRatio));
 
     return {
       production,

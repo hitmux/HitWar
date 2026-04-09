@@ -7,10 +7,15 @@
  * - Buffer world range = viewport world size × BUFFER_RATIO (affected by zoom)
  * - Buffer canvas is centered on camera center, covering larger world area
  * - Rebuild conditions: camera moves beyond 25% of buffer edge, or zoom shrinks > 10%
+ *
+ * Worker mode: When enabled, static territory rendering is offloaded to a Web Worker.
+ * The main thread only calls drawImage() with the Worker-provided ImageBitmap.
  */
 
 import { Territory } from './territory';
 import { PR } from '@/core/staticInitData';
+import { packBuildingPositions } from '@/workers';
+import type { RenderWorkerBridge } from '@/workers';
 
 /** Buffer expansion ratio: Canvas covers 1.5x viewport area to reduce rebuild frequency */
 const BUFFER_RATIO = 1.5;
@@ -20,7 +25,7 @@ export class TerritoryRenderer {
     validColor: string = 'rgba(100, 180, 255, 0.15)';    // Light blue - valid territory
     invalidColor: string = 'rgba(255, 220, 100, 0.15)';  // Light yellow - invalid territory
 
-    // Offscreen canvas cache
+    // Offscreen canvas cache (main-thread fallback)
     private _offscreenCanvas: HTMLCanvasElement | null = null;
     private _offscreenCtx: CanvasRenderingContext2D | null = null;
     private _cacheValid: boolean = false;
@@ -37,15 +42,129 @@ export class TerritoryRenderer {
     private _canvasHeight = 0;      // Canvas logical height (before PR)
     private _cachedPR = 1;          // Cached pixel ratio
 
+    // Worker mode fields
+    private _useWorker = false;             // Whether Worker mode is active
+    private _workerBitmap: ImageBitmap | null = null;  // Latest bitmap from Worker
+    private _bridge: RenderWorkerBridge | null = null;  // Reference to bridge (set externally)
+
     constructor(territory: Territory) {
         this.territory = territory;
     }
 
     /**
+     * Enable Worker rendering mode.
+     * Call after capability detection passes and bridge is ready.
+     */
+    enableWorkerMode(bridge: RenderWorkerBridge): void {
+        this._bridge = bridge;
+        this._useWorker = true;
+        // Request initial rebuild from Worker
+        if (bridge.isReady) {
+            this._requestWorkerRebuild();
+        }
+    }
+
+    /**
+     * Disable Worker mode and fall back to main-thread rendering.
+     * Call when Worker crashes or is disposed.
+     */
+    disableWorkerMode(): void {
+        this._useWorker = false;
+        this._bridge = null;
+        this._closeWorkerBitmap();
+        // Force main-thread rebuild on next render
+        this._cacheValid = false;
+    }
+
+    /**
+     * Receive new bitmap from Worker (called by bridge callback).
+     * Also updates buffer coordinate state so camera-movement detection works correctly.
+     */
+    setWorkerBitmap(bitmap: ImageBitmap): void {
+        this._closeWorkerBitmap();
+        this._workerBitmap = bitmap;
+        // Mark cache as "valid" in Worker mode so render() skips main-thread rebuild
+        this._cacheValid = true;
+        // Update camera state for buffer-range detection
+        const camera = this.territory.world.camera;
+        this._lastCameraX = camera.x;
+        this._lastCameraY = camera.y;
+        this._lastZoom = camera.zoom;
+    }
+
+    private _closeWorkerBitmap(): void {
+        if (this._workerBitmap) {
+            this._workerBitmap.close();
+            this._workerBitmap = null;
+        }
+    }
+
+    /**
+     * Dispose resources including Worker bitmap.
+     */
+    dispose(): void {
+        this._closeWorkerBitmap();
+        this._offscreenCanvas = null;
+        this._offscreenCtx = null;
+        this._bridge = null;
+    }
+
+    /**
+     * Send a territory rebuild request to the Worker via bridge.
+     */
+    private _requestWorkerRebuild(): void {
+        if (!this._bridge || !this._bridge.isReady) return;
+
+        const world = this.territory.world;
+        const camera = world.camera;
+        const pr = PR;
+        const viewWidth = world.viewWidth;
+        const viewHeight = world.viewHeight;
+        const canvasWidth = viewWidth * BUFFER_RATIO;
+        const canvasHeight = viewHeight * BUFFER_RATIO;
+
+        // Pack building positions from valid/invalid sets, filtering by _canProvideTerritory
+        const validBuildingsList = [...this.territory.validBuildings]
+            .filter(b => this.territory._canProvideTerritory(b));
+        const invalidBuildingsList = [...this.territory.invalidBuildings]
+            .filter(b => this.territory._canProvideTerritory(b));
+
+        const { buffer: validBuffer, count: validCount } = packBuildingPositions(validBuildingsList as { pos: { x: number; y: number } }[]);
+        const { buffer: invalidBuffer, count: invalidCount } = packBuildingPositions(invalidBuildingsList as { pos: { x: number; y: number } }[]);
+
+        this._bridge.requestTerritoryRebuild({
+            playerId: this.territory.playerId ?? '',
+            canvasWidth,
+            canvasHeight,
+            pr,
+            cameraX: camera.x,
+            cameraY: camera.y,
+            cameraZoom: camera.zoom,
+            cameraViewWidth: camera.viewWidth,
+            cameraViewHeight: camera.viewHeight,
+            worldWidth: world.width,
+            worldHeight: world.height,
+            validBuildingsBuffer: validBuffer,
+            validBuildingsCount: validCount,
+            invalidBuildingsBuffer: invalidBuffer,
+            invalidBuildingsCount: invalidCount,
+            territoryRadius: this.territory.territoryRadius,
+            validColor: this.validColor,
+            invalidColor: this.invalidColor,
+        });
+    }
+
+    /**
      * Mark cache as invalid, needs redraw
+     * Also sends a request to Worker if in Worker mode.
      */
     invalidateCache(): void {
         this._cacheValid = false;
+
+        // Request Worker rebuild if active
+        if (this._useWorker && this._bridge?.isReady) {
+            this._requestWorkerRebuild();
+        }
     }
 
     /**
@@ -161,7 +280,7 @@ export class TerritoryRenderer {
         let hasValidPath = false;
         for (const b of territory.validBuildings) {
             if (!territory._canProvideTerritory(b)) continue;
-            const pos = (b as any).pos;
+            const pos = b.pos;
             // Skip buildings outside buffer
             if (pos.x + radius < this._bufferLeft || pos.x - radius > bufferRight ||
                 pos.y + radius < this._bufferTop || pos.y - radius > bufferBottom) {
@@ -179,7 +298,7 @@ export class TerritoryRenderer {
         let hasInvalidPath = false;
         for (const b of territory.invalidBuildings) {
             if (!territory._canProvideTerritory(b)) continue;
-            const pos = (b as any).pos;
+            const pos = b.pos;
             // Skip buildings outside buffer
             if (pos.x + radius < this._bufferLeft || pos.x - radius > bufferRight ||
                 pos.y + radius < this._bufferTop || pos.y - radius > bufferBottom) {
@@ -201,8 +320,32 @@ export class TerritoryRenderer {
     /**
      * Render territory (using cache)
      * Uses 9-parameter drawImage to map canvas pixels to world coordinates
+     *
+     * Worker mode: When enabled, uses ImageBitmap from Worker instead of
+     * main-thread offscreen canvas. Falls back to main-thread if bitmap unavailable.
      */
     render(ctx: CanvasRenderingContext2D): void {
+        // ----------- Worker path -----------
+        if (this._useWorker) {
+            // Request rebuild from Worker if cache is invalid
+            if (!this._cacheValid && this._bridge?.isReady) {
+                this._requestWorkerRebuild();
+            }
+
+            // Draw Worker bitmap if available
+            if (this._workerBitmap) {
+                ctx.drawImage(
+                    this._workerBitmap,
+                    0, 0, this._workerBitmap.width, this._workerBitmap.height,
+                    this._bufferLeft, this._bufferTop,
+                    this._bufferWorldWidth, this._bufferWorldHeight
+                );
+                return;
+            }
+            // Bitmap not yet available — fall through to main-thread path
+        }
+
+        // ----------- Main-thread path (fallback or non-Worker) -----------
         // If cache is invalid, rebuild it
         if (!this._cacheValid) {
             this._rebuildCache();

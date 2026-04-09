@@ -14,7 +14,7 @@ import { Vector } from '../core/math/vector';
 import { Circle } from '../core/math/circle';
 import { Camera } from '../core/camera';
 import { QuadTree } from '../core/physics/quadTree';
-import { SpatialHashGrid } from '../core/physics/spatialHashGrid';
+import { SpatialHashGrid, SpatialGridObject } from '../core/physics/spatialHashGrid';
 import { Obstacle } from '../core/physics/obstacle';
 import { PR } from '../core/staticInitData';
 
@@ -151,8 +151,8 @@ export class World {
 
     // Spatial indices (proxied to SpatialQuerySystem)
     get buildingQuadTree(): QuadTree | null { return this._spatialSystem.buildingQuadTree; }
-    get monsterGrid(): SpatialHashGrid<MonsterLike> | null { return this._spatialSystem.monsterGrid as any; }
-    get bullyGrid(): SpatialHashGrid<BullyLike> | null { return this._spatialSystem.bullyGrid as any; }
+    get monsterGrid(): SpatialHashGrid<SpatialGridObject> | null { return this._spatialSystem.monsterGrid; }
+    get bullyGrid(): SpatialHashGrid<SpatialGridObject> | null { return this._spatialSystem.bullyGrid; }
 
     // Wave properties (proxied to WaveManager)
     get monsterFlow(): MonsterFlow { return this._waveManager.monsterFlow; }
@@ -177,12 +177,12 @@ export class World {
     _lastStatsUpdate: number = 0;  // Deprecated
 
     // Precomputed world constants (for Monster.move() optimization)
-    readonly maxDimension: number = 0;
-    readonly minMonsterRadius: number = 0;
-    readonly maxMonsterRadius: number = 0;
-    readonly monsterRadiusRange: number = 0;
-    readonly worldCenterX: number = 0;
-    readonly worldCenterY: number = 0;
+    readonly maxDimension: number;
+    readonly minMonsterRadius: number;
+    readonly maxMonsterRadius: number;
+    readonly monsterRadiusRange: number;
+    readonly worldCenterX: number;
+    readonly worldCenterY: number;
 
     constructor(worldWidth: number, worldHeight: number, viewWidth?: number, viewHeight?: number, options?: WorldOptions) {
         // World size (game logic space)
@@ -194,12 +194,12 @@ export class World {
         this.viewHeight = viewHeight || worldHeight;
 
         // Precompute world constants (used by Monster.move())
-        (this as any).maxDimension = Math.max(this.width, this.height);
-        (this as any).minMonsterRadius = this.maxDimension * 0.25;
-        (this as any).maxMonsterRadius = this.maxDimension * 0.8;
-        (this as any).monsterRadiusRange = this.maxMonsterRadius - this.minMonsterRadius;
-        (this as any).worldCenterX = this.width / 2;
-        (this as any).worldCenterY = this.height / 2;
+        this.maxDimension = Math.max(this.width, this.height);
+        this.minMonsterRadius = this.maxDimension * 0.25;
+        this.maxMonsterRadius = this.maxDimension * 0.8;
+        this.monsterRadiusRange = this.maxMonsterRadius - this.minMonsterRadius;
+        this.worldCenterX = this.width / 2;
+        this.worldCenterY = this.height / 2;
 
         // Camera
         this.camera = new Camera(this.viewWidth, this.viewHeight, this.width, this.height);
@@ -286,26 +286,26 @@ export class World {
         this._playerManager!.initSinglePlayer();
 
         // Place root building at center
-        let RootBuilding = BuildingFinallyCompat.Root!(this as any) as any;
+        let RootBuilding = BuildingFinallyCompat.Root!(this) as any;
         RootBuilding.pos = new Vector(this.width / 2, this.height / 2);
         this.rootBuilding = RootBuilding as BuildingLike;
         this.addBuilding(this.rootBuilding);
 
         // Territory system (must be created after rootBuilding)
-        this.territory = new Territory(this as any);
+        this.territory = new Territory(this);
 
         // Fog of war system (must be created after rootBuilding)
-        this.fog = new FogOfWar(this as any);
+        this.fog = new FogOfWar(this);
 
         // Generate obstacles (must be after rootBuilding)
-        this.obstacles = Obstacle.generateRandom(this as any);
+        this.obstacles = Obstacle.generateRandom(this);
 
         // Generate mines (must be after obstacles)
         this.generateMines();
 
         // Energy system (must be created after mines)
-        this.energy = new Energy(this as any);
-        this.energyRenderer = new EnergyRenderer(this as any);
+        this.energy = new Energy(this);
+        this.energyRenderer = new EnergyRenderer(this);
     }
 
     /**
@@ -328,9 +328,9 @@ export class World {
         this._generatePseudoSymmetricMines(configs);
 
         // Create multiplayer system managers
-        this._multiTerritory = new MultiPlayerTerritory(this as any, playerIds);
-        this._multiFog = new MultiPlayerFogOfWar(this as any, playerIds, localPlayerId);
-        this._multiEnergy = new MultiPlayerEnergy(this as any, playerIds);
+        this._multiTerritory = new MultiPlayerTerritory(this, playerIds);
+        this._multiFog = new MultiPlayerFogOfWar(this, playerIds, localPlayerId);
+        this._multiEnergy = new MultiPlayerEnergy(this, playerIds);
 
         // Facade compatibility: point to local player's instances
         this.territory = this._multiTerritory.getTerritory(localPlayerId)!;
@@ -339,14 +339,14 @@ export class World {
         this.energy = this._multiEnergy.getEnergy(localPlayerId)!;
 
         // Energy renderer uses local player's energy
-        this.energyRenderer = new EnergyRenderer(this as any);
+        this.energyRenderer = new EnergyRenderer(this);
     }
 
     /**
      * Create base building for a player (multiplayer)
      */
     private _createBaseForPlayer(config: PlayerConfig): void {
-        const RootBuilding = BuildingFinallyCompat.Root!(this as any) as any;
+        const RootBuilding = BuildingFinallyCompat.Root!(this) as any;
         RootBuilding.pos = new Vector(config.basePosition.x, config.basePosition.y);
         RootBuilding.ownerId = config.id;
 
@@ -365,7 +365,7 @@ export class World {
      */
     private _generatePseudoSymmetricObstacles(configs: PlayerConfig[]): void {
         const basePositions = configs.map(c => new Vector(c.basePosition.x, c.basePosition.y));
-        this.obstacles = Obstacle.generatePseudoSymmetric(this as any, basePositions);
+        this.obstacles = Obstacle.generatePseudoSymmetric(this, basePositions);
     }
 
     /**
@@ -780,7 +780,7 @@ export class World {
                 continue;
             }
 
-            this.mines.add(new Mine(pos, this as any));
+            this.mines.add(new Mine(pos, this));
             nearRootGenerated++;
         }
 
@@ -833,7 +833,7 @@ export class World {
                     continue;
                 }
 
-                this.mines.add(new Mine(pos, this as any));
+                this.mines.add(new Mine(pos, this));
                 generated++;
                 placed = true;
             }
@@ -885,7 +885,7 @@ export class World {
                     continue;
                 }
 
-                this.mines.add(new Mine(pos, this as any));
+                this.mines.add(new Mine(pos, this));
                 generated++;
             }
         }
@@ -966,7 +966,7 @@ export class World {
                     continue;
                 }
 
-                this.mines.add(new Mine(pos, this as any));
+                this.mines.add(new Mine(pos, this));
                 generated++;
                 placed = true;
             }
@@ -988,10 +988,10 @@ export class World {
      */
     rebuildQuadTrees(): void {
         this._spatialSystem.rebuildQuadTrees(
-            this.buildings as any,
-            this.batterys as any,
-            this.monsters as any,
-            this.allBullys as any
+            this.buildings,
+            this.batterys,
+            this.monsters,
+            this.allBullys
         );
     }
 
@@ -1000,7 +1000,7 @@ export class World {
      * @delegate SpatialQuerySystem
      */
     getMonstersInRange(x: number, y: number, radius: number): unknown[] {
-        return this._spatialSystem.getMonstersInRange(x, y, radius, this.monsters as any);
+        return this._spatialSystem.getMonstersInRange(x, y, radius, this.monsters);
     }
 
     /**
@@ -1008,7 +1008,7 @@ export class World {
      * @delegate SpatialQuerySystem
      */
     getBuildingsInRange(x: number, y: number, radius: number): unknown[] {
-        return this._spatialSystem.getBuildingsInRange(x, y, radius, this.getAllBuildingArr() as any);
+        return this._spatialSystem.getBuildingsInRange(x, y, radius, this.getAllBuildingArr());
     }
 
     /**
@@ -1016,7 +1016,7 @@ export class World {
      * @delegate SpatialQuerySystem
      */
     getBullysInRange(x: number, y: number, radius: number): unknown[] {
-        return this._spatialSystem.getBullysInRange(x, y, radius, this.allBullys as any);
+        return this._spatialSystem.getBullysInRange(x, y, radius, this.allBullys);
     }
 
     goTick(): void {

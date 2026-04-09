@@ -173,6 +173,9 @@ export class ClientPrediction {
     // Predicted sells (pending sell actions)
     private _predictedSells: Map<string, PredictedSell> = new Map();
 
+    // Pending timers (for cleanup)
+    private _pendingTimers: Set<ReturnType<typeof setTimeout>> = new Set();
+
     // Counter for generating prediction IDs
     private _predictionCounter: number = 0;
 
@@ -244,10 +247,12 @@ export class ClientPrediction {
                 ghost.updateState('rejected');
             }
             // Schedule removal after brief display
-            setTimeout(() => {
+            const timerId = setTimeout(() => {
                 this._predictedTowers.delete(predictionId);
                 this._ghostProxies.delete(predictionId);
+                this._pendingTimers.delete(timerId);
             }, 500);
+            this._pendingTimers.add(timerId);
         }
     }
 
@@ -283,9 +288,11 @@ export class ClientPrediction {
         if (sell) {
             sell.state = 'rejected';
             // Remove after brief delay
-            setTimeout(() => {
+            const timerId = setTimeout(() => {
                 this._predictedSells.delete(predictionId);
+                this._pendingTimers.delete(timerId);
             }, 500);
+            this._pendingTimers.add(timerId);
         }
     }
 
@@ -333,6 +340,12 @@ export class ClientPrediction {
      * Clear all predictions
      */
     clear(): void {
+        // Clear all pending timers
+        for (const timerId of this._pendingTimers) {
+            clearTimeout(timerId);
+        }
+        this._pendingTimers.clear();
+
         this._predictedTowers.clear();
         this._ghostProxies.clear();
         this._predictedSells.clear();
@@ -347,9 +360,13 @@ export class ClientPrediction {
 
     /**
      * Find and confirm a build prediction by (towerType, x, y).
-     * Position-based matching ensures correct pairing even with concurrent builds.
+     * Uses generous position tolerance to handle float32 precision loss from Colyseus schema sync.
+     * Prefers the most recently created pending prediction when multiple match.
      */
-    findAndConfirmBuild(towerType: string, x: number, y: number, tolerance = 1): boolean {
+    findAndConfirmBuild(towerType: string, x: number, y: number, tolerance = 20): boolean {
+        let bestId: string | null = null;
+        let bestCreatedAt = -1;
+
         for (const [id, prediction] of this._predictedTowers) {
             if (
                 prediction.state === 'pending' &&
@@ -357,7 +374,29 @@ export class ClientPrediction {
                 Math.abs(prediction.x - x) <= tolerance &&
                 Math.abs(prediction.y - y) <= tolerance
             ) {
-                this.confirmBuild(id);
+                // Prefer the most recently created prediction (closest in time to server event)
+                if (prediction.createdAt > bestCreatedAt) {
+                    bestId = id;
+                    bestCreatedAt = prediction.createdAt;
+                }
+            }
+        }
+
+        if (bestId) {
+            this.confirmBuild(bestId);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Reject the oldest pending build prediction (FIFO).
+     * Fallback when ACTION_REJECTED arrives without requestId.
+     */
+    rejectOldestPendingBuild(): boolean {
+        for (const [id, prediction] of this._predictedTowers) {
+            if (prediction.state === 'pending') {
+                this.rejectBuild(id);
                 return true;
             }
         }
@@ -365,13 +404,15 @@ export class ClientPrediction {
     }
 
     /**
-     * Reject the oldest pending build prediction (FIFO).
-     * Used when ACTION_REJECTED arrives without coordinates.
+     * Reject a build prediction by requestId (precise matching).
+     * Returns true if a matching prediction was found and rejected.
      */
-    rejectOldestPendingBuild(): boolean {
-        for (const [id, prediction] of this._predictedTowers) {
+    rejectBuildByRequestId(requestId: string): boolean {
+        // predictionId IS the requestId sent to the server
+        if (this._predictedTowers.has(requestId)) {
+            const prediction = this._predictedTowers.get(requestId)!;
             if (prediction.state === 'pending') {
-                this.rejectBuild(id);
+                this.rejectBuild(requestId);
                 return true;
             }
         }
@@ -394,12 +435,27 @@ export class ClientPrediction {
 
     /**
      * Reject the oldest pending sell prediction (FIFO).
-     * Used when sell ACTION_REJECTED arrives.
+     * Fallback when sell ACTION_REJECTED arrives without requestId.
      */
     rejectOldestPendingSell(): boolean {
         for (const [id, sell] of this._predictedSells) {
             if (sell.state === 'pending') {
                 this.rejectSell(id);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Reject a sell prediction by requestId (precise matching).
+     * Returns true if a matching prediction was found and rejected.
+     */
+    rejectSellByRequestId(requestId: string): boolean {
+        if (this._predictedSells.has(requestId)) {
+            const sell = this._predictedSells.get(requestId)!;
+            if (sell.state === 'pending') {
+                this.rejectSell(requestId);
                 return true;
             }
         }

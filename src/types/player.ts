@@ -80,11 +80,6 @@ export const PVP_CONFIG = {
         costMultiplier: 2, // spawn cost = addPrice × 2
     },
 
-    // Territory
-    territory: {
-        enemyBuildCostMultiplier: 2, // cost multiplier for building in enemy territory
-    },
-
     // Vision
     vision: {
         spawnedMonsterProvidesVision: false,

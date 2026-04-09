@@ -18,6 +18,7 @@ import {
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 import { isEnemy } from '@/game/player/ownership';
 import { TERRITORY_PENALTY } from '../../../shared/config/index';
+import { calcMonsterTargetScore, DEFAULT_TOWER_TARGET_WEIGHTS } from '../../../shared/formulas/targetScoring';
 import type {
     MonsterLike as BaseMonsterLike,
     TerritoryLike,
@@ -28,9 +29,12 @@ import type {
 } from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
-declare const BullyFinally: { Normal: () => BulletLike } | undefined;
+declare const BullyFinally: { Normal: () => TowerBulletLike } | undefined;
 declare const SoundManager: { play(src: string): void } | undefined;
 declare const UP_LEVEL_ICON: HTMLImageElement | undefined;
+
+// Max expected monster speed for target scoring normalization (scaleSpeed(15))
+const MAX_EXPECTED_MONSTER_SPEED = scaleSpeed(15);
 
 // Extended FogOfWarLike with markDirty for tower
 interface FogOfWarLikeExt extends FogOfWarLike {
@@ -43,7 +47,7 @@ interface MonsterLike extends BaseMonsterLike {
 }
 
 // Tower-specific bullet interface (has tower-specific properties)
-interface BulletLike {
+export interface TowerBulletLike {
     originalPos: Vector;
     father: Tower;
     world: WorldLike;
@@ -76,8 +80,8 @@ interface WorldLike {
     user: UserLike;
     energy: EnergyLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
-    addBully(bully: BulletLike): void;
-    removeBully(bully: BulletLike): void;
+    addBully(bully: TowerBulletLike): void;
+    removeBully(bully: TowerBulletLike): void;
     addEffect?(effect: unknown): void;
     getMoney(): number;
     spendMoney(amount: number): boolean;
@@ -92,8 +96,8 @@ export class Tower extends CircleObject {
     rangeR: number;
     dirction: Vector;
     clock: number;
-    bullys: Set<BulletLike>;
-    getmMainBullyFunc: (() => BulletLike) | null;
+    bullys: Set<TowerBulletLike>;
+    getmMainBullyFunc: (() => TowerBulletLike) | null;
     bullySpeed: number;
     bullySpeedAddMax: number;
     bullyDeviationRotate: number;
@@ -115,7 +119,7 @@ export class Tower extends CircleObject {
     declare world: WorldLike;
 
     // Cached vector for upgrade icon
-    protected _upIconOffset: Vector | null;
+    _upIconOffset: Vector | null;
 
     // Cached view circle for collision detection
     private _viewCircle: Circle | null = null;
@@ -251,7 +255,7 @@ export class Tower extends CircleObject {
         }
         // Use incremental update instead of markDirty
         if (this.world.territory) {
-            this.world.territory.removeBuildingIncremental?.(this as any);
+            this.world.territory.removeBuildingIncremental?.(this);
         }
         super.remove();
     }
@@ -275,28 +279,17 @@ export class Tower extends CircleObject {
             return;
         }
 
-        let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.rangeR + 50);
-        const viewCircle = this.getViewCircle();
-        for (let m of nearbyMonsters) {
-            // Filter friendly monsters (same owner)
-            if (!isEnemy(this, m)) {
-                continue;
-            }
-            // Check fog first (fast rejection), using circle visibility for edge detection
-            const mc = m.getBodyCircle();
-            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
-                continue;
-            }
-            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
-                this.dirction = m.pos.sub(this.pos).to1();
-                for (let i = 0; i < this.attackBullyNum; i++) {
-                    this.fire();
-                }
-                if (typeof SoundManager !== 'undefined') {
-                    SoundManager.play(this.audioSrcString);
-                }
-                break;
-            }
+        const target = this.findFirstTarget();
+        if (!target) {
+            return;
+        }
+
+        this.dirction = target.pos.sub(this.pos).to1();
+        for (let i = 0; i < this.attackBullyNum; i++) {
+            this.fire();
+        }
+        if (typeof SoundManager !== 'undefined') {
+            SoundManager.play(this.audioSrcString);
         }
     }
 
@@ -337,7 +330,7 @@ export class Tower extends CircleObject {
         }
     }
 
-    getRunningBully(): BulletLike | undefined {
+    getRunningBully(): TowerBulletLike | undefined {
         if (!this.getmMainBullyFunc) {
             return undefined;
         }
@@ -382,7 +375,7 @@ export class Tower extends CircleObject {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderTower(this as any, ctx);
+        renderTower(this, ctx);
     }
 
     /**
@@ -462,22 +455,41 @@ export class Tower extends CircleObject {
         const effectiveRange = this.getEffectiveRangeR();
         const nearbyMonsters = cachedMonsters ?? this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
         const viewCircle = this.getViewCircle();
+        const rangeSq = viewCircle.r * viewCircle.r;
+
+        let bestTarget: MonsterLike | null = null;
+        let bestScore = -1;
 
         for (const m of nearbyMonsters) {
-            // Filter friendly monsters (same owner)
             if (!isEnemy(this, m)) {
                 continue;
             }
             const mc = m.getBodyCircle();
-            // Check fog first (fast rejection)
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
-            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
-                return m;
+            if (!Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
+                continue;
+            }
+
+            const dx = mc.x - this.pos.x;
+            const dy = mc.y - this.pos.y;
+            const distSq = dx * dx + dy * dy;
+            const speed = m.speedNumb ?? 0;
+
+            const score = calcMonsterTargetScore(
+                distSq, rangeSq,
+                m.hp, m.maxHp,
+                speed, MAX_EXPECTED_MONSTER_SPEED,
+                DEFAULT_TOWER_TARGET_WEIGHTS,
+            );
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestTarget = m;
             }
         }
-        return null;
+        return bestTarget;
     }
 
     getDamageMultiplier(): number {

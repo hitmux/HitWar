@@ -49,6 +49,7 @@ import {
   TowerMetaRegistry,
   SpawnableMonsterRegistry,
   BuildingMetaRegistry,
+  RateLimiter,
 } from '../validation/index.js';
 import { TOWER_META } from '../../../shared/config/towerMeta.js';
 import { BUILDING_META, getBuildingMeta } from '../../../shared/config/buildingMeta.js';
@@ -102,12 +103,14 @@ export class GameRoom extends Room {
   private energyCalc!: EnergyCalculator;
   private combatSystem!: CombatSystem;
   private inputValidator!: InputValidator;
+  private rateLimiter = new RateLimiter(SERVER_CONFIG.tickRate);
   private towerMeta!: TowerMetaRegistry;
   private spawnableMeta!: SpawnableMonsterRegistry;
   private buildingMeta!: BuildingMetaRegistry;
   private mineManager!: MineManager;
   private visionSystem!: VisionSystem;
 
+  private neutralMonsterCount: number = 0;
   private territorySyncCounter: number = 0;
   private readonly TERRITORY_SYNC_INTERVAL = 120; // Every 2 seconds at 60 ticks/sec
 
@@ -208,73 +211,87 @@ export class GameRoom extends Room {
    * Register all client message handlers
    */
   private registerMessageHandlers(): void {
+    // Helper: wrap handler with per-client rate limiting
+    const rateLimited = <T>(
+      msgType: string,
+      handler: (client: Client, payload: T) => void
+    ) => {
+      this.onMessage(msgType, (client: Client, payload: T) => {
+        if (!this.rateLimiter.consume(client.sessionId, msgType)) {
+          this.sendActionRejected(client, msgType, 'Rate limit exceeded', 'RATE_LIMITED');
+          return;
+        }
+        handler(client, payload);
+      });
+    };
+
     // Player ready
-    this.onMessage(ClientMessage.PLAYER_READY, (client) => {
+    rateLimited(ClientMessage.PLAYER_READY, (client) => {
       this.handlePlayerReady(client);
     });
 
-    this.onMessage(ClientMessage.PLAYER_NOT_READY, (client) => {
+    rateLimited(ClientMessage.PLAYER_NOT_READY, (client) => {
       this.handlePlayerNotReady(client);
     });
 
     // Building actions
-    this.onMessage(ClientMessage.BUILD_TOWER, (client, payload: BuildTowerPayload) => {
+    rateLimited<BuildTowerPayload>(ClientMessage.BUILD_TOWER, (client, payload) => {
       this.handleBuildTower(client, payload);
     });
 
-    this.onMessage(ClientMessage.BUILD_BUILDING, (client, payload: BuildBuildingPayload) => {
+    rateLimited<BuildBuildingPayload>(ClientMessage.BUILD_BUILDING, (client, payload) => {
       this.handleBuildBuilding(client, payload);
     });
 
-    this.onMessage(ClientMessage.UPGRADE_TOWER, (client, payload: UpgradeTowerPayload) => {
+    rateLimited<UpgradeTowerPayload>(ClientMessage.UPGRADE_TOWER, (client, payload) => {
       this.handleUpgradeTower(client, payload);
     });
 
-    this.onMessage(ClientMessage.SELL_TOWER, (client, payload: SellTowerPayload) => {
+    rateLimited<SellTowerPayload>(ClientMessage.SELL_TOWER, (client, payload) => {
       this.handleSellTower(client, payload);
     });
 
     // Spawner actions
-    this.onMessage(ClientMessage.SPAWN_MONSTER, (client, payload: SpawnMonsterPayload) => {
+    rateLimited<SpawnMonsterPayload>(ClientMessage.SPAWN_MONSTER, (client, payload) => {
       this.handleSpawnMonster(client, payload);
     });
 
     // Manual cannon actions
-    this.onMessage(ClientMessage.CANNON_FIRE, (client, payload: CannonFirePayload) => {
+    rateLimited<CannonFirePayload>(ClientMessage.CANNON_FIRE, (client, payload) => {
       this.handleCannonFire(client, payload);
     });
 
-    this.onMessage(
+    rateLimited<CannonSetAutoTargetPayload>(
       ClientMessage.CANNON_SET_AUTO_TARGET,
-      (client, payload: CannonSetAutoTargetPayload) => {
+      (client, payload) => {
         this.handleCannonSetAutoTarget(client, payload);
       }
     );
 
     // Game control
-    this.onMessage(ClientMessage.SURRENDER, (client) => {
+    rateLimited(ClientMessage.SURRENDER, (client) => {
       this.handleSurrender(client);
     });
 
     // Mine actions
-    this.onMessage(ClientMessage.UPGRADE_MINE, (client, payload: UpgradeMinePayload) => {
+    rateLimited<UpgradeMinePayload>(ClientMessage.UPGRADE_MINE, (client, payload) => {
       this.handleUpgradeMine(client, payload);
     });
 
-    this.onMessage(ClientMessage.REPAIR_MINE, (client, payload: RepairMinePayload) => {
+    rateLimited<RepairMinePayload>(ClientMessage.REPAIR_MINE, (client, payload) => {
       this.handleRepairMine(client, payload);
     });
 
-    this.onMessage(ClientMessage.DOWNGRADE_MINE, (client, payload: DowngradeMinePayload) => {
+    rateLimited<DowngradeMinePayload>(ClientMessage.DOWNGRADE_MINE, (client, payload) => {
       this.handleDowngradeMine(client, payload);
     });
 
-    this.onMessage(ClientMessage.SELL_MINE, (client, payload: SellMinePayload) => {
+    rateLimited<SellMinePayload>(ClientMessage.SELL_MINE, (client, payload) => {
       this.handleSellMine(client, payload);
     });
 
     // Vision actions
-    this.onMessage(ClientMessage.UPGRADE_VISION, (client, payload: UpgradeVisionPayload) => {
+    rateLimited<UpgradeVisionPayload>(ClientMessage.UPGRADE_VISION, (client, payload) => {
       this.handleUpgradeVision(client, payload);
     });
   }
@@ -363,6 +380,7 @@ export class GameRoom extends Room {
     // If game hasn't started, remove player
     if (this.state.phase === GamePhase.WAITING) {
       this.removePlayer(client.sessionId);
+      this.rateLimiter.removeClient(client.sessionId);
       return;
     }
 
@@ -390,21 +408,17 @@ export class GameRoom extends Room {
           reconnectDeadline: this.state.reconnectDeadline,
         });
 
-        // Set timeout for reconnection
-        this.clock.setTimeout(() => {
+        // Allow reconnection - handle timeout in catch block
+        try {
+          await this.allowReconnection(client, SERVER_CONFIG.reconnectTimeout / 1000);
+        } catch {
+          // Reconnection timeout - eliminate player
           if (this.disconnectedClients.has(client.sessionId)) {
             console.log(`[GameRoom] Reconnect timeout for: ${player.name}`);
             this.handlePlayerElimination(client.sessionId, 'disconnect_timeout');
             this.disconnectedClients.delete(client.sessionId);
             this.resumeGame();
           }
-        }, SERVER_CONFIG.reconnectTimeout);
-
-        // Allow reconnection
-        try {
-          await this.allowReconnection(client, SERVER_CONFIG.reconnectTimeout / 1000);
-        } catch {
-          // Reconnection timeout handled above
         }
       }
     }
@@ -474,10 +488,14 @@ export class GameRoom extends Room {
       }
     });
 
-    // Mark territory, energy, and vision dirty after entity removal
+    // Clean up subsystem player data to prevent memory leaks
+    this.visionSystem.removePlayer(playerId);
+    this.energyCalc.removePlayer(playerId);
+    this.rateLimiter.removeClient(playerId);
+    this.disconnectedClients.delete(playerId);
+
+    // Mark remaining systems dirty after entity removal
     this.territoryCalc.markDirty();
-    this.energyCalc.markDirty();
-    this.visionSystem.markDirty();
 
     // Notify
     this.broadcast(ServerMessage.PLAYER_ELIMINATED, {
@@ -495,6 +513,7 @@ export class GameRoom extends Room {
   onDispose(): void {
     console.log(`[GameRoom] Room disposed: ${this.roomId}`);
     this.stopGameLoop();
+    this.rateLimiter.clear();
   }
 
   // ==================== Game Loop ====================
@@ -593,6 +612,7 @@ export class GameRoom extends Room {
     if (this.state.phase !== GamePhase.PLAYING) return;
 
     this.state.currentTick++;
+    this.rateLimiter.setCurrentTick(this.state.currentTick);
 
     // Phase 1: Entity updates
     this.updateMonsters();
@@ -736,10 +756,7 @@ export class GameRoom extends Room {
       }
     } else {
       // Check if wave is complete
-      const neutralMonsters = Array.from(this.state.monsters.values()).filter(
-        (m: MonsterState) => m.ownerId === ''
-      );
-      if (neutralMonsters.length === 0) {
+      if (this.neutralMonsterCount === 0) {
         this.state.wave.isWaveActive = false;
         this.state.wave.nextWaveTime = 200 * this.tickRate; // Next wave in 200 ticks
 
@@ -799,6 +816,7 @@ export class GameRoom extends Room {
       }
 
       this.state.monsters.set(monster.id, monster);
+      this.neutralMonsterCount++;
     }
 
     this.state.wave.monstersRemaining = monsterCount;
@@ -1151,6 +1169,10 @@ export class GameRoom extends Room {
    * Remove a monster from state
    */
   private removeMonster(monsterId: string): void {
+    const monster = this.state.monsters.get(monsterId);
+    if (monster && monster.ownerId === '') {
+      this.neutralMonsterCount--;
+    }
     this.state.monsters.delete(monsterId);
     if (this.state.wave.isWaveActive) {
       this.state.wave.monstersRemaining--;
@@ -1338,12 +1360,18 @@ export class GameRoom extends Room {
     );
 
     if (!result.valid) {
-      this.sendActionRejected(client, 'BUILD_TOWER', result.errorMessage || 'Validation failed', result.errorCode);
+      this.sendActionRejected(client, 'BUILD_TOWER', result.errorMessage || 'Validation failed', result.errorCode, payload.requestId);
       return;
     }
 
     const player = this.state.getPlayer(client.sessionId)!;
     const cost = result.data?.cost as number;
+
+    // Defensive check: verify money again before deduction
+    if (player.money < cost) {
+      this.sendActionRejected(client, 'BUILD_TOWER', 'Insufficient money', 'INSUFFICIENT_MONEY', payload.requestId);
+      return;
+    }
 
     // Deduct money
     player.money -= cost;
@@ -1413,7 +1441,7 @@ export class GameRoom extends Room {
     );
 
     if (!result.valid) {
-      this.sendActionRejected(client, 'BUILD_BUILDING', result.errorMessage || 'Validation failed', result.errorCode);
+      this.sendActionRejected(client, 'BUILD_BUILDING', result.errorMessage || 'Validation failed', result.errorCode, payload.requestId);
       return;
     }
 
@@ -1474,6 +1502,12 @@ export class GameRoom extends Room {
     const tower = this.state.towers.get(payload.towerId)!;
     const player = this.state.getPlayer(client.sessionId)!;
     const upgradeCost = result.data?.cost as number;
+
+    // Defensive check: verify money again before deduction
+    if (player.money < upgradeCost) {
+      this.sendActionRejected(client, 'UPGRADE_TOWER', 'Insufficient money', 'INSUFFICIENT_MONEY');
+      return;
+    }
 
     // Deduct money
     player.money -= upgradeCost;
@@ -1546,7 +1580,7 @@ export class GameRoom extends Room {
     );
 
     if (!result.valid) {
-      this.sendActionRejected(client, 'SELL_TOWER', result.errorMessage || 'Validation failed', result.errorCode);
+      this.sendActionRejected(client, 'SELL_TOWER', result.errorMessage || 'Validation failed', result.errorCode, payload.requestId);
       return;
     }
 
@@ -1594,6 +1628,12 @@ export class GameRoom extends Room {
     const targetPlayer = this.state.getPlayer(payload.targetPlayerId)!;
     const cost = result.data?.cost as number;
     const cooldownTicks = result.data?.cooldownTicks as number;
+
+    // Defensive check: verify money again before deduction
+    if (player.money < cost) {
+      this.sendActionRejected(client, 'SPAWN_MONSTER', 'Insufficient money', 'INSUFFICIENT_MONEY');
+      return;
+    }
 
     // Deduct money
     player.money -= cost;
@@ -1682,6 +1722,20 @@ export class GameRoom extends Room {
       return;
     }
 
+    // Validate target position and radius
+    const result = this.inputValidator.validateCannonSetAutoTarget(
+      client.sessionId,
+      payload.towerId,
+      payload.targetX,
+      payload.targetY,
+      payload.radius
+    );
+
+    if (!result.valid) {
+      this.sendActionRejected(client, 'CANNON_SET_AUTO_TARGET', result.errorMessage || 'Validation failed', result.errorCode);
+      return;
+    }
+
     // Store auto-target settings
     tower.autoTargetX = payload.targetX;
     tower.autoTargetY = payload.targetY;
@@ -1714,7 +1768,7 @@ export class GameRoom extends Room {
   /**
    * Send action rejected to client
    */
-  private sendActionRejected(client: Client, action: string, reason: string, errorCode?: string): void {
-    client.send(ServerMessage.ACTION_REJECTED, { action, reason, errorCode });
+  private sendActionRejected(client: Client, action: string, reason: string, errorCode?: string, requestId?: string): void {
+    client.send(ServerMessage.ACTION_REJECTED, { action, reason, errorCode, requestId });
   }
 }

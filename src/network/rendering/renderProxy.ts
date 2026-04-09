@@ -189,10 +189,8 @@ export class TowerRenderProxy implements FogTowerLike {
         return this._state.towerType;
     }
 
-    // Territory flag (network mode always valid)
-    get inValidTerritory(): boolean {
-        return true;
-    }
+    // Territory flag (writable for network territory sync)
+    inValidTerritory: boolean = true;
 
     // Whether this tower can attack buildings (ManualCannon)
     get canAttackBuildings(): boolean {
@@ -467,6 +465,8 @@ export class BuildingRenderProxy {
     readonly otherHpAddAble: boolean = false;
     readonly otherHpAddRadius: number = 0;
     readonly gameType: string = '';
+    // Territory flag (writable for network territory sync)
+    inValidTerritory: boolean = true;
 
     constructor(state: BuildingStateView) {
         this._state = state;

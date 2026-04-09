@@ -6,6 +6,8 @@
 import { FogOfWar } from './fogOfWar';
 import { VISION_CONFIG, RadarSweepArea, VisionType } from './visionConfig';
 import { PR } from '@/core/staticInitData';
+import { packVisionSources } from '@/workers';
+import type { RenderWorkerBridge } from '@/workers';
 
 /** Buffer expansion ratio: Canvas covers 1.5x viewport area to reduce rebuild frequency on camera movement */
 const BUFFER_RATIO = 1.5;
@@ -45,12 +47,18 @@ export class FogRenderer {
     private _bufferWorldWidth: number = 0;  // Buffer world width
     private _bufferWorldHeight: number = 0; // Buffer world height
 
+    // Worker mode fields
+    private _useWorker = false;             // Whether Worker mode is active
+    private _workerBitmap: ImageBitmap | null = null;  // Latest bitmap from Worker
+    private _bridge: RenderWorkerBridge | null = null; // Reference to bridge (set externally)
+
     constructor(fog: FogOfWar) {
         this._fog = fog;
     }
 
     /**
      * Mark static cache invalid (call when vision sources change)
+     * Also sends a request to Worker if in Worker mode.
      */
     invalidateCache(): void {
         this._staticCacheValid = false;
@@ -58,6 +66,112 @@ export class FogRenderer {
         // Reset radar area cache when static vision changes
         this._lastRadarAreas = [];
         this._lastRadarCount = 0;
+
+        // Request Worker rebuild if active
+        if (this._useWorker && this._bridge?.isReady) {
+            this._requestWorkerRebuild();
+        }
+    }
+
+    /**
+     * Enable Worker rendering mode.
+     * Call after capability detection passes and bridge is ready.
+     */
+    enableWorkerMode(bridge: RenderWorkerBridge): void {
+        this._bridge = bridge;
+        this._useWorker = true;
+        // Request initial rebuild from Worker
+        if (bridge.isReady) {
+            this._requestWorkerRebuild();
+        }
+    }
+
+    /**
+     * Disable Worker mode and fall back to main-thread rendering.
+     * Call when Worker crashes or is disposed.
+     */
+    disableWorkerMode(): void {
+        this._useWorker = false;
+        this._bridge = null;
+        this._closeWorkerBitmap();
+        // Force main-thread rebuild on next render
+        this._staticCacheValid = false;
+    }
+
+    /**
+     * Receive new bitmap from Worker (called by bridge callback).
+     * Also updates buffer coordinate state so camera-movement detection works correctly.
+     */
+    setWorkerBitmap(bitmap: ImageBitmap): void {
+        this._closeWorkerBitmap();
+        this._workerBitmap = bitmap;
+        // Mark static cache as "valid" in Worker mode so render() skips main-thread rebuild
+        this._staticCacheValid = true;
+        this._dynamicDirty = true;
+        // Update camera state for buffer-range detection
+        const camera = this._fog.world.camera;
+        this._lastCameraX = camera.x;
+        this._lastCameraY = camera.y;
+        this._lastZoom = camera.zoom;
+    }
+
+    private _closeWorkerBitmap(): void {
+        if (this._workerBitmap) {
+            this._workerBitmap.close();
+            this._workerBitmap = null;
+        }
+    }
+
+    /**
+     * Dispose resources including Worker bitmap.
+     */
+    dispose(): void {
+        this._closeWorkerBitmap();
+        this._staticCanvas = null;
+        this._staticCtx = null;
+        this._compositeCanvas = null;
+        this._compositeCtx = null;
+        this._holeMaskCanvas = null;
+        this._bridge = null;
+    }
+
+    /**
+     * Send a fog rebuild request to the Worker via bridge.
+     */
+    private _requestWorkerRebuild(): void {
+        if (!this._bridge || !this._bridge.isReady) return;
+
+        const world = this._fog.world;
+        const camera = world.camera;
+        const pr = PR;
+        const viewWidth = world.viewWidth;
+        const viewHeight = world.viewHeight;
+        const canvasWidth = viewWidth * BUFFER_RATIO;
+        const canvasHeight = viewHeight * BUFFER_RATIO;
+
+        const { fogColor, outerGradientSize } = VISION_CONFIG;
+        const sources = this._fog.getStaticVisionSources();
+        const { buffer, count } = packVisionSources(sources);
+
+        this._bridge.requestFogRebuild({
+            canvasWidth,
+            canvasHeight,
+            pr,
+            cameraX: camera.x,
+            cameraY: camera.y,
+            cameraZoom: camera.zoom,
+            cameraViewWidth: camera.viewWidth,
+            cameraViewHeight: camera.viewHeight,
+            worldWidth: world.width,
+            worldHeight: world.height,
+            visionSourcesBuffer: buffer,
+            visionSourcesCount: count,
+            fogColorR: fogColor.r,
+            fogColorG: fogColor.g,
+            fogColorB: fogColor.b,
+            fogColorA: fogColor.a,
+            outerGradientSize,
+        });
     }
 
     /**
@@ -75,8 +189,8 @@ export class FogRenderer {
      * 2. Camera movement triggers buffer rebuild when exceeding threshold
      * 3. Draw to world coordinates using 9-parameter drawImage
      *
-     * Performance optimization:
-     * - No radar towers: use static cache directly, skip composite layer copy
+     * Worker mode: When enabled, static fog layer is rendered by Worker and
+     * received as ImageBitmap. Radar sweep effects are still rendered on main thread.
      */
     render(ctx: CanvasRenderingContext2D, worldWidth: number, worldHeight: number): void {
         if (!this._fog.enabled) return;
@@ -98,6 +212,49 @@ export class FogRenderer {
         if (this._shouldRebuildForCamera()) {
             this._staticCacheValid = false;
         }
+
+        // ----------- Worker path -----------
+        if (this._useWorker) {
+            // Request rebuild from Worker if cache is invalid
+            if (!this._staticCacheValid && this._bridge?.isReady) {
+                this._requestWorkerRebuild();
+            }
+
+            // Draw Worker bitmap (static layer) if available
+            if (this._workerBitmap) {
+                if (this._fog.hasRadarTowers()) {
+                    // Compose radar sweep on top of Worker bitmap
+                    if (this._dynamicDirty) {
+                        this._composeFrame(this._cachedWidth, this._cachedHeight, pr, this._workerBitmap);
+                        this._dynamicDirty = false;
+                    }
+                    if (this._compositeCanvas) {
+                        ctx.drawImage(
+                            this._compositeCanvas,
+                            0, 0, this._cachedWidth * pr, this._cachedHeight * pr,
+                            this._bufferLeft, this._bufferTop,
+                            this._bufferWorldWidth, this._bufferWorldHeight
+                        );
+                    }
+                } else {
+                    // No radar: draw Worker bitmap directly
+                    ctx.drawImage(
+                        this._workerBitmap,
+                        0, 0, this._workerBitmap.width, this._workerBitmap.height,
+                        this._bufferLeft, this._bufferTop,
+                        this._bufferWorldWidth, this._bufferWorldHeight
+                    );
+                }
+                // Radar scan lines always drawn on main thread
+                if (this._fog.hasRadarTowers()) {
+                    this._renderRadarScanLines(ctx);
+                }
+                return;
+            }
+            // Bitmap not yet available — fall through to main-thread path
+        }
+
+        // ----------- Main-thread path (fallback) -----------
 
         // 1. Ensure static cache is valid
         if (!this._staticCacheValid) {
@@ -343,10 +500,10 @@ export class FogRenderer {
 
     /**
      * Compose each frame's final fog layer (using buffer coordinate system)
-     * 1. Copy static cache to composite canvas
+     * 1. Copy static cache (or Worker bitmap) to composite canvas
      * 2. Carve out radar sweep areas on composite canvas
      */
-    private _composeFrame(canvasWidth: number, canvasHeight: number, pr: number): void {
+    private _composeFrame(canvasWidth: number, canvasHeight: number, pr: number, sourceBitmap?: ImageBitmap): void {
         const { areas, count } = this._fog.getRadarSweepAreas();
 
         // Check if composition can be skipped (optimization: avoid expensive canvas operations)
@@ -364,7 +521,11 @@ export class FogRenderer {
         // (incremental update can corrupt gradients when radar overlaps static vision)
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvasWidth * pr, canvasHeight * pr);
-        if (this._staticCanvas) {
+        if (sourceBitmap) {
+            // Worker mode: copy from ImageBitmap
+            ctx.drawImage(sourceBitmap, 0, 0);
+        } else if (this._staticCanvas) {
+            // Main-thread mode: copy from offscreen canvas
             ctx.drawImage(this._staticCanvas, 0, 0);
         }
 

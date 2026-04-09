@@ -13,6 +13,7 @@ export {
   validateUpgradeTower,
   validateSellTower,
   validateCannonFire,
+  validateCannonSetAutoTarget,
   type TowerMetaData,
   type Position,
   type CollidableEntity,

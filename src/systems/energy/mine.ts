@@ -5,19 +5,17 @@
 
 import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
-import { CircleObject } from '../../entities/base/circleObject';
+import { CircleObject, CircleObjectWorldLike } from '../../entities/base/circleObject';
 import { EffectCircle } from '../../effects/effectCircle';
 
-interface WorldLike {
-    width: number;
-    height: number;
+interface WorldLike extends CircleObjectWorldLike {
     buildings: unknown[];
     mines: Set<Mine>;
     territory?: {
-        markDirty: () => void;
-        addBuildingIncremental: (building: unknown) => void;
+        markDirty(): void;
+        addBuildingIncremental(building: unknown): void;
     };
-    addEffect: (effect: unknown) => void;
+    addEffect(effect: unknown): void;
     markBuildingQuadTreeDirty?(): void;
 }
 
@@ -50,7 +48,7 @@ export class Mine extends CircleObject {
     _territoryPenaltyApplied: boolean = false;
 
     constructor(pos: Vector, world: WorldLike) {
-        super(pos, world as any);
+        super(pos, world);
 
         // HP bar color set to green (same as towers)
         this.hpColor = MyColor.arrTo([2, 230, 13, 0.8]);
@@ -119,9 +117,9 @@ export class Mine extends CircleObject {
                 this.ownerId = playerId;
             }
             // Add to buildings set so monsters can attack
-            (this.world as any).buildings.push(this);
+            this.world.buildings.push(this);
             // Immediate territory update (no 100ms delay)
-            (this.world as any).territory?.addBuildingIncremental?.(this);
+            this.world.territory?.addBuildingIncremental?.(this);
         } else if (this.state === Mine.STATE_POWER_PLANT && this.powerPlantLevel < 3) {
             // Upgrade power plant
             this.powerPlantLevel++;
@@ -146,7 +144,7 @@ export class Mine extends CircleObject {
         } else {
             // Level 1 power plant → Normal mine
             // Remove from buildings set
-            const buildings = (this.world as any).buildings;
+            const buildings = this.world.buildings;
             const idx = buildings.indexOf(this);
             if (idx !== -1) {
                 buildings.splice(idx, 1);
@@ -194,11 +192,11 @@ export class Mine extends CircleObject {
             const e = EffectCircle.acquire(this.pos);
             e.animationFunc = e.destroyAnimation;
             e.circle.r = 30;
-            (this.world as any).addEffect(e);
+            this.world.addEffect(e);
 
             // Remove from buildings set (unless caller already handled it)
             if (!skipRemoveFromBuildings) {
-                const buildings = (this.world as any).buildings;
+                const buildings = this.world.buildings;
                 const idx = buildings.indexOf(this);
                 if (idx !== -1) {
                     buildings.splice(idx, 1);

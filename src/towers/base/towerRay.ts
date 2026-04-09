@@ -119,7 +119,7 @@ export class TowerRay extends Tower {
     }
 
     refreshTarget(cachedMonsters?: MonsterLike[]): void {
-        const target = this.findFirstTarget(cachedMonsters as any);
+        const target = this.findFirstTarget(cachedMonsters);
         if (target) {
             this.target = target as MonsterLike;
             this.dirction = this.target.pos.sub(this.pos).to1();
@@ -153,7 +153,7 @@ export class TowerRay extends Tower {
                 if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                     continue;
                 }
-                if (line.intersectWithCircle(mc as any)) {
+                if (line.intersectWithCircle(mc)) {
                     m.hpChange(-actualDamage, this.ownerId);
                 }
             }
@@ -317,7 +317,7 @@ export class TowerRay extends Tower {
                     if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                         continue;
                     }
-                    if (br.intersectWithCircle(mc as any)) {
+                    if (br.intersectWithCircle(mc)) {
                         m.hpChange(-actualDamage, this.ownerId);
                         if (!this.rayThrowAble) {
                             toDelete.push(br);
@@ -336,7 +336,7 @@ export class TowerRay extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderTowerRay(this as any, ctx);
+        renderTowerRay(this, ctx);
     }
 
     /**

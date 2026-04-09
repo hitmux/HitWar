@@ -215,6 +215,7 @@ const bulletFuncs = getBulletFuncArr();
 console.log('  - getBulletFuncArr():', bulletFuncs.length, 'functions');
 
 // Test BullyFinallyCompat
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Test code: dynamic compat proxy access
 const normalBullet = (BullyFinallyCompat as any).Normal();
 console.log('  - BullyFinallyCompat.Normal() works:', normalBullet instanceof Bully ? 'OK' : 'FAIL');
 
@@ -372,6 +373,7 @@ console.log('  - endlessMode:', typeof endlessMode);
 console.log('');
 console.log('Compatibility:');
 console.log('  - TowerFinallyCompat:', typeof TowerFinallyCompat);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Test code: dynamic compat proxy access
 console.log('  - TowerFinallyCompat.BasicCannon:', typeof (TowerFinallyCompat as any).BasicCannon);
 
 console.log('');

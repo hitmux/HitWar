@@ -17,6 +17,7 @@ interface CannonLike {
     rangeR: number;
     inValidTerritory: boolean;
     semiAutoMode: boolean;
+    isAiming?: boolean;
     // Optional fields only present in single-player mode
     explosionDamage?: number;
     getDamageMultiplier?: () => number;
@@ -40,12 +41,14 @@ export class ManualCannonPanel {
     private _semiAutoSelection: boolean = false;
     private abortSignal: AbortSignal;
     private networkClient: NetworkClient | undefined;
+    private canvasEl: HTMLElement | null;
     private onTargetCallback: ((pos: Vector) => void) | null = null;
     private onSemiAutoCallback: ((pos: Vector, radius: number) => void) | null = null;
 
-    constructor(abortSignal: AbortSignal, networkClient?: NetworkClient) {
+    constructor(abortSignal: AbortSignal, networkClient?: NetworkClient, canvasEl?: HTMLElement) {
         this.abortSignal = abortSignal;
         this.networkClient = networkClient;
+        this.canvasEl = canvasEl ?? null;
         this.createPanel();
     }
 
@@ -133,8 +136,10 @@ export class ManualCannonPanel {
         if (!this.panelEl) return;
 
         this.panelEl.style.display = 'none';
+        this.setAimingState(false);
         this.currentCannon = null;
         this.isTargetingMode = false;
+        this._semiAutoSelection = false;
         this.stopRefresh();
     }
 
@@ -253,9 +258,11 @@ export class ManualCannonPanel {
         if (this.isTargetingMode) {
             // Cancel targeting mode
             this.isTargetingMode = false;
+            this.setAimingState(false);
         } else {
             if (this.currentCannon.currentAmmo > 0 && this.currentCannon.inValidTerritory) {
                 this.isTargetingMode = true;
+                this.setAimingState(true);
             }
         }
         this.updateDisplay();
@@ -270,6 +277,7 @@ export class ManualCannonPanel {
         // Request semi-auto area selection from game controller
         // This will be handled by the game controller's click handler
         this.isTargetingMode = true;
+        this.setAimingState(true);
         const hintEl = this.panelEl?.querySelector('.cannon-hint');
         if (hintEl) {
             hintEl.textContent = '点击地图选择半自动目标区域';
@@ -317,6 +325,7 @@ export class ManualCannonPanel {
             }
             this._semiAutoSelection = false;
             this.isTargetingMode = false;
+            this.setAimingState(false);
             this.updateDisplay();
             return true;
         }
@@ -331,6 +340,7 @@ export class ManualCannonPanel {
             // In multiplayer, assume server handles ammo
             if (cannon.currentAmmo <= 1) {
                 this.isTargetingMode = false;
+                this.setAimingState(false);
             }
             this.updateDisplay();
             return true;
@@ -344,6 +354,7 @@ export class ManualCannonPanel {
                     // Stay in targeting mode if still have ammo
                     if (cannon.currentAmmo <= 0) {
                         this.isTargetingMode = false;
+                        this.setAimingState(false);
                     }
                     this.updateDisplay();
                     return true;
@@ -391,10 +402,23 @@ export class ManualCannonPanel {
     }
 
     /**
+     * Set aiming state on cannon and update canvas cursor
+     */
+    private setAimingState(aiming: boolean): void {
+        if (this.currentCannon) {
+            this.currentCannon.isAiming = aiming;
+        }
+        if (this.canvasEl) {
+            this.canvasEl.style.cursor = aiming ? 'crosshair' : '';
+        }
+    }
+
+    /**
      * Cleanup
      */
     destroy(): void {
         this.stopRefresh();
+        this.setAimingState(false);
         if (this.panelEl && this.panelEl.parentNode) {
             this.panelEl.parentNode.removeChild(this.panelEl);
         }

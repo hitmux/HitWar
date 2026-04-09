@@ -120,7 +120,7 @@ export class PanelManager {
         this.spawnerPanel = new SpawnerPanel(eventSignal);
 
         // Initialize manual cannon panel
-        this.manualCannonPanel = new ManualCannonPanel(eventSignal, this.networkClient ?? undefined);
+        this.manualCannonPanel = new ManualCannonPanel(eventSignal, this.networkClient ?? undefined, canvasEle);
     }
 
     /**
@@ -150,6 +150,12 @@ export class PanelManager {
         this.spawnerPanel.destroy();
         // Cleanup manual cannon panel
         this.manualCannonPanel.destroy();
+        // Cancel pending RAF
+        if (this.pendingPanelRAF !== null) {
+            cancelAnimationFrame(this.pendingPanelRAF);
+            this.pendingPanelRAF = null;
+        }
+        this.pendingPanelUpdate = null;
         // 恢复默认光标
         this.setMoveCursor(false);
     }

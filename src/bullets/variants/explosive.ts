@@ -108,10 +108,8 @@ export function ManualCannon_Shell(): Bully {
     b.bombFunc = b.bombFire;
     b.accelerationV = 0.03;
 
-    // Can hit buildings flag (handled by collision system)
-    (b as any).canHitBuildings = true;
-    // Store target position for guided behavior
-    (b as any).targetPos = null;
+    // ManualCannon shells can hit both monsters and buildings
+    b.canHitBuildings = true;
 
     // Dark metallic color
     b.bodyColor = MyColor.arrTo([80, 80, 100, 1]);

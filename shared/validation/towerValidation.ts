@@ -321,3 +321,53 @@ export function validateCannonFire(
 
   return validationSuccess();
 }
+
+/**
+ * Validate CANNON_SET_AUTO_TARGET action
+ * Ensures target point is within attack range and radius is valid
+ */
+export function validateCannonSetAutoTarget(
+  player: PlayerValidationState | undefined,
+  tower: TowerValidationState | undefined,
+  targetX: number,
+  targetY: number,
+  radius: number
+): ValidationResult {
+  // 1. Player must exist and be alive
+  if (!player) {
+    return validationFailure(ValidationErrorCode.PLAYER_NOT_FOUND);
+  }
+  if (!player.isAlive) {
+    return validationFailure(ValidationErrorCode.PLAYER_NOT_ALIVE);
+  }
+
+  // 2. Tower must exist
+  if (!tower) {
+    return validationFailure(ValidationErrorCode.CANNON_NOT_FOUND);
+  }
+
+  // 3. Tower must be owned by player
+  if (tower.ownerId !== player.id) {
+    return validationFailure(ValidationErrorCode.CANNON_NOT_OWNED);
+  }
+
+  // 4. Tower must be a manual cannon
+  if (!tower.isManual) {
+    return validationFailure(ValidationErrorCode.CANNON_NOT_MANUAL);
+  }
+
+  // 5. Target must be within attack radius
+  const dx = targetX - tower.position.x;
+  const dy = targetY - tower.position.y;
+  const distSq = dx * dx + dy * dy;
+  if (distSq > tower.attackRadius * tower.attackRadius) {
+    return validationFailure(ValidationErrorCode.CANNON_TARGET_OUT_OF_RANGE);
+  }
+
+  // 6. Radius must be positive and not exceed attack radius
+  if (radius <= 0 || radius > tower.attackRadius) {
+    return validationFailure(ValidationErrorCode.CANNON_RADIUS_INVALID);
+  }
+
+  return validationSuccess();
+}

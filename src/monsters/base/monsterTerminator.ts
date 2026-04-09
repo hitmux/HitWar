@@ -145,7 +145,7 @@ export class MonsterTerminator extends Monster {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderMonsterTerminator(this as any, ctx);
+        renderMonsterTerminator(this, ctx);
     }
 }
 

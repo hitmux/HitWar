@@ -17,6 +17,7 @@ export class MineState extends Schema {
   @type('number') radius: number = 15;
   @type('boolean') repairing: boolean = false;
   @type('number') repairProgress: number = 0;
+  @type('boolean') inValidTerritory: boolean = true;
 
   constructor() {
     super();

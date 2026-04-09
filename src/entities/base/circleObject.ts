@@ -13,7 +13,7 @@ import {
 } from '../statusBar';
 import type { CheatModeLike } from '@/types/worldLike';
 
-interface WorldLike {
+export interface CircleObjectWorldLike {
     width: number;
     height: number;
     cheatMode?: CheatModeLike;
@@ -27,7 +27,7 @@ export class CircleObject {
     private static _tempVec: Vector = new Vector(0, 0);
 
     pos: Vector;
-    world: WorldLike;
+    world: CircleObjectWorldLike;
     gameType: string;
     liveTime: number;
     r: number;
@@ -50,15 +50,15 @@ export class CircleObject {
     selected: boolean;
 
     protected _bodyCircle: Circle | null;
-    protected _hpBarCache: StatusBarCache;
+    _hpBarCache: StatusBarCache;
 
-    protected _bodyVersion: number = 0;
+    _bodyVersion: number = 0;
 
-    // Territory related properties
+    // Territory related properties (public for Territory system access)
     inValidTerritory: boolean;
-    protected _originalMaxHp: number | null;
-    protected _territoryPenaltyApplied: boolean;
-    protected _originalRangeR: number | null;
+    _originalMaxHp: number | null;
+    _territoryPenaltyApplied: boolean;
+    _originalRangeR: number | null;
 
     // 上一帧位置（用于扫掠碰撞检测）
     prevX: number = 0;
@@ -70,7 +70,7 @@ export class CircleObject {
     // Unique ID for multiplayer entity tracking (null = single-player)
     id: string | null = null;
 
-    constructor(pos: Vector, world: WorldLike) {
+    constructor(pos: Vector, world: CircleObjectWorldLike) {
         this.pos = pos;
         this.world = world;
         this.gameType = "CircleObject";

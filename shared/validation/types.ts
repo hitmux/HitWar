@@ -27,6 +27,7 @@ export const ValidationErrorCode = {
   // Map/position errors
   POSITION_OUT_OF_BOUNDS: 'POSITION_OUT_OF_BOUNDS',
   POSITION_NOT_IN_TERRITORY: 'POSITION_NOT_IN_TERRITORY',
+  POSITION_IN_ENEMY_TERRITORY: 'POSITION_IN_ENEMY_TERRITORY',
   POSITION_COLLISION: 'POSITION_COLLISION',
 
   // Resource errors
@@ -48,6 +49,7 @@ export const ValidationErrorCode = {
   CANNON_NOT_MANUAL: 'CANNON_NOT_MANUAL',
   CANNON_NO_AMMO: 'CANNON_NO_AMMO',
   CANNON_TARGET_OUT_OF_RANGE: 'CANNON_TARGET_OUT_OF_RANGE',
+  CANNON_RADIUS_INVALID: 'CANNON_RADIUS_INVALID',
 } as const;
 
 export type ValidationErrorCodeType = (typeof ValidationErrorCode)[keyof typeof ValidationErrorCode];

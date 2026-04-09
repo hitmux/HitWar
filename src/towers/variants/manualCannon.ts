@@ -51,4 +51,4 @@ const meta: TowerMeta = {
     basePrice: MANUAL_CANNON_CONFIG.price
 };
 
-TowerRegistry.register('ManualCannon', ManualCannon as any, meta);
+TowerRegistry.register('ManualCannon', ManualCannon, meta);

@@ -39,7 +39,7 @@ interface WorldLike {
     addEffect(effect: unknown): void;
 }
 
-type GameMode = "easy" | "normal" | "hard";
+export type GameMode = "easy" | "normal" | "hard";
 
 // Monster arrays for different game modes
 const MonsterEasyArr: string[] = [

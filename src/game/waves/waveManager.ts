@@ -13,6 +13,7 @@ import {
     MonsterEasyArr,
     Monster10BeforeArr
 } from '../../monsters/index';
+import type { GameMode } from '../../monsters/monsterGroup';
 import { EffectText } from '../../effects/effect';
 import { Sounds } from '../../systems/sound/sounds';
 import type { MonsterLike, IEffect } from '../entities';
@@ -95,8 +96,8 @@ export class WaveManager {
         this._world = world;
 
         // Initialize monster flows
-        this.monsterFlow = MonsterGroup.getMonsterFlow(world, 1, context.mode as any) as unknown as MonsterFlow;
-        this.monsterFlowNext = MonsterGroup.getMonsterFlow(world, 2, context.mode as any) as unknown as MonsterFlow;
+        this.monsterFlow = MonsterGroup.getMonsterFlow(world, 1, context.mode as GameMode) as unknown as MonsterFlow;
+        this.monsterFlowNext = MonsterGroup.getMonsterFlow(world, 2, context.mode as GameMode) as unknown as MonsterFlow;
     }
 
     /**
@@ -138,7 +139,7 @@ export class WaveManager {
             this.monsterFlowNext = MonsterGroup.getMonsterFlow(
                 this._world,
                 this.monsterFlowNext.level + 1,
-                this._context.mode as any
+                this._context.mode as GameMode
             ) as unknown as MonsterFlow;
         }
 
@@ -182,7 +183,7 @@ export class WaveManager {
             // Normal wave: use precomputed monster types and attributes
             for (const typeName of wave.monsterTypes) {
                 // Use registry to create monster
-                const createFn = (MonsterFinallyCompat as any)[typeName];
+                const createFn = MonsterFinallyCompat[typeName];
                 if (!createFn) continue;
 
                 const m = createFn(this._world) as MonsterLike;

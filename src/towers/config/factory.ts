@@ -4,7 +4,7 @@
  * Creates tower instances and registers them from config definitions
  */
 
-import { Tower } from '../base/tower';
+import { Tower, TowerBulletLike } from '../base/tower';
 import { TowerLaser } from '../base/towerLaser';
 import { TowerHammer } from '../base/towerHammer';
 import { TowerBoomerang } from '../base/towerBoomerang';
@@ -26,7 +26,7 @@ import type {
 } from './types';
 
 // Bullet creators reference (resolved from global scope)
-declare const BullyFinally: Record<string, (() => unknown) | null> | undefined;
+declare const BullyFinally: Record<string, (() => TowerBulletLike) | null> | undefined;
 
 // Price calculator reference (resolved from global scope)
 declare const Functions: {
@@ -115,7 +115,7 @@ function applyTowerParams(tower: Tower, config: AnyTowerConfig): void {
     if (params.bulletType && typeof BullyFinally !== 'undefined') {
         const bulletCreator = BullyFinally[params.bulletType];
         if (bulletCreator) {
-            tower.getmMainBullyFunc = bulletCreator as any;
+            tower.getmMainBullyFunc = bulletCreator;
         }
     }
     if (params.bullySpeed !== undefined) tower.bullySpeed = scaleSpeed(params.bullySpeed);
@@ -248,7 +248,8 @@ export function createTowerFromConfig(
     world: WorldLike
 ): Tower {
     const BaseClass = BASE_CLASS_MAP[config.baseClass];
-    const tower = new BaseClass(0, 0, world as any);
+    // Factory WorldLike is minimal; actual World satisfies Tower constructor requirements
+    const tower = new BaseClass(0, 0, world as unknown as ConstructorParameters<typeof Tower>[2]);
 
     // Apply base properties
     tower.name = config.name;
@@ -306,7 +307,7 @@ export function registerTowerFromConfig(config: AnyTowerConfig | DynamicPriceTow
         basePrice: config.price
     };
 
-    TowerRegistry.register(config.id, creator as any, meta);
+    TowerRegistry.register(config.id, creator, meta);
 }
 
 /**

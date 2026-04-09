@@ -123,7 +123,7 @@ export class TowerBoomerang extends Tower {
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
-            if (this.bar.intersectWithCircle(mc as any)) {
+            if (this.bar.intersectWithCircle(mc)) {
                 m.hpChange(-actualDamage, this.ownerId);
             }
         }
@@ -173,7 +173,7 @@ export class TowerBoomerang extends Tower {
             if (this.liveTime - lastHit < HIT_COOLDOWN_FRAMES) {
                 continue;
             }
-            if (this.bar.intersectWithCircle(mc as any)) {
+            if (this.bar.intersectWithCircle(mc)) {
                 m.hpChange(-actualDamage, this.ownerId);
                 this.hitCooldown.set(m, this.liveTime);
             }
@@ -181,7 +181,7 @@ export class TowerBoomerang extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderTowerBoomerang(this as any, ctx);
+        renderTowerBoomerang(this, ctx);
     }
 
     /**

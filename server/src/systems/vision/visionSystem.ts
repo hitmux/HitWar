@@ -26,10 +26,12 @@ export class VisionSystem {
     private _dirty = true;
     private _tickCounter = 0;
 
-    // Reusable arrays to reduce per-tick allocations (H5)
+    // Reusable arrays to reduce per-tick allocations
     private _entityBuffer: VisibleEntity[] = [];
     private _towerBuffer: VisionTower[] = [];
     private _buildingBuffer: VisionBuilding[] = [];
+    // Reusable set for recalculate return value
+    private _allChangedBuffer: Set<string> = new Set();
 
     addPlayer(playerId: string): void {
         this._maps.set(playerId, new VisibilityMap(playerId));
@@ -41,16 +43,16 @@ export class VisionSystem {
     }
 
     /**
-     * Mark vision sources as dirty (call when towers/buildings change).
-     * Next recalculate() will rebuild vision sources before checking visibility.
+     * Mark vision sources as dirty (e.g. tower built/sold/destroyed).
+     * Rebuilds vision circles on next recalculate().
      */
     markDirty(): void {
         this._dirty = true;
     }
 
     /**
-     * Check if an entity is visible to a specific player.
-     * Called by @filterChildren callback - must be O(1).
+     * Check if an entity is visible to a player.
+     * Own entities are always visible; others checked via VisibilityMap.
      */
     isEntityVisible(playerId: string, entityId: string, entityOwnerId: string | null): boolean {
         // Own entities are always visible
@@ -62,7 +64,16 @@ export class VisionSystem {
     }
 
     /**
-     * Check if a world position is visible to a specific player.
+     * Fast visibility check for @filterChildren callback.
+     * Delegates directly to VisibilityMap.isVisible() — O(1) Set.has() lookup.
+     * No separate cache needed; _visibleEntities is already pre-computed.
+     */
+    isFilterCached(playerId: string, entityId: string): boolean {
+        return this._maps.get(playerId)?.isVisible(entityId) ?? false;
+    }
+
+    /**
+     * Check if a world position is visible to a player.
      * Used for broadcast filtering.
      */
     isPositionVisible(playerId: string, x: number, y: number): boolean {
@@ -72,9 +83,9 @@ export class VisionSystem {
     }
 
     /**
-     * Recalculate visibility for all players.
-     * Throttled to every RECALC_INTERVAL ticks.
-     * Returns set of entity IDs whose visibility changed (for touch mechanism).
+     * Recalculate vision for all players.
+     * Throttled to run every RECALC_INTERVAL ticks.
+     * Returns the set of entity IDs whose visibility changed.
      */
     recalculate(
         currentTick: number,
@@ -104,7 +115,8 @@ export class VisionSystem {
         const allEntities = this._collectEntities(towers, monsters, buildings, mines);
 
         // Recalculate for each player, collect all changed entity IDs
-        const allChanged = new Set<string>();
+        const allChanged = this._allChangedBuffer;
+        allChanged.clear();
         for (const map of this._maps.values()) {
             const changed = map.recalculate(allEntities, currentTick);
             for (const id of changed) {
@@ -119,14 +131,11 @@ export class VisionSystem {
 
     private _extractTowers(towers: MapSchema<TowerState>): VisionTower[] {
         this._towerBuffer.length = 0;
-        towers.forEach((tower, _key) => {
+        towers.forEach((t) => {
             this._towerBuffer.push({
-                id: tower.id,
-                ownerId: tower.ownerId,
-                x: tower.position.x,
-                y: tower.position.y,
-                visionType: tower.visionType,
-                visionLevel: tower.visionLevel,
+                id: t.id, ownerId: t.ownerId,
+                x: t.position.x, y: t.position.y,
+                visionType: t.visionType, visionLevel: t.visionLevel,
             });
         });
         return this._towerBuffer;
@@ -134,39 +143,73 @@ export class VisionSystem {
 
     private _extractBuildings(buildings: MapSchema<BuildingState>): VisionBuilding[] {
         this._buildingBuffer.length = 0;
-        buildings.forEach((building, _key) => {
+        buildings.forEach((b) => {
             this._buildingBuffer.push({
-                id: building.id,
-                ownerId: building.ownerId,
-                x: building.position.x,
-                y: building.position.y,
-                isBase: building.isBase,
+                id: b.id, ownerId: b.ownerId,
+                x: b.position.x, y: b.position.y,
+                isBase: b.isBase,
             });
         });
         return this._buildingBuffer;
     }
 
+    /**
+     * Collect all entities into a flat buffer for visibility checks.
+     * Reuses objects in the buffer to avoid per-tick allocations.
+     */
     private _collectEntities(
         towers: MapSchema<TowerState>,
         monsters: MapSchema<MonsterState>,
         buildings: MapSchema<BuildingState>,
         mines: MapSchema<MineState>,
     ): VisibleEntity[] {
-        this._entityBuffer.length = 0;
+        let idx = 0;
+        const buf = this._entityBuffer;
 
-        towers.forEach((t, _key) => {
-            this._entityBuffer.push({ id: t.id, ownerId: t.ownerId, x: t.position.x, y: t.position.y, radius: t.radius });
+        towers.forEach((t) => {
+            if (idx < buf.length) {
+                const e = buf[idx];
+                e.id = t.id; e.ownerId = t.ownerId; e.x = t.position.x; e.y = t.position.y; e.radius = t.radius;
+            } else {
+                buf.push({ id: t.id, ownerId: t.ownerId, x: t.position.x, y: t.position.y, radius: t.radius });
+            }
+            idx++;
         });
-        monsters.forEach((m, _key) => {
-            this._entityBuffer.push({ id: m.id, ownerId: m.ownerId, x: m.position.x, y: m.position.y, radius: m.radius });
+        monsters.forEach((m) => {
+            if (idx < buf.length) {
+                const e = buf[idx];
+                e.id = m.id; e.ownerId = m.ownerId; e.x = m.position.x; e.y = m.position.y; e.radius = m.radius;
+            } else {
+                buf.push({ id: m.id, ownerId: m.ownerId, x: m.position.x, y: m.position.y, radius: m.radius });
+            }
+            idx++;
         });
-        buildings.forEach((b, _key) => {
-            this._entityBuffer.push({ id: b.id, ownerId: b.ownerId, x: b.position.x, y: b.position.y, radius: b.radius });
+        buildings.forEach((b) => {
+            if (idx < buf.length) {
+                const e = buf[idx];
+                e.id = b.id; e.ownerId = b.ownerId; e.x = b.position.x; e.y = b.position.y; e.radius = b.radius;
+            } else {
+                buf.push({ id: b.id, ownerId: b.ownerId, x: b.position.x, y: b.position.y, radius: b.radius });
+            }
+            idx++;
         });
-        mines.forEach((mine, _key) => {
-            this._entityBuffer.push({ id: mine.id, ownerId: mine.ownerId, x: mine.position.x, y: mine.position.y, radius: mine.radius });
+        mines.forEach((mine) => {
+            if (idx < buf.length) {
+                const e = buf[idx];
+                e.id = mine.id; e.ownerId = mine.ownerId; e.x = mine.position.x; e.y = mine.position.y; e.radius = mine.radius;
+            } else {
+                buf.push({ id: mine.id, ownerId: mine.ownerId, x: mine.position.x, y: mine.position.y, radius: mine.radius });
+            }
+            idx++;
         });
 
-        return this._entityBuffer;
+        buf.length = idx;
+
+        // Shrink buffer if capacity is excessive (>2000 and using <50%)
+        if (buf.length > 2000 && idx < buf.length / 2) {
+            this._entityBuffer = buf.slice(0, idx);
+        }
+
+        return buf;
     }
 }

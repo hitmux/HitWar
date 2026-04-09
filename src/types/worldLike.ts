@@ -43,7 +43,7 @@ export interface UserLike {
 /** Minimal monster interface for targeting/collision */
 export interface MonsterLike {
     pos: VectorLike;
-    r?: number;
+    r: number;
     getBodyCircle(): CircleLike;
     hpChange(delta: number, attackerId?: string | null): void;
     isDead(): boolean;
@@ -51,6 +51,12 @@ export interface MonsterLike {
     ownerId: string | null;
     /** Target destination for multiplayer mode */
     destination?: VectorLike;
+    /** Current HP for target scoring */
+    hp: number;
+    /** Maximum HP for target scoring */
+    maxHp: number;
+    /** Current movement speed (optional, MonsterRenderProxy doesn't have it) */
+    speedNumb?: number;
 }
 
 /** Minimal bullet interface */
@@ -72,7 +78,7 @@ export interface BuildingLike {
     pos: VectorLike;
     hp: number;
     maxHp: number;
-    r?: number;
+    r: number;
     getBodyCircle(): CircleLike;
     hpChange(delta: number, attackerId?: string | null): void;
     isDead(): boolean;
@@ -102,7 +108,7 @@ export interface BuildingLike {
 /** Minimal tower interface */
 export interface TowerLike {
     pos: VectorLike;
-    r?: number;
+    r: number;
     rangeR?: number;
     hpChange(delta: number, attackerId?: string | null): void;
     getBodyCircle?(): CircleLike;

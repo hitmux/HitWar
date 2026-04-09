@@ -242,7 +242,7 @@ export class MonsterShooter extends Monster {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        renderMonsterShooter(this as any, ctx);
+        renderMonsterShooter(this, ctx);
     }
 
     getViewCircle(): Circle {

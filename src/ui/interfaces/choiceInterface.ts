@@ -5,6 +5,7 @@
 import { gotoPage } from '../navigation/router';
 import { SaveUI } from '../../systems/save/saveUI';
 import { endlessMode } from './endlessMode';
+import type { SaveData } from '../../systems/save/saveManager';
 import { setupBackButton } from '../components/backButton';
 import { withInitGuard } from '../utils/initGuard';
 
@@ -52,10 +53,10 @@ export function choiceInterface(): void {
         const btnList = thisInterface.querySelector(".btnList") as HTMLElement;
         SaveUI.addImportButton(btnList, (saveData: unknown) => {
             const data = saveData as { mode: string; haveFlow: boolean };
-            SaveUI.showImportSuccess(saveData as any);
+            SaveUI.showImportSuccess(saveData as { mode: string; haveFlow: boolean; timestamp: number });
             gotoPage("war-interface");
             requestAnimationFrame(() => {
-                endlessMode(data.mode, data.haveFlow, saveData);
+                endlessMode(data.mode, data.haveFlow, saveData as SaveData);
             });
         });
     });

@@ -13,6 +13,11 @@ import { collides } from '../../shared/math/circle.js';
 import { isEnemy } from '../../shared/types/ownership.js';
 import type { SpatialHashGrid, SpatialEntity } from '../spatial/spatialHashGrid.js';
 import type { DamageCalculator } from './damageCalculator.js';
+import { calcMonsterTargetScore, DEFAULT_TOWER_TARGET_WEIGHTS } from '../../../../shared/formulas/targetScoring.js';
+import { scaleSpeed } from '../../shared/constants/speedScale.js';
+
+// Max expected monster speed for target scoring normalization
+const MAX_EXPECTED_MONSTER_SPEED = scaleSpeed(15);
 
 /**
  * Tower attack configuration (from tower config)
@@ -162,6 +167,10 @@ export class TowerAttackSystem {
       tower.attackRadius + 50 // Small buffer for edge cases
     );
 
+    const rangeSq = tower.attackRadius * tower.attackRadius;
+    let bestTarget: MonsterState | null = null;
+    let bestScore = -1;
+
     for (const entity of nearbyMonsters) {
       const monster = entity.state;
 
@@ -172,7 +181,7 @@ export class TowerAttackSystem {
 
       // Check if in attack range
       if (
-        collides(
+        !collides(
           tower.position.x,
           tower.position.y,
           tower.attackRadius,
@@ -181,11 +190,27 @@ export class TowerAttackSystem {
           monster.radius
         )
       ) {
-        return monster;
+        continue;
+      }
+
+      const dx = monster.position.x - tower.position.x;
+      const dy = monster.position.y - tower.position.y;
+      const distSq = dx * dx + dy * dy;
+
+      const score = calcMonsterTargetScore(
+        distSq, rangeSq,
+        monster.hp, monster.maxHp,
+        monster.speed, MAX_EXPECTED_MONSTER_SPEED,
+        DEFAULT_TOWER_TARGET_WEIGHTS,
+      );
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestTarget = monster;
       }
     }
 
-    return null;
+    return bestTarget;
   }
 
   /**

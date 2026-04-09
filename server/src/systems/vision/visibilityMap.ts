@@ -64,6 +64,8 @@ export class VisibilityMap {
     readonly playerId: string;
 
     private _visibleEntities: Set<string> = new Set();
+    private _nextVisible: Set<string> = new Set();
+    private _changedBuffer: Set<string> = new Set();
     private _visionCircles: VisionCircle[] = [];
     private _radarSources: RadarSource[] = [];
     private _dirty = true;
@@ -136,10 +138,13 @@ export class VisibilityMap {
     /**
      * Recalculate visibility for all non-own entities.
      * Returns the set of entity IDs whose visibility changed.
+     * Uses double-buffered Sets to avoid per-call allocations.
      */
     recalculate(entities: VisibleEntity[], currentTick: number): Set<string> {
-        const changed = new Set<string>();
-        const newVisible = new Set<string>();
+        const changed = this._changedBuffer;
+        changed.clear();
+        const newVisible = this._nextVisible;
+        newVisible.clear();
 
         for (const entity of entities) {
             // Own entities are always visible (handled by @filterChildren callback)
@@ -158,6 +163,8 @@ export class VisibilityMap {
             }
         }
 
+        // Swap: old _visibleEntities becomes _nextVisible buffer for next cycle
+        this._nextVisible = this._visibleEntities;
         this._visibleEntities = newVisible;
         return changed;
     }
@@ -219,9 +226,6 @@ export class VisibilityMap {
  * Handles wrap-around at ±PI.
  */
 function isInSweepSector(entityAngle: number, sweepCenter: number, sweepWidth: number): boolean {
-    let diff = entityAngle - sweepCenter;
-    // Normalize to [-PI, PI]
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    return Math.abs(diff) <= sweepWidth / 2;
+    const cosThreshold = Math.cos(sweepWidth / 2);
+    return Math.cos(entityAngle - sweepCenter) >= cosThreshold;
 }
