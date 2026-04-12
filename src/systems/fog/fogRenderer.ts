@@ -7,7 +7,7 @@ import { FogOfWar } from './fogOfWar';
 import { VISION_CONFIG, RadarSweepArea, VisionType } from './visionConfig';
 import { PR } from '@/core/staticInitData';
 import { packVisionSources } from '@/workers';
-import type { RenderWorkerBridge } from '@/workers';
+import type { RenderWorkerBridge, WorkerBitmapFrameMeta } from '@/workers';
 
 /** Buffer expansion ratio: Canvas covers 1.5x viewport area to reduce rebuild frequency on camera movement */
 const BUFFER_RATIO = 1.5;
@@ -100,19 +100,21 @@ export class FogRenderer {
 
     /**
      * Receive new bitmap from Worker (called by bridge callback).
-     * Also updates buffer coordinate state so camera-movement detection works correctly.
+     * 使用 Worker 返回的真实 buffer 边界，避免主线程自行重算
      */
-    setWorkerBitmap(bitmap: ImageBitmap): void {
+    setWorkerBitmap(bitmap: ImageBitmap, frameMeta: WorkerBitmapFrameMeta): void {
         this._closeWorkerBitmap();
         this._workerBitmap = bitmap;
-        // Mark static cache as "valid" in Worker mode so render() skips main-thread rebuild
+        // Worker 模式下标记静态缓存有效，跳过主线程重建
         this._staticCacheValid = true;
         this._dynamicDirty = true;
-        // Update camera state for buffer-range detection
-        const camera = this._fog.world.camera;
-        this._lastCameraX = camera.x;
-        this._lastCameraY = camera.y;
-        this._lastZoom = camera.zoom;
+        this._lastCameraX = frameMeta.cameraX;
+        this._lastCameraY = frameMeta.cameraY;
+        this._lastZoom = frameMeta.cameraZoom;
+        this._bufferLeft = frameMeta.bufferLeft;
+        this._bufferTop = frameMeta.bufferTop;
+        this._bufferWorldWidth = frameMeta.bufferWorldWidth;
+        this._bufferWorldHeight = frameMeta.bufferWorldHeight;
     }
 
     private _closeWorkerBitmap(): void {

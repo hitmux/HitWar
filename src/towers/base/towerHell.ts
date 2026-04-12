@@ -89,6 +89,17 @@ export class TowerHell extends Tower {
         }
     }
 
+    private canAttackThisFrame(): boolean {
+        return this.laserFreezeNow === this.laserFreezeMax;
+    }
+
+    private clearInvalidTargetState(): void {
+        if (this.target !== null && this.target !== undefined && this.target.isDead()) {
+            this.target = null;
+            this.targetLiveTime = 0;
+        }
+    }
+
     attack(): void {
         if (this.target === null || this.target === undefined || this.target.isDead()) {
             this.targetLiveTime = 0;
@@ -136,6 +147,10 @@ export class TowerHell extends Tower {
      */
     goStepCollide(): void {
         super.goStepCollide();
+        if (!this.canAttackThisFrame()) {
+            this.clearInvalidTargetState();
+            return;
+        }
         this.getTarget();
         this.attack();
     }

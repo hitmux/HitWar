@@ -51,6 +51,9 @@ export class RateLimiter {
   /** Map: clientSessionId -> messageType -> TokenBucket */
   private buckets = new Map<string, Map<string, TokenBucket>>();
 
+  /** Message types without an explicit rate-limit config are denied by default */
+  private readonly configuredMessageTypes = new Set(Object.keys(MESSAGE_RATE_LIMITS));
+
   /** Server tick rate (ticks per second) */
   private readonly tickRate: number;
 
@@ -72,8 +75,7 @@ export class RateLimiter {
    */
   consume(clientId: string, messageType: string): boolean {
     const config = MESSAGE_RATE_LIMITS[messageType];
-    // No config = no rate limit for this message type
-    if (!config) return true;
+    if (!config) return false;
 
     const clientBuckets = this.getOrCreateClientBuckets(clientId);
     const bucket = this.getOrCreateBucket(clientBuckets, messageType, config);
@@ -91,6 +93,24 @@ export class RateLimiter {
   /** Remove all buckets for a disconnected client */
   removeClient(clientId: string): void {
     this.buckets.delete(clientId);
+  }
+
+  /** Check whether a message type has an explicit rate-limit configuration */
+  isConfigured(messageType: string): boolean {
+    return this.configuredMessageTypes.has(messageType);
+  }
+
+  /**
+   * Migrate rate limit state from old sessionId to new sessionId.
+   * Called on client reconnection when sessionId changes.
+   */
+  migrateClient(oldClientId: string, newClientId: string): void {
+    const oldBuckets = this.buckets.get(oldClientId);
+    if (!oldBuckets) return;
+
+    // Move existing buckets to new key, preserving token state
+    this.buckets.delete(oldClientId);
+    this.buckets.set(newClientId, oldBuckets);
   }
 
   /** Clear all state (e.g. on room dispose) */
@@ -114,7 +134,10 @@ export class RateLimiter {
   ): TokenBucket {
     let bucket = clientBuckets.get(messageType);
     if (!bucket) {
-      bucket = { tokens: config.burst, lastRefillTick: this.currentTick };
+      bucket = {
+        tokens: Math.max(1, Math.ceil(config.burst / 2)),
+        lastRefillTick: this.currentTick,
+      };
       clientBuckets.set(messageType, bucket);
     }
     return bucket;

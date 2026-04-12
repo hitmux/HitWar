@@ -233,19 +233,20 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
 
     /**
      * Get local player's base building
+     * 使用 isBase 属性识别基地建筑，找不到时返回 null
      */
     getBaseBuilding(): unknown {
         const buildings = this._adapter.getRendererContext().buildings;
         const localPlayerId = this._adapter.localPlayerId;
-        // Find the base building owned by local player
+        // 遍历建筑查找本地玩家的基地
         for (const building of buildings) {
-            const b = building as { gameType?: string; ownerId?: string };
-            if (b.gameType === 'Base' && b.ownerId === localPlayerId) {
+            const b = building as { isBase?: boolean; ownerId?: string };
+            if (b.isBase && b.ownerId === localPlayerId) {
                 return building;
             }
         }
-        // Fallback to first building
-        return buildings[0] ?? null;
+        // 未找到基地时返回 null，避免返回非基地建筑
+        return null;
     }
 
     // === Game State ===

@@ -4,6 +4,8 @@
  * Contains spawnable monsters suitable for PvP multiplayer mode
  */
 
+import { scaleSpeed } from '../constants/speedScale.js';
+
 /**
  * Monster metadata for server-side use
  */
@@ -24,6 +26,8 @@ export interface MonsterMetaData {
   baseHp: number;
   /** Movement speed */
   speed: number;
+  /** Effective speed used for target threat scoring */
+  threatSpeed?: number;
   /** Collision radius */
   radius: number;
 }
@@ -65,6 +69,7 @@ export const SPAWNABLE_MONSTER_META: Record<string, MonsterMetaData> = {
     reward: 10,
     baseHp: 120,
     speed: 0.01,
+    threatSpeed: 5,
     radius: 10,
   },
   Ox3: {
@@ -76,6 +81,7 @@ export const SPAWNABLE_MONSTER_META: Record<string, MonsterMetaData> = {
     reward: 15,
     baseHp: 150,
     speed: 0.01,
+    threatSpeed: 10,
     radius: 10,
   },
 
@@ -287,6 +293,23 @@ export const SPAWNABLE_MONSTER_META: Record<string, MonsterMetaData> = {
 export function getMonsterMeta(monsterId: string): MonsterMetaData | undefined {
   return SPAWNABLE_MONSTER_META[monsterId];
 }
+
+/**
+ * Get the effective monster speed used by shared target scoring.
+ */
+export function getMonsterThreatSpeed(meta: MonsterMetaData): number {
+  return meta.threatSpeed ?? meta.speed;
+}
+
+/**
+ * Shared normalization cap for tower target scoring on both client and server.
+ */
+export const MAX_TARGET_SCORING_MONSTER_SPEED = scaleSpeed(
+  Object.values(SPAWNABLE_MONSTER_META).reduce(
+    (maxSpeed, meta) => Math.max(maxSpeed, getMonsterThreatSpeed(meta)),
+    0
+  )
+);
 
 /**
  * Check if a monster type is valid for spawning

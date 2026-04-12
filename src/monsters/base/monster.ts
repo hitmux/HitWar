@@ -260,6 +260,7 @@ export class Monster extends CircleObject {
 
     // Multiplayer: track who dealt the last damage (for kill reward)
     lastDamageOwnerId: string | null = null;
+    protected _removedFromWorld: boolean;
 
     declare world: WorldLike;
 
@@ -353,6 +354,7 @@ export class Monster extends CircleObject {
         this._targetVec = new Vector(0, 0);
 
         this.imgIndex = 0;
+        this._removedFromWorld = false;
     }
 
     static randInit(world: WorldLike, targetBuilding?: { pos: { x: number; y: number } }): Monster {
@@ -723,7 +725,26 @@ export class Monster extends CircleObject {
         return super.hpChange(dh);
     }
 
+    protected shouldSkipPostDeathPhases(): boolean {
+        return this._removedFromWorld || this.isDead();
+    }
+
+    protected removeIfDead(): boolean {
+        if (!this.isDead()) {
+            return false;
+        }
+        if (!this._removedFromWorld) {
+            this.bombSelf();
+            this.remove();
+        }
+        return true;
+    }
+
     remove(): void {
+        if (this._removedFromWorld) {
+            return;
+        }
+        this._removedFromWorld = true;
         this.deadSummon();
         super.remove();
         this.hpSet(0);
@@ -771,9 +792,8 @@ export class Monster extends CircleObject {
         this.summon();
         this.gainOther();
         this.bullyChange();
-        if (this.isDead()) {
-            this.bombSelf();
-            this.remove();
+        if (this.removeIfDead()) {
+            return;
         }
         this.gravyPower();
     }
@@ -783,11 +803,17 @@ export class Monster extends CircleObject {
      * 用于分离移动和碰撞检测的两阶段更新
      */
     moveOnly(): void {
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         if (this.burnRate > this.maxBurnRate) {
             this.burnRate = this.maxBurnRate;
         }
         if (this.burnRate !== 0) {
             this.hpChange(-this.burnRate * this.maxHp);
+        }
+        if (this.removeIfDead()) {
+            return;
         }
         this.move();
     }
@@ -798,6 +824,9 @@ export class Monster extends CircleObject {
      * 使用扫掠检测以处理高速移动的穿透问题
      */
     clashOnly(): void {
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         let nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
         for (let b of nearbyBuildings) {
             // Skip friendly buildings (multiplayer support)

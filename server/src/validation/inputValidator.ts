@@ -406,12 +406,25 @@ export class InputValidator {
     const player = this.state.getPlayer(playerId);
     const tower = this.state.towers.get(towerId);
 
-    return validateCannonFire(
+    const result = validateCannonFire(
       toPlayerValidation(player),
       toTowerValidation(tower),
       targetX,
       targetY
     );
+
+    if (!result.valid) {
+      return result;
+    }
+
+    if (tower && !tower.inValidTerritory) {
+      return validationFailure(
+        ValidationErrorCode.POSITION_NOT_IN_TERRITORY,
+        'Manual cannon is not in valid territory'
+      );
+    }
+
+    return result;
   }
 
   /**

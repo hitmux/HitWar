@@ -14,10 +14,7 @@ import { isEnemy } from '../../shared/types/ownership.js';
 import type { SpatialHashGrid, SpatialEntity } from '../spatial/spatialHashGrid.js';
 import type { DamageCalculator } from './damageCalculator.js';
 import { calcMonsterTargetScore, DEFAULT_TOWER_TARGET_WEIGHTS } from '../../../../shared/formulas/targetScoring.js';
-import { scaleSpeed } from '../../shared/constants/speedScale.js';
-
-// Max expected monster speed for target scoring normalization
-const MAX_EXPECTED_MONSTER_SPEED = scaleSpeed(15);
+import { MAX_TARGET_SCORING_MONSTER_SPEED } from '../../../../shared/config/monsterMeta.js';
 
 /**
  * Tower attack configuration (from tower config)
@@ -200,7 +197,7 @@ export class TowerAttackSystem {
       const score = calcMonsterTargetScore(
         distSq, rangeSq,
         monster.hp, monster.maxHp,
-        monster.speed, MAX_EXPECTED_MONSTER_SPEED,
+        monster.speed, MAX_TARGET_SCORING_MONSTER_SPEED,
         DEFAULT_TOWER_TARGET_WEIGHTS,
       );
 

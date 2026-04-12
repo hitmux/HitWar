@@ -15,6 +15,7 @@ import {
     getVisionUpgradePrice as sharedGetVisionUpgradePrice,
     canUpgradeVision as sharedCanUpgradeVision,
 } from '../../../shared/config/visionMeta.js';
+import { MAX_TARGET_SCORING_MONSTER_SPEED } from '../../../shared/config/monsterMeta.js';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 import { isEnemy } from '@/game/player/ownership';
 import { TERRITORY_PENALTY } from '../../../shared/config/index';
@@ -32,9 +33,6 @@ import type {
 declare const BullyFinally: { Normal: () => TowerBulletLike } | undefined;
 declare const SoundManager: { play(src: string): void } | undefined;
 declare const UP_LEVEL_ICON: HTMLImageElement | undefined;
-
-// Max expected monster speed for target scoring normalization (scaleSpeed(15))
-const MAX_EXPECTED_MONSTER_SPEED = scaleSpeed(15);
 
 // Extended FogOfWarLike with markDirty for tower
 interface FogOfWarLikeExt extends FogOfWarLike {
@@ -480,7 +478,7 @@ export class Tower extends CircleObject {
             const score = calcMonsterTargetScore(
                 distSq, rangeSq,
                 m.hp, m.maxHp,
-                speed, MAX_EXPECTED_MONSTER_SPEED,
+                speed, MAX_TARGET_SCORING_MONSTER_SPEED,
                 DEFAULT_TOWER_TARGET_WEIGHTS,
             );
 

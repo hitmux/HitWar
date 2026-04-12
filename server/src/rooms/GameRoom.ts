@@ -218,7 +218,10 @@ export class GameRoom extends Room {
     ) => {
       this.onMessage(msgType, (client: Client, payload: T) => {
         if (!this.rateLimiter.consume(client.sessionId, msgType)) {
-          this.sendActionRejected(client, msgType, 'Rate limit exceeded', 'RATE_LIMITED');
+          const reason = this.rateLimiter.isConfigured(msgType)
+            ? 'Rate limit exceeded'
+            : 'Message type is not allowed';
+          this.sendActionRejected(client, msgType, reason, 'RATE_LIMITED');
           return;
         }
         handler(client, payload);
@@ -430,10 +433,20 @@ export class GameRoom extends Room {
   private handleReconnection(client: Client, playerState: PlayerState): void {
     console.log(`[GameRoom] Player reconnected: ${playerState.name}`);
 
+    // Preserve old sessionId before updating to new one
+    const oldSessionId = playerState.sessionId;
+
     playerState.isConnected = true;
     playerState.sessionId = client.sessionId;
 
-    this.disconnectedClients.delete(client.sessionId);
+    // Migrate rate limiter state if sessionId changed (e.g. new connection)
+    if (oldSessionId !== client.sessionId) {
+      this.rateLimiter.migrateClient(oldSessionId, client.sessionId);
+    }
+
+    // Use old sessionId to clean up disconnectedClients map
+    // (the map is keyed by the sessionId at disconnection time)
+    this.disconnectedClients.delete(oldSessionId);
     this.state.disconnectedPlayerId = '';
     this.state.reconnectDeadline = 0;
 
@@ -943,7 +956,7 @@ export class GameRoom extends Room {
 
 
   /**
-   * Periodically broadcast authoritative territory state to clients
+   * Periodically send authoritative territory state to each client
    * Runs every TERRITORY_SYNC_INTERVAL ticks (default: 2 seconds)
    */
   private syncTerritoryToClients(): void {
@@ -951,21 +964,42 @@ export class GameRoom extends Room {
     if (this.territorySyncCounter < this.TERRITORY_SYNC_INTERVAL) return;
     this.territorySyncCounter = 0;
 
-    const payload: TerritorySyncPayload = { territories: {} };
+    for (const client of this.clients) {
+      const playerId = this.resolveTerritorySyncPlayerId(client);
+      if (!playerId) continue;
 
-    // Build payload from current territory calculator results
-    for (const [playerId, _player] of this.state.players) {
-      const result = this.territoryCalc.getPlayerResult(playerId);
-      if (!result) continue;
+      client.send(
+        ServerMessage.TERRITORY_SYNC,
+        this.buildTerritorySyncPayload(playerId)
+      );
+    }
+  }
 
-      payload.territories[playerId] = {
-        validBuildings: Array.from(result.validBuildings),
-        invalidBuildings: Array.from(result.invalidBuildings),
-      };
+  private resolveTerritorySyncPlayerId(client: Client): string | null {
+    if (this.state.players.has(client.sessionId)) {
+      return client.sessionId;
     }
 
-    // Broadcast to all clients
-    this.broadcast(ServerMessage.TERRITORY_SYNC, payload);
+    for (const [playerId, player] of this.state.players) {
+      if (player.sessionId === client.sessionId) {
+        return playerId;
+      }
+    }
+
+    return null;
+  }
+
+  private buildTerritorySyncPayload(playerId: string): TerritorySyncPayload {
+    const result = this.territoryCalc.getPlayerResult(playerId);
+
+    return {
+      territories: {
+        [playerId]: {
+          validBuildings: result ? Array.from(result.validBuildings) : [],
+          invalidBuildings: result ? Array.from(result.invalidBuildings) : [],
+        },
+      },
+    };
   }
 
   /**

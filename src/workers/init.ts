@@ -38,16 +38,16 @@ export function initWorkerRendering(fog: FogOfWar, territories?: Territory[]): v
     _bridge = bridge;
 
     // Wire fog bitmap callback to FogRenderer
-    bridge.fogBitmapCallback = (bitmap: ImageBitmap) => {
-        fog.renderer.setWorkerBitmap(bitmap);
+    bridge.fogBitmapCallback = (bitmap: ImageBitmap, frameMeta) => {
+        fog.renderer.setWorkerBitmap(bitmap, frameMeta);
     };
 
     // Wire territory bitmap callback to correct TerritoryRenderer
-    bridge.territoryBitmapCallback = (playerId: string, bitmap: ImageBitmap) => {
+    bridge.territoryBitmapCallback = (playerId: string, bitmap: ImageBitmap, frameMeta) => {
         if (!territories) return;
         for (const territory of territories) {
             if (territory.playerId === playerId || (territory.playerId === null && playerId === '')) {
-                territory.renderer.setWorkerBitmap(bitmap);
+                territory.renderer.setWorkerBitmap(bitmap, frameMeta);
                 return;
             }
         }

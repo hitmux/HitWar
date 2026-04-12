@@ -13,9 +13,17 @@ import type {
     WorkerResponse,
     FogRebuildStaticPayload,
     TerritoryRebuildPayload,
+    WorkerBitmapFrameMeta,
+    WorkerRenderBufferBounds,
 } from '../types';
 
-type SentRequestMeta = { taskType: 'fog' | 'territory'; playerId?: string };
+type SentRequestMeta = {
+    taskType: 'fog' | 'territory';
+    playerId?: string;
+    cameraX: number;
+    cameraY: number;
+    cameraZoom: number;
+};
 
 export class RenderWorkerBridge {
     private _worker: Worker | null = null;
@@ -45,10 +53,10 @@ export class RenderWorkerBridge {
     onFallback: (() => void) | null = null;
 
     /** Called with the new static fog bitmap after each successful rebuild */
-    fogBitmapCallback: ((bitmap: ImageBitmap) => void) | null = null;
+    fogBitmapCallback: ((bitmap: ImageBitmap, frameMeta: WorkerBitmapFrameMeta) => void) | null = null;
 
     /** Called with the new territory bitmap after each successful rebuild */
-    territoryBitmapCallback: ((playerId: string, bitmap: ImageBitmap) => void) | null = null;
+    territoryBitmapCallback: ((playerId: string, bitmap: ImageBitmap, frameMeta: WorkerBitmapFrameMeta) => void) | null = null;
 
     // ---------------------------------------------------------------------------
     // Lifecycle
@@ -136,7 +144,12 @@ export class RenderWorkerBridge {
         this._fogPendingPayload = null;
 
         const id = this._nextId++;
-        this._sentRequests.set(id, { taskType: 'fog' });
+        this._sentRequests.set(id, {
+            taskType: 'fog',
+            cameraX: payload.cameraX,
+            cameraY: payload.cameraY,
+            cameraZoom: payload.cameraZoom,
+        });
         const req: WorkerRequest = { type: 'FOG_REBUILD_STATIC', id, payload };
         // Transfer visionSourcesBuffer — zero-copy
         this._worker!.postMessage(req, [payload.visionSourcesBuffer.buffer]);
@@ -152,7 +165,13 @@ export class RenderWorkerBridge {
         this._territoryPendingMap.delete(playerId);
 
         const id = this._nextId++;
-        this._sentRequests.set(id, { taskType: 'territory', playerId });
+        this._sentRequests.set(id, {
+            taskType: 'territory',
+            playerId,
+            cameraX: payload.cameraX,
+            cameraY: payload.cameraY,
+            cameraZoom: payload.cameraZoom,
+        });
         const req: WorkerRequest = { type: 'TERRITORY_REBUILD', id, payload };
         // Transfer both building position buffers — zero-copy
         this._worker!.postMessage(req, [
@@ -177,6 +196,7 @@ export class RenderWorkerBridge {
             }
 
             case 'RESULT': {
+                const sentMeta = this._sentRequests.get(res.id);
                 this._sentRequests.delete(res.id);
 
                 if (!res.ok) {
@@ -191,15 +211,16 @@ export class RenderWorkerBridge {
                     return;
                 }
 
+                const frameMeta = this._buildFrameMeta(sentMeta, res.bufferBounds, res.id);
                 if (res.playerId !== undefined) {
                     // Territory bitmap
                     this._territoryInFlight.delete(res.playerId);
-                    this.territoryBitmapCallback?.(res.playerId, res.bitmap);
+                    this.territoryBitmapCallback?.(res.playerId, res.bitmap, frameMeta);
                     this._flushPendingTerritory(res.playerId);
                 } else {
                     // Fog bitmap
                     this._fogInFlight = false;
-                    this.fogBitmapCallback?.(res.bitmap);
+                    this.fogBitmapCallback?.(res.bitmap, frameMeta);
                     this._flushPendingFog();
                 }
                 break;
@@ -258,5 +279,22 @@ export class RenderWorkerBridge {
                 this._doTerritoryRebuild(payload);
             }
         }
+    }
+
+    private _buildFrameMeta(
+        sentMeta: SentRequestMeta | undefined,
+        bufferBounds: WorkerRenderBufferBounds,
+        resultId: number
+    ): WorkerBitmapFrameMeta {
+        if (!sentMeta) {
+            console.warn('[RenderWorkerBridge] missing request metadata for result:', resultId);
+        }
+
+        return {
+            ...bufferBounds,
+            cameraX: sentMeta?.cameraX ?? 0,
+            cameraY: sentMeta?.cameraY ?? 0,
+            cameraZoom: sentMeta?.cameraZoom ?? 1,
+        };
     }
 }

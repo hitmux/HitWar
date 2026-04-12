@@ -33,18 +33,18 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
             }
 
             case 'FOG_REBUILD_STATIC': {
-                const bitmap = await fogTask.rebuild(req.payload);
+                const { bitmap, bufferBounds } = await fogTask.rebuild(req.payload);
                 reply(
-                    { type: 'RESULT', id: req.id, ok: true, bitmap },
+                    { type: 'RESULT', id: req.id, ok: true, bitmap, bufferBounds },
                     [bitmap]
                 );
                 break;
             }
 
             case 'TERRITORY_REBUILD': {
-                const bitmap = await territoryTask.rebuild(req.payload);
+                const { bitmap, bufferBounds } = await territoryTask.rebuild(req.payload);
                 reply(
-                    { type: 'RESULT', id: req.id, ok: true, bitmap, playerId: req.payload.playerId },
+                    { type: 'RESULT', id: req.id, ok: true, bitmap, bufferBounds, playerId: req.payload.playerId },
                     [bitmap]
                 );
                 break;
@@ -58,6 +58,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>): Promise<void> => {
             }
         }
     } catch (err) {
+        if (req.type === 'FOG_REBUILD_STATIC') {
+            fogTask.dispose();
+        }
+
         const message = err instanceof Error ? err.message : String(err);
 
         // Determine task type and playerId for error routing

@@ -117,8 +117,15 @@ export class MonsterShooter extends Monster {
      * Phase 1: Movement only (called by EntityManager)
      */
     moveOnly(): void {
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         this.getTarget();
         super.moveOnly();
+
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
 
         // Bullet movement (following Tower.goStepMove pattern)
         for (const b of this.bullys) {
@@ -132,7 +139,14 @@ export class MonsterShooter extends Monster {
      * Phase 2: Collision only (called by EntityManager)
      */
     clashOnly(): void {
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         super.clashOnly();
+
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         this.attackAction();
 
         // Remove out-of-range bullets first

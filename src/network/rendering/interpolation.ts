@@ -13,7 +13,7 @@ interface PositionSnapshot {
     x: number;
     y: number;
     serverTick: number;
-    timestamp: number;
+    localTime: number;
 }
 
 /**
@@ -46,25 +46,30 @@ const INTERPOLATION_CONFIG = {
 export class InterpolationSystem {
     private entities: Map<string, EntityInterpolation> = new Map();
 
-    // Render time offset from real time (for interpolation delay)
-    private renderTimeOffset: number = 0;
+    // Local monotonic clock driven by frame dt
+    private localTime: number = 0;
 
-    // Current render time (real time - buffer delay)
+    // Current render time (local monotonic time - buffer delay)
     private renderTime: number = 0;
 
     /**
-     * Initialize render time from server
+     * Initialize render time from a local monotonic baseline
      */
-    initRenderTime(serverTime: number): void {
-        this.renderTimeOffset = Date.now() - serverTime + INTERPOLATION_CONFIG.BUFFER_DELAY_MS;
-        this.renderTime = serverTime - INTERPOLATION_CONFIG.BUFFER_DELAY_MS;
+    initRenderTime(initialLocalTime: number = 0): void {
+        this.localTime = Math.max(0, initialLocalTime);
+        this.renderTime = Math.max(0, this.localTime - INTERPOLATION_CONFIG.BUFFER_DELAY_MS);
     }
 
     /**
      * Update render time each frame
      */
     updateRenderTime(dt: number): void {
-        this.renderTime += dt;
+        if (!Number.isFinite(dt) || dt <= 0) {
+            return;
+        }
+
+        this.localTime += dt;
+        this.renderTime = Math.max(0, this.localTime - INTERPOLATION_CONFIG.BUFFER_DELAY_MS);
     }
 
     /**
@@ -84,17 +89,20 @@ export class InterpolationSystem {
             this.entities.set(entityId, entity);
         }
 
-        const timestamp = Date.now();
+        const currentSnapshot = entity.currSnapshot;
+        if (currentSnapshot && currentSnapshot.x === x && currentSnapshot.y === y) {
+            return;
+        }
 
         // Shift current to previous
-        entity.prevSnapshot = entity.currSnapshot;
+        entity.prevSnapshot = currentSnapshot;
 
         // Set new current
         entity.currSnapshot = {
             x,
             y,
             serverTick,
-            timestamp,
+            localTime: this.localTime,
         };
     }
 
@@ -115,8 +123,7 @@ export class InterpolationSystem {
         }
 
         // Check if snapshots are too old (stale)
-        const now = Date.now();
-        if (now - entity.currSnapshot.timestamp > INTERPOLATION_CONFIG.SNAPSHOT_MAX_AGE_MS) {
+        if (this.localTime - entity.currSnapshot.localTime > INTERPOLATION_CONFIG.SNAPSHOT_MAX_AGE_MS) {
             return { x: entity.currSnapshot.x, y: entity.currSnapshot.y };
         }
 
@@ -124,14 +131,13 @@ export class InterpolationSystem {
         const prev = entity.prevSnapshot;
         const curr = entity.currSnapshot;
 
-        const snapshotDuration = curr.timestamp - prev.timestamp;
+        const snapshotDuration = curr.localTime - prev.localTime;
         if (snapshotDuration <= 0) {
             return { x: curr.x, y: curr.y };
         }
 
-        // How far into the interpolation are we?
-        const elapsedSinceSnapshot = now - curr.timestamp;
-        const t = Math.min(1, elapsedSinceSnapshot / snapshotDuration);
+        // Interpolate against buffered local render time instead of wall clock
+        const t = Math.max(0, Math.min(1, (this.renderTime - prev.localTime) / snapshotDuration));
 
         // Check teleport threshold
         const dx = curr.x - prev.x;

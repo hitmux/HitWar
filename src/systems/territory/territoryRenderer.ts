@@ -6,7 +6,7 @@
  * - Canvas pixel size = viewport pixel size × BUFFER_RATIO × PR
  * - Buffer world range = viewport world size × BUFFER_RATIO (affected by zoom)
  * - Buffer canvas is centered on camera center, covering larger world area
- * - Rebuild conditions: camera moves beyond 25% of buffer edge, or zoom shrinks > 10%
+ * - Rebuild conditions: camera moves beyond 25% of buffer edge, or zoom changes > 10%
  *
  * Worker mode: When enabled, static territory rendering is offloaded to a Web Worker.
  * The main thread only calls drawImage() with the Worker-provided ImageBitmap.
@@ -15,7 +15,7 @@
 import { Territory } from './territory';
 import { PR } from '@/core/staticInitData';
 import { packBuildingPositions } from '@/workers';
-import type { RenderWorkerBridge } from '@/workers';
+import type { RenderWorkerBridge, WorkerBitmapFrameMeta } from '@/workers';
 
 /** Buffer expansion ratio: Canvas covers 1.5x viewport area to reduce rebuild frequency */
 const BUFFER_RATIO = 1.5;
@@ -78,18 +78,20 @@ export class TerritoryRenderer {
 
     /**
      * Receive new bitmap from Worker (called by bridge callback).
-     * Also updates buffer coordinate state so camera-movement detection works correctly.
+     * 使用 Worker 返回的真实 buffer 边界，避免主线程自行重算
      */
-    setWorkerBitmap(bitmap: ImageBitmap): void {
+    setWorkerBitmap(bitmap: ImageBitmap, frameMeta: WorkerBitmapFrameMeta): void {
         this._closeWorkerBitmap();
         this._workerBitmap = bitmap;
-        // Mark cache as "valid" in Worker mode so render() skips main-thread rebuild
+        // Worker 模式下标记缓存有效，跳过主线程重建
         this._cacheValid = true;
-        // Update camera state for buffer-range detection
-        const camera = this.territory.world.camera;
-        this._lastCameraX = camera.x;
-        this._lastCameraY = camera.y;
-        this._lastZoom = camera.zoom;
+        this._lastCameraX = frameMeta.cameraX;
+        this._lastCameraY = frameMeta.cameraY;
+        this._lastZoom = frameMeta.cameraZoom;
+        this._bufferLeft = frameMeta.bufferLeft;
+        this._bufferTop = frameMeta.bufferTop;
+        this._bufferWorldWidth = frameMeta.bufferWorldWidth;
+        this._bufferWorldHeight = frameMeta.bufferWorldHeight;
     }
 
     private _closeWorkerBitmap(): void {
@@ -173,8 +175,10 @@ export class TerritoryRenderer {
     private _shouldRebuildForCamera(): boolean {
         const camera = this.territory.world.camera;
 
-        // Zoom shrink detection: must rebuild when zooming out
-        if (camera.zoom < this._lastZoom * 0.9) {
+        // Zoom change detection: rebuild when zoom changes significantly (either direction)
+        // This keeps buffer world coverage aligned with the current zoom level.
+        const zoomRatio = camera.zoom / this._lastZoom;
+        if (zoomRatio < 0.9 || zoomRatio > 1.1) {
             return true;
         }
 

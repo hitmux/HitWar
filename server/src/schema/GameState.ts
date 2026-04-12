@@ -2,12 +2,11 @@
  * Game State Schema
  * Main state container for multiplayer game
  */
-import { Schema, type, MapSchema, ArraySchema, filterChildren } from '@colyseus/schema';
+import { Schema, type, MapSchema, filterChildren } from '@colyseus/schema';
 import { PlayerState } from './PlayerState.js';
 import { TowerState } from './TowerState.js';
 import { MonsterState } from './MonsterState.js';
 import { BuildingState } from './BuildingState.js';
-import { BulletState } from './BulletState.js';
 import { MineState } from './MineState.js';
 import type { VisionSystem } from '../systems/vision/visionSystem.js';
 
@@ -109,9 +108,6 @@ export class GameState extends Schema {
   @type({ map: BuildingState }) buildings: MapSchema<BuildingState> = new MapSchema<BuildingState>();
 
   @filterChildren(visionFilter)
-  @type({ map: BulletState }) bullets: MapSchema<BulletState> = new MapSchema<BulletState>();
-
-  @filterChildren(visionFilter)
   @type({ map: MineState }) mines: MapSchema<MineState> = new MapSchema<MineState>();
 
   // Non-serialized: runtime vision system reference (injected by GameRoom)
@@ -131,7 +127,6 @@ export class GameState extends Schema {
     this.towers = new MapSchema<TowerState>();
     this.monsters = new MapSchema<MonsterState>();
     this.buildings = new MapSchema<BuildingState>();
-    this.bullets = new MapSchema<BulletState>();
     this.mines = new MapSchema<MineState>();
   }
 

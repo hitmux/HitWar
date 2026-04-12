@@ -1,6 +1,9 @@
 /**
- * Territory Penalty Configuration
+ * Territory-related shared configuration
  */
+
+/** Base territory coverage radius in world units */
+export const TERRITORY_RADIUS = 100;
 
 /** Territory penalty multipliers for buildings in invalid territory */
 export const TERRITORY_PENALTY = {

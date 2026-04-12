@@ -287,7 +287,8 @@ export class MultiplayerUIController {
             this._surrenderBtn.addEventListener('click', () => {
                 if (confirm('确定要投降吗？这将结束当前对局。')) {
                     this._networkClient.surrender();
-                    this._gameController.gameEnd = true;
+                    // 与返回按钮路径一致：直接触发清理回调
+                    this._callbacks.onBackClick();
                 }
             }, { signal: this._eventSignal ?? undefined });
 

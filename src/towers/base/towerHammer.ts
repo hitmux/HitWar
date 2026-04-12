@@ -89,28 +89,6 @@ export class TowerHammer extends Tower {
         return c;
     }
 
-    itemGoStep(): void {
-        let a = this.itemSpeed;
-        let loc = new Vector(Math.sin(this.liveTime / a), Math.cos(this.liveTime / a)).mul(this.itemRange);
-        this.additionItem.pos = this.pos.plus(loc);
-
-        let itemPos = this.additionItem.pos;
-        let itemR = this.additionItem.r;
-        let nearbyMonsters = this.world.getMonstersInRange(itemPos.x, itemPos.y, itemR + 50);
-        let itemCircle = this.additionItem.getBodyCircle();
-        let actualDamage = this.itemDamage * this.getDamageMultiplier();
-        for (let m of nearbyMonsters) {
-            // Check fog first, using circle visibility for edge detection
-            const mc = m.getBodyCircle();
-            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
-                continue;
-            }
-            if (Circle.collides(itemCircle.x, itemCircle.y, itemCircle.r, mc.x, mc.y, mc.r)) {
-                m.hpChange(-actualDamage, this.ownerId);
-            }
-        }
-    }
-
     toTarget(): void {
         const target = this.findFirstTarget();
         if (target) {

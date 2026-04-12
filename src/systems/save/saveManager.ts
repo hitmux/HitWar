@@ -9,7 +9,7 @@ import { TowerRegistry } from '../../towers/towerRegistry';
 import { MonsterRegistry } from '../../monsters/monsterRegistry';
 import { BuildingRegistry } from '../../buildings/buildingRegistry';
 import { Obstacle, type ObstacleSaveData } from '../../core/physics/obstacle';
-import { Mine } from '../energy/mine';
+import { Mine, type MineSaveData, type MineWorldLike } from '../energy/mine';
 import type { TowerLike, BuildingLike, MonsterLike } from '../../game/entities/entityManager';
 import { VisionType } from '../../../shared/config/visionMeta';
 
@@ -115,19 +115,7 @@ interface MonsterData {
     bullys?: MonsterBulletData[];  // MonsterShooter bullets
 }
 
-interface MineData {
-    x: number;
-    y: number;
-    state: string;
-    powerPlantLevel: number;
-    hp: number;
-    maxHp: number;
-    repairing: boolean;
-    repairProgress: number;
-    inValidTerritory: boolean;
-    _originalMaxHp: number | null;
-    _territoryPenaltyApplied: boolean;
-}
+type MineData = MineSaveData;
 
 export interface SaveData {
     version: number;
@@ -207,7 +195,7 @@ interface MonsterBulletLike {
 }
 
 // World-like interface for type safety
-export interface SaveWorldLike {
+export interface SaveWorldLike extends MineWorldLike {
     time: number;
     mode: string;
     haveFlow: boolean;
@@ -224,7 +212,11 @@ export interface SaveWorldLike {
     buildings: BuildingLike[];
     monsters: Set<MonsterLike>;
     mines: Set<Mine>;
-    territory?: { markDirty: () => void; recalculate: () => void };
+    territory?: {
+        markDirty: () => void;
+        addBuildingIncremental?: (building: BuildingLike) => void;
+        recalculate: () => void;
+    };
     fog?: { markDirty: () => void };
     markStaticLayerDirty: () => void;
     // Money management (multiplayer compatible)
@@ -725,23 +717,14 @@ export class SaveManager {
             // Restore mines
             if (saveData.mines) {
                 for (const mineData of saveData.mines) {
-                    // SaveWorldLike is narrower than Mine's constructor type;
-                    // the actual World object satisfies both at runtime
-                    const mine = new Mine(
-                        new Vector(mineData.x, mineData.y),
-                        world as unknown as ConstructorParameters<typeof Mine>[1]
-                    );
-                    mine.state = mineData.state;
-                    mine.powerPlantLevel = mineData.powerPlantLevel;
-                    mine.hp = mineData.hp;
-                    mine.maxHp = mineData.maxHp;
-                    mine.repairing = mineData.repairing || false;
-                    mine.repairProgress = mineData.repairProgress || 0;
-                    mine._updateRadius();
-
-                    mine.inValidTerritory = mineData.inValidTerritory !== undefined ? mineData.inValidTerritory : true;
-                    mine._originalMaxHp = mineData._originalMaxHp || null;
-                    mine._territoryPenaltyApplied = mineData._territoryPenaltyApplied || false;
+                    const mine = Mine.fromSaveData({
+                        ...mineData,
+                        repairing: mineData.repairing ?? false,
+                        repairProgress: mineData.repairProgress ?? 0,
+                        inValidTerritory: mineData.inValidTerritory !== undefined ? mineData.inValidTerritory : true,
+                        _originalMaxHp: mineData._originalMaxHp ?? null,
+                        _territoryPenaltyApplied: mineData._territoryPenaltyApplied ?? false,
+                    }, world);
 
                     world.mines.add(mine);
 

@@ -17,6 +17,8 @@ export type {
     FogRebuildStaticPayload,
     TerritoryRebuildPayload,
     InitPayload,
+    WorkerRenderBufferBounds,
+    WorkerBitmapFrameMeta,
 } from './types';
 export type {
     PackedVisionSources,

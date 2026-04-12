@@ -9,7 +9,7 @@
  * 5. Transfer the result as an ImageBitmap back to the main thread
  */
 
-import type { TerritoryRebuildPayload } from '../types';
+import type { TerritoryRebuildPayload, WorkerRenderBufferBounds } from '../types';
 
 /** Buffer expansion ratio — must match TerritoryRenderer.BUFFER_RATIO */
 const BUFFER_RATIO = 1.5;
@@ -31,7 +31,9 @@ export class TerritoryWorkerTask {
     /**
      * Rebuild territory layer and return ImageBitmap.
      */
-    async rebuild(payload: TerritoryRebuildPayload): Promise<ImageBitmap> {
+    async rebuild(
+        payload: TerritoryRebuildPayload
+    ): Promise<{ bitmap: ImageBitmap; bufferBounds: WorkerRenderBufferBounds }> {
         const {
             canvasWidth, canvasHeight, pr,
             cameraX, cameraY, cameraZoom,
@@ -71,7 +73,10 @@ export class TerritoryWorkerTask {
 
         // Guard against zero-size buffer (division by zero)
         if (this.bufferWorldWidth <= 0 || this.bufferWorldHeight <= 0) {
-            return this._canvas!.transferToImageBitmap();
+            return {
+                bitmap: this._canvas!.transferToImageBitmap(),
+                bufferBounds: this._getBufferBounds(),
+            };
         }
 
         // Coordinate transform: world coords → canvas pixels
@@ -119,7 +124,10 @@ export class TerritoryWorkerTask {
         if (hasInvalidPath) ctx.fill();
 
         // Transfer result as ImageBitmap
-        return this._canvas!.transferToImageBitmap();
+        return {
+            bitmap: this._canvas!.transferToImageBitmap(),
+            bufferBounds: this._getBufferBounds(),
+        };
     }
 
     // ---------------------------------------------------------------------------
@@ -136,5 +144,14 @@ export class TerritoryWorkerTask {
         this._ctx = this._canvas.getContext('2d')!;
         this._lastPixelWidth = pixelWidth;
         this._lastPixelHeight = pixelHeight;
+    }
+
+    private _getBufferBounds(): WorkerRenderBufferBounds {
+        return {
+            bufferLeft: this.bufferLeft,
+            bufferTop: this.bufferTop,
+            bufferWorldWidth: this.bufferWorldWidth,
+            bufferWorldHeight: this.bufferWorldHeight,
+        };
     }
 }

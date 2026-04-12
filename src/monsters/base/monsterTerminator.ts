@@ -117,6 +117,9 @@ export class MonsterTerminator extends Monster {
      * 碰撞检测阶段（使用扫掠检测）
      */
     clashOnly(): void {
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         this.meeleAttacking = false;
         const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
         for (let b of nearbyBuildings) {

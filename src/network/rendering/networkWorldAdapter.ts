@@ -179,7 +179,7 @@ export class NetworkWorldAdapter {
         }
 
         // Initialize interpolation
-        this._interpolation.initRenderTime(Date.now());
+        this._interpolation.initRenderTime(this._time);
 
         // Initialize fog of war
         this._fogProxy = new NetworkFogProxy(

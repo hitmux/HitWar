@@ -11,10 +11,11 @@
  * only when dimensions change.
  */
 
-import type { FogRebuildStaticPayload } from '../types';
+import type { FogRebuildStaticPayload, WorkerRenderBufferBounds } from '../types';
 
 /** Buffer expansion ratio — must match FogRenderer.BUFFER_RATIO */
 const BUFFER_RATIO = 1.5;
+const RELEASED_CANVAS_EDGE = 1;
 
 export class FogWorkerTask {
     private _canvas: OffscreenCanvas | null = null;
@@ -37,7 +38,9 @@ export class FogWorkerTask {
     /**
      * Rebuild static fog layer and return ImageBitmap.
      */
-    async rebuild(payload: FogRebuildStaticPayload): Promise<ImageBitmap> {
+    async rebuild(
+        payload: FogRebuildStaticPayload
+    ): Promise<{ bitmap: ImageBitmap; bufferBounds: WorkerRenderBufferBounds }> {
         const {
             canvasWidth, canvasHeight, pr,
             cameraX, cameraY, cameraZoom,
@@ -69,7 +72,10 @@ export class FogWorkerTask {
 
         // Guard against zero-size buffer (division by zero)
         if (this.bufferWorldWidth <= 0 || this.bufferWorldHeight <= 0) {
-            return this._canvas!.transferToImageBitmap();
+            return {
+                bitmap: this._canvas!.transferToImageBitmap(),
+                bufferBounds: this._getBufferBounds(),
+            };
         }
 
         // Coordinate transform: world coords → canvas pixels
@@ -108,12 +114,24 @@ export class FogWorkerTask {
         ctx.globalCompositeOperation = 'source-over';
 
         // Transfer result as ImageBitmap
-        return this._canvas!.transferToImageBitmap();
+        return {
+            bitmap: this._canvas!.transferToImageBitmap(),
+            bufferBounds: this._getBufferBounds(),
+        };
     }
 
     // ---------------------------------------------------------------------------
     // Private helpers
     // ---------------------------------------------------------------------------
+
+    dispose(): void {
+        this._releaseRenderCanvas();
+        this._releaseHoleMask();
+        this.bufferLeft = 0;
+        this.bufferTop = 0;
+        this.bufferWorldWidth = 0;
+        this.bufferWorldHeight = 0;
+    }
 
     private _ensureCanvas(pixelWidth: number, pixelHeight: number): void {
         if (this._canvas &&
@@ -121,10 +139,27 @@ export class FogWorkerTask {
             this._lastCanvasHeight === pixelHeight) {
             return;
         }
+        this._releaseRenderCanvas();
+
         this._canvas = new OffscreenCanvas(pixelWidth, pixelHeight);
-        this._ctx = this._canvas.getContext('2d')!;
+        const ctx = this._canvas.getContext('2d');
+        if (!ctx) {
+            this._canvas = null;
+            throw new Error('FogWorkerTask failed to acquire 2D context');
+        }
+
+        this._ctx = ctx;
         this._lastCanvasWidth = pixelWidth;
         this._lastCanvasHeight = pixelHeight;
+    }
+
+    private _getBufferBounds(): WorkerRenderBufferBounds {
+        return {
+            bufferLeft: this.bufferLeft,
+            bufferTop: this.bufferTop,
+            bufferWorldWidth: this.bufferWorldWidth,
+            bufferWorldHeight: this.bufferWorldHeight,
+        };
     }
 
     /**
@@ -135,9 +170,15 @@ export class FogWorkerTask {
         const size = (maskRadius + outerGradientSize) * 2;
         if (this._holeMask && this._holeMaskSize === size) return;
 
+        this._releaseHoleMask();
+
         this._holeMask = new OffscreenCanvas(size, size);
         this._holeMaskSize = size;
-        const ctx = this._holeMask.getContext('2d')!;
+        const ctx = this._holeMask.getContext('2d');
+        if (!ctx) {
+            this._releaseHoleMask();
+            throw new Error('FogWorkerTask failed to acquire hole-mask context');
+        }
         const center = maskRadius + outerGradientSize;
 
         // Radial gradient: center (full alpha) → outer edge (zero alpha)
@@ -176,5 +217,32 @@ export class FogWorkerTask {
             drawSize,
             drawSize
         );
+    }
+
+    private _releaseRenderCanvas(): void {
+        this._shrinkCanvas(this._canvas);
+        this._canvas = null;
+        this._ctx = null;
+        this._lastCanvasWidth = 0;
+        this._lastCanvasHeight = 0;
+    }
+
+    private _releaseHoleMask(): void {
+        this._shrinkCanvas(this._holeMask);
+        this._holeMask = null;
+        this._holeMaskSize = 0;
+    }
+
+    private _shrinkCanvas(canvas: OffscreenCanvas | null): void {
+        if (!canvas) {
+            return;
+        }
+
+        if (canvas.width !== RELEASED_CANVAS_EDGE) {
+            canvas.width = RELEASED_CANVAS_EDGE;
+        }
+        if (canvas.height !== RELEASED_CANVAS_EDGE) {
+            canvas.height = RELEASED_CANVAS_EDGE;
+        }
     }
 }

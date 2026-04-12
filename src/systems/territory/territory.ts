@@ -80,7 +80,7 @@ export class Territory {
      */
     markDirty(): void {
         this.dirty = true;
-        
+
         // Schedule deferred recalculation if not already pending
         if (this._pendingIdleCallback === null) {
             // Use requestIdleCallback if available, otherwise use setTimeout
@@ -96,6 +96,21 @@ export class Territory {
                     this.recalculate();
                 }, 16) as unknown as number; // ~1 frame
             }
+        }
+    }
+
+    /**
+     * Cancel any pending deferred recalculation
+     * Called when recalculate() is triggered synchronously (e.g., from isPositionInValidTerritory)
+     */
+    private cancelPendingRecalc(): void {
+        if (this._pendingIdleCallback !== null) {
+            if (typeof requestIdleCallback !== 'undefined') {
+                cancelIdleCallback(this._pendingIdleCallback);
+            } else {
+                clearTimeout(this._pendingIdleCallback);
+            }
+            this._pendingIdleCallback = null;
         }
     }
 
@@ -237,8 +252,19 @@ export class Territory {
      * Optimized: Uses reference counting grid for O(1) lookup
      * IMPORTANT: Only territory PROVIDERS (towers, not mines/gold mines/repair towers)
      * can provide territory coverage
+     *
+     * If territory is dirty (pending deferred recalculation), forces synchronous
+     * recalculation first to ensure the result is always up-to-date.
+     * This prevents buildings from being placed in territory that is about to
+     * become invalid (e.g., after selling a tower that removes coverage).
      */
     isPositionInValidTerritory(pos: Vector): boolean {
+        // Synchronous recalculation if dirty to prevent stale reads
+        if (this.dirty) {
+            this.cancelPendingRecalc();
+            this.recalculate();
+        }
+
         const gx = Math.floor(pos.x / this._gridCellSize);
         const gy = Math.floor(pos.y / this._gridCellSize);
         const key = this._getNumericKey(gx, gy);

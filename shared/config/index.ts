@@ -34,7 +34,7 @@ export {
   getVisionRadius, getVisionUpgradePrice, canUpgradeVision,
 } from './visionMeta.js';
 
-export { TERRITORY_PENALTY } from './territoryMeta.js';
+export { TERRITORY_PENALTY, TERRITORY_RADIUS } from './territoryMeta.js';
 
 export { BUILDING_META, getBuildingMeta, isBuildingTypeValid } from './buildingMeta.js';
 export type { BuildingMetaData } from './buildingMeta.js';

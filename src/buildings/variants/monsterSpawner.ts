@@ -10,8 +10,18 @@ import { Building } from '../building';
 import { BuildingRegistry } from '../buildingRegistry';
 import { MonsterRegistry } from '../../monsters/monsterRegistry';
 import { SPAWNABLE_MONSTERS, SpawnableMonster } from '../spawnerConfig';
+import { TERRITORY_RADIUS } from '../../../shared/config/territoryMeta.js';
 import type { PlayerManager } from '../../game/player/playerManager';
 import type { MonsterLike } from '../../types/worldLike';
+
+interface TerritoryEntityLike {
+    pos: { x: number; y: number };
+    ownerId?: string | null;
+    inValidTerritory?: boolean;
+    gameType?: string;
+    otherHpAddAble?: boolean;
+    moneyAddedAble?: boolean;
+}
 
 // Extended world interface (uses type assertion at runtime)
 interface SpawnerWorld {
@@ -23,6 +33,8 @@ interface SpawnerWorld {
     getMoney(playerId?: string): number;
     spendMoneyFromOwner(ownerId: string | null, amount: number): boolean;
     addMoneyToOwner(playerId: string | null, amount: number): void;
+    buildings: TerritoryEntityLike[];
+    batterys: TerritoryEntityLike[];
 }
 
 /**
@@ -179,6 +191,45 @@ export class MonsterSpawner extends Building {
         return playerManager.getBaseBuilding(targetPlayerId);
     }
 
+    private canProvideTerritory(entity: TerritoryEntityLike): boolean {
+        if (entity.gameType === "Mine") {
+            return false;
+        }
+        if (entity.otherHpAddAble || entity.moneyAddedAble) {
+            return false;
+        }
+        return true;
+    }
+
+    private getTargetTerritoryEdgeDistance(
+        targetPlayerId: string,
+        targetBase: { pos: { x: number; y: number } },
+        dirX: number,
+        dirY: number
+    ): number {
+        const candidates = [...this.spawnerWorld.buildings, ...this.spawnerWorld.batterys];
+        let edgeDistance = TERRITORY_RADIUS;
+
+        for (const entity of candidates) {
+            if (entity.ownerId !== targetPlayerId) {
+                continue;
+            }
+            if (entity.inValidTerritory === false) {
+                continue;
+            }
+            if (!this.canProvideTerritory(entity)) {
+                continue;
+            }
+
+            const relX = entity.pos.x - targetBase.pos.x;
+            const relY = entity.pos.y - targetBase.pos.y;
+            const projectedEdge = relX * dirX + relY * dirY + TERRITORY_RADIUS;
+            edgeDistance = Math.max(edgeDistance, projectedEdge);
+        }
+
+        return edgeDistance;
+    }
+
     /**
      * Calculate spawn position near target player's base
      *
@@ -212,9 +263,14 @@ export class MonsterSpawner extends Building {
         const dirX = -dx / dist;
         const dirY = -dy / dist;
 
-        // Spawn at territory edge + some distance (20~60 units)
-        const territoryRadius = 200; // Approximate territory radius
-        const spawnDistance = territoryRadius + 20 + Math.random() * 40;
+        // Spawn just outside the current territory edge on the spawner-facing side.
+        const territoryEdgeDistance = this.getTargetTerritoryEdgeDistance(
+            targetPlayerId,
+            targetBase,
+            dirX,
+            dirY
+        );
+        const spawnDistance = territoryEdgeDistance + 20 + Math.random() * 40;
 
         // Add perpendicular random offset to avoid stacking
         const perpX = -dirY;

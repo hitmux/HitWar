@@ -7,16 +7,31 @@ import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
 import { CircleObject, CircleObjectWorldLike } from '../../entities/base/circleObject';
 import { EffectCircle } from '../../effects/effectCircle';
+import type { BuildingLike } from '../../game/entities/entityManager';
 
-interface WorldLike extends CircleObjectWorldLike {
-    buildings: unknown[];
+export interface MineWorldLike extends CircleObjectWorldLike {
+    buildings: BuildingLike[];
     mines: Set<Mine>;
     territory?: {
         markDirty(): void;
-        addBuildingIncremental(building: unknown): void;
+        addBuildingIncremental?(building: BuildingLike): void;
     };
     addEffect(effect: unknown): void;
     markBuildingQuadTreeDirty?(): void;
+}
+
+export interface MineSaveData {
+    x: number;
+    y: number;
+    state: string;
+    powerPlantLevel: number;
+    hp: number;
+    maxHp: number;
+    repairing: boolean;
+    repairProgress: number;
+    inValidTerritory: boolean;
+    _originalMaxHp: number | null;
+    _territoryPenaltyApplied: boolean;
 }
 
 export class Mine extends CircleObject {
@@ -29,7 +44,7 @@ export class Mine extends CircleObject {
     static UPGRADE_PRICES: readonly number[] = [150, 200, 250];
 
     // Override world type for Mine-specific interface
-    declare world: WorldLike;
+    declare world: MineWorldLike;
 
     gameType: string = "Mine";
     name: string = "矿井";
@@ -47,7 +62,7 @@ export class Mine extends CircleObject {
     _originalMaxHp: number | null = null;
     _territoryPenaltyApplied: boolean = false;
 
-    constructor(pos: Vector, world: WorldLike) {
+    constructor(pos: Vector, world: MineWorldLike) {
         super(pos, world);
 
         // HP bar color set to green (same as towers)
@@ -56,6 +71,25 @@ export class Mine extends CircleObject {
         // Use circumscribed circle radius for collision detection
         this._updateRadius();
         this.hpInit(0);
+    }
+
+    static fromSaveData(data: MineSaveData, world: MineWorldLike): Mine {
+        const mine = new Mine(new Vector(data.x, data.y), world);
+        mine.applySaveData(data);
+        return mine;
+    }
+
+    applySaveData(data: MineSaveData): void {
+        this.state = data.state;
+        this.powerPlantLevel = data.powerPlantLevel;
+        this.hp = data.hp;
+        this.maxHp = data.maxHp;
+        this.repairing = data.repairing;
+        this.repairProgress = data.repairProgress;
+        this.inValidTerritory = data.inValidTerritory;
+        this._originalMaxHp = data._originalMaxHp;
+        this._territoryPenaltyApplied = data._territoryPenaltyApplied;
+        this._updateRadius();
     }
 
     /**
@@ -118,13 +152,20 @@ export class Mine extends CircleObject {
             }
             // Add to buildings set so monsters can attack
             this.world.buildings.push(this);
+            // Mark building quadtree dirty — radius changed (triangle → square circumscribed)
+            this.world.markBuildingQuadTreeDirty?.();
             // Immediate territory update (no 100ms delay)
             this.world.territory?.addBuildingIncremental?.(this);
         } else if (this.state === Mine.STATE_POWER_PLANT && this.powerPlantLevel < 3) {
-            // Upgrade power plant
+            // Upgrade power plant level
             this.powerPlantLevel++;
             this.maxHp = hpValues[this.powerPlantLevel - 1];
             this.hp = this.maxHp;
+            this._updateRadius();
+            // Mark building quadtree dirty — level change may alter collision size
+            this.world.markBuildingQuadTreeDirty?.();
+            // Immediate territory update for radius change
+            this.world.territory?.markDirty();
         }
     }
 
