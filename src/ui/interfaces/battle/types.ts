@@ -53,6 +53,7 @@ export interface GameEntity {
     towerLevel: number;
     imgIndex: number;
     inValidTerritory: boolean;
+    canSpawnMonsters?: boolean;
     comment?: string;
     getBodyCircle: () => PanelCircleLike;
     getImgStartPosByIndex: (index: number) => { x: number; y: number };
@@ -209,4 +210,3 @@ export interface PanelManagerWorldLike {
     // Static layer
     markStaticLayerDirty(): void;
 }
-

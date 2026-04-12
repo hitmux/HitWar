@@ -17,7 +17,6 @@ import type { TowerManualCannon } from '../../../towers/base/towerManualCannon';
 import type { GameEntity, CanvasWithInputHandler, PanelManagerWorldLike, PanelEntityLike, PanelCircleLike } from './types';
 import type { NetworkClient } from '../../../network/networkClient';
 
-const BUILDING_FUNC_ARR = getBuildingFuncArr();
 const LEVELUP_POOL_SIZE = 10;
 
 // Move mode constants
@@ -483,8 +482,9 @@ export class PanelManager {
             panelEle.innerHTML = "";
             panelEle.dataset.sessionId = this.sessionId;
             const thingsFuncArr: ((world: unknown) => GameEntity)[] = [];
+            const buildingFuncs = getBuildingFuncArr(this.networkClient !== null);
             thingsFuncArr.push(TowerRegistry.getCreator('BasicCannon') as (world: unknown) => GameEntity);
-            for (const bF of BUILDING_FUNC_ARR) {
+            for (const bF of buildingFuncs) {
                 thingsFuncArr.push(bF as (world: unknown) => GameEntity);
             }
             for (const bFunc of thingsFuncArr) {
@@ -848,6 +848,16 @@ export class PanelManager {
                     this.hideLevelUpPanel();
                 } else {
                     const addedThing = this.addedThingFunc(this.world);
+                    if (addedThing.canSpawnMonsters && this.networkClient === null) {
+                        const et = new EffectText("怪物生成塔仅多人模式可用");
+                        et.pos = clickPos.copy();
+                        this.world.addEffect(et);
+                        this.addedThingFunc = null;
+                        this.world.user.putLoc.building = null;
+                        this.cachedBuilding = null;
+                        this.lastAddedFunc = null;
+                        return;
+                    }
                     if (this.world.getMoney() < addedThing.price) {
                         const et = new EffectText("钱不够了！");
                         et.pos = clickPos.copy();

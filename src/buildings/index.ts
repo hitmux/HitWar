@@ -25,13 +25,18 @@ type BuildingCreator = (world: unknown) => unknown;
  * Get the array of all building creator functions
  * Equivalent to original BUILDING_FUNC_ARR
  */
-export function getBuildingFuncArr(): (BuildingCreator | undefined)[] {
-    return [
+export function getBuildingFuncArr(includeMultiplayerOnly: boolean = false): (BuildingCreator | undefined)[] {
+    const buildingCreators: (BuildingCreator | undefined)[] = [
         // BuildingRegistry.getCreator('Root'),  // Root is not in UI selection
         BuildingRegistry.getCreator('Collector'),
         BuildingRegistry.getCreator('Treatment'),
-        BuildingRegistry.getCreator('MonsterSpawner'),
-    ].filter(Boolean) as (BuildingCreator | undefined)[];
+    ];
+
+    if (includeMultiplayerOnly) {
+        buildingCreators.push(BuildingRegistry.getCreator('MonsterSpawner'));
+    }
+
+    return buildingCreators.filter(Boolean) as (BuildingCreator | undefined)[];
 }
 
 /**
