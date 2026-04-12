@@ -38,7 +38,7 @@ export const SHOUTER_STONE_CONFIG: ShooterMonsterConfig = {
         bodyColor: [190, 145, 23, 1],
         bulletType: 'CannonStone_L',
         clock: 50,
-        rangeR: 170,
+        rangeR: 128,
         targetSelection: {
             targetSelectionAble: true,
             strategy: 'weakest',

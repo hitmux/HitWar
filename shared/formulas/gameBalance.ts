@@ -29,7 +29,7 @@ export function levelMonsterHpAddedEasy(level: number): number {
 
 /** Monster HP cap based on wave - Normal difficulty */
 export function levelMonsterHpAddedNormal(level: number): number {
-  let res = Math.floor(Math.pow(level, 2.5) + Math.pow(level, 0.5) * 60);
+  let res = Math.floor(Math.pow(level, 2.45) + Math.pow(level, 0.5) * 58);
   if (res > 100000) {
     res = 100000;
   }
@@ -148,7 +148,7 @@ export function TowerNumPriceAdded2(num: number): number {
 
 /** Monster collision damage based on wave */
 export function levelCollideAdded(level: number): number {
-  return Math.floor(Math.pow(level, 1.55));
+  return Math.floor(Math.pow(level, 1.52));
 }
 
 export function levelCollideAddedHard(level: number): number {
