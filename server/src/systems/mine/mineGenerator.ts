@@ -4,7 +4,7 @@
  * Ported from client-side world.ts generateMinesPseudoSymmetric
  */
 
-import { MINE_GENERATION } from '../../../../shared/config/mineMeta.js';
+import { MINE_GENERATION, getMineGenerationForMap } from '../../../../shared/config/mineMeta.js';
 
 interface Position {
   x: number;
@@ -30,9 +30,10 @@ export function generateMinePositions(
     nearBaseMaxDist,
     minesPerSide,
     centerMines,
+    centerGapHalfWidth,
     minDistFromEdge,
     minDistFromBase,
-  } = MINE_GENERATION;
+  } = getMineGenerationForMap(mapWidth, mapHeight);
 
   // Phase 1: Guaranteed mines near each base
   for (const basePos of basePositions) {
@@ -48,6 +49,7 @@ export function generateMinePositions(
       attempts++;
 
       if (!isInBounds(x, y, mapWidth, mapHeight, minDistFromEdge)) continue;
+      if (isTooCloseToAnyBase(x, y, basePositions, minDistFromBase, basePos)) continue;
       if (isTooCloseToExisting(x, y, positions)) continue;
 
       positions.push({ x, y });
@@ -59,7 +61,7 @@ export function generateMinePositions(
   generateMinesInRegion(
     positions,
     minDistFromEdge,
-    centerX - 100,
+    centerX - centerGapHalfWidth,
     minDistFromEdge,
     mapHeight - minDistFromEdge,
     minesPerSide - guaranteedNearBase,
@@ -70,7 +72,7 @@ export function generateMinePositions(
   // Phase 3: Right side mines
   generateMinesInRegion(
     positions,
-    centerX + 100,
+    centerX + centerGapHalfWidth,
     mapWidth - minDistFromEdge,
     minDistFromEdge,
     mapHeight - minDistFromEdge,
@@ -82,8 +84,8 @@ export function generateMinePositions(
   // Phase 4: Center contested zone
   generateMinesInRegion(
     positions,
-    centerX - 100,
-    centerX + 100,
+    centerX - centerGapHalfWidth,
+    centerX + centerGapHalfWidth,
     minDistFromEdge,
     mapHeight - minDistFromEdge,
     centerMines,
@@ -149,16 +151,7 @@ function generateMinesInRegion(
       attempts++;
 
       // Check distance from bases
-      let tooCloseToBase = false;
-      for (const bp of basePositions) {
-        const dx = x - bp.x;
-        const dy = y - bp.y;
-        if (dx * dx + dy * dy < minDistFromBase * minDistFromBase) {
-          tooCloseToBase = true;
-          break;
-        }
-      }
-      if (tooCloseToBase) continue;
+      if (isTooCloseToAnyBase(x, y, basePositions, minDistFromBase)) continue;
 
       // Check distance from other mines
       if (isTooCloseToExisting(x, y, positions)) continue;
@@ -186,6 +179,23 @@ function isTooCloseToExisting(x: number, y: number, positions: Position[]): bool
   for (const pos of positions) {
     const dx = x - pos.x;
     const dy = y - pos.y;
+    if (dx * dx + dy * dy < minDistSq) return true;
+  }
+  return false;
+}
+
+function isTooCloseToAnyBase(
+  x: number,
+  y: number,
+  basePositions: Position[],
+  minDistFromBase: number,
+  excludedBase?: Position
+): boolean {
+  const minDistSq = minDistFromBase * minDistFromBase;
+  for (const bp of basePositions) {
+    if (bp === excludedBase) continue;
+    const dx = x - bp.x;
+    const dy = y - bp.y;
     if (dx * dx + dy * dy < minDistSq) return true;
   }
   return false;

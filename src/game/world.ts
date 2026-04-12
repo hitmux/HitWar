@@ -36,6 +36,7 @@ import { EnergyRenderer } from '../systems/energy/energyRenderer';
 import { Mine } from '../systems/energy/mine';
 import { FogOfWar } from '../systems/fog';
 import { MultiPlayerFogOfWar } from '../systems/fog/multiPlayerFogOfWar';
+import { getMineGenerationForMap } from '@shared/config/mineMeta';
 
 // Player imports
 import { PlayerManager } from './player/playerManager';
@@ -821,8 +822,8 @@ export class World {
             let placed = false;
 
             while (!placed && attempts < maxAttempts) {
-                const x = baseX + margin + Math.random() * (cellWidth - 2 * margin);
-                const y = baseY + margin + Math.random() * (cellHeight - 2 * margin);
+                const x = baseX + margin + Math.random() * Math.max(0, cellWidth - 2 * margin);
+                const y = baseY + margin + Math.random() * Math.max(0, cellHeight - 2 * margin);
                 const pos = new Vector(x, y);
                 attempts++;
 
@@ -853,17 +854,17 @@ export class World {
         }
 
         const centerX = this.width / 2;
-        const minDistFromEdge = 100;
-        const minDistFromBase = 200;
+        const {
+            guaranteedNearBase,
+            nearBaseMinDist,
+            nearBaseMaxDist,
+            minesPerSide,
+            centerMines,
+            centerGapHalfWidth,
+            minDistFromEdge,
+            minDistFromBase,
+        } = getMineGenerationForMap(this.width, this.height);
         const maxAttempts = 100;
-
-        // Total mines to generate on each side
-        const minesPerSide = 80;
-
-        // Generate guaranteed mines near each base
-        const guaranteedNearBase = 3;
-        const guaranteedMinDist = 100;
-        const guaranteedMaxDist = 300;
 
         for (const basePos of basePositions) {
             let generated = 0;
@@ -871,7 +872,7 @@ export class World {
 
             while (generated < guaranteedNearBase && attempts < maxAttempts * guaranteedNearBase) {
                 const angle = Math.random() * Math.PI * 2;
-                const dist = guaranteedMinDist + Math.random() * (guaranteedMaxDist - guaranteedMinDist);
+                const dist = nearBaseMinDist + Math.random() * (nearBaseMaxDist - nearBaseMinDist);
                 const x = basePos.x + Math.cos(angle) * dist;
                 const y = basePos.y + Math.sin(angle) * dist;
                 const pos = new Vector(x, y);
@@ -879,6 +880,19 @@ export class World {
 
                 if (x < minDistFromEdge || x > this.width - minDistFromEdge ||
                     y < minDistFromEdge || y > this.height - minDistFromEdge) {
+                    continue;
+                }
+                let tooCloseToBase = false;
+                for (const otherBasePos of basePositions) {
+                    if (otherBasePos === basePos) {
+                        continue;
+                    }
+                    if (pos.disSq(otherBasePos) < minDistFromBase * minDistFromBase) {
+                        tooCloseToBase = true;
+                        break;
+                    }
+                }
+                if (tooCloseToBase) {
                     continue;
                 }
                 if (this.isPositionOnObstacle(pos, 25) || this.isPositionOnBuilding(pos, 25)) {
@@ -890,17 +904,17 @@ export class World {
             }
         }
 
-        // Generate remaining mines on left side (x < centerX - 100)
-        this._generateMinesInRegion(minDistFromEdge, centerX - 100, minDistFromEdge, this.height - minDistFromEdge,
+        // Generate remaining mines on left side
+        this._generateMinesInRegion(minDistFromEdge, centerX - centerGapHalfWidth, minDistFromEdge, this.height - minDistFromEdge,
             minesPerSide - guaranteedNearBase, basePositions, minDistFromBase);
 
-        // Generate remaining mines on right side (x > centerX + 100)
-        this._generateMinesInRegion(centerX + 100, this.width - minDistFromEdge, minDistFromEdge, this.height - minDistFromEdge,
+        // Generate remaining mines on right side
+        this._generateMinesInRegion(centerX + centerGapHalfWidth, this.width - minDistFromEdge, minDistFromEdge, this.height - minDistFromEdge,
             minesPerSide - guaranteedNearBase, basePositions, minDistFromBase);
 
         // Generate mines in middle contested zone
-        this._generateMinesInRegion(centerX - 100, centerX + 100, minDistFromEdge, this.height - minDistFromEdge,
-            10, basePositions, minDistFromBase);
+        this._generateMinesInRegion(centerX - centerGapHalfWidth, centerX + centerGapHalfWidth, minDistFromEdge, this.height - minDistFromEdge,
+            centerMines, basePositions, minDistFromBase);
     }
 
     /**

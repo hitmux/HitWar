@@ -38,9 +38,29 @@ export const MINE_GENERATION = {
   guaranteedNearBase: 3,
   nearBaseMinDist: 100,
   nearBaseMaxDist: 300,
-  minesPerSide: 80,
-  centerMines: 10,
+  minesPerSide: 100,
+  centerMines: 20,
+  centerGapHalfWidth: 100,
   minDistFromEdge: 100,
   minDistFromBase: 200,
   minDistBetweenMines: 50,
 } as const;
+
+const MEDIUM_MAP_AREA = 6000 * 4000;
+const MIN_MINE_SCALE = 0.75;
+const MAX_MINE_SCALE = 1.5;
+
+export function getMineGenerationForMap(mapWidth: number, mapHeight: number) {
+  const area = Math.max(1, mapWidth * mapHeight);
+  const rawScale = area / MEDIUM_MAP_AREA;
+  const scale = Math.max(MIN_MINE_SCALE, Math.min(MAX_MINE_SCALE, rawScale));
+
+  return {
+    ...MINE_GENERATION,
+    minesPerSide: Math.max(
+      MINE_GENERATION.guaranteedNearBase,
+      Math.round(MINE_GENERATION.minesPerSide * scale)
+    ),
+    centerMines: Math.max(4, Math.round(MINE_GENERATION.centerMines * scale)),
+  };
+}

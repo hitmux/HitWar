@@ -11,6 +11,7 @@ import { Sounds } from '../../../systems/sound/sounds';
 import { gotoPage } from '../../navigation/router';
 import { showGameEndModal } from '../../components';
 import { initWorkerRendering, disposeWorkerRendering } from '../../../workers';
+import { PR } from '../../../core/staticInitData';
 
 import { MultiplayerWorldFacade } from './multiplayerWorldFacade';
 import { MultiplayerGameController } from './multiplayerGameController';
@@ -18,6 +19,17 @@ import { MultiplayerUIController } from './multiplayerUIController';
 import { PanelManager } from './panelManager';
 import { KeyboardHandler } from './keyboardHandler';
 import type { CanvasWithInputHandler } from './types';
+
+function getCanvasViewportSize(canvasEle: HTMLCanvasElement): { width: number; height: number } {
+    const rect = canvasEle.getBoundingClientRect();
+    const width = Math.round(rect.width || canvasEle.clientWidth || canvasEle.width / PR);
+    const height = Math.round(rect.height || canvasEle.clientHeight || canvasEle.height / PR);
+
+    return {
+        width: Math.max(1, width),
+        height: Math.max(1, height)
+    };
+}
 
 /**
  * Start multiplayer battle mode
@@ -44,13 +56,14 @@ export function startMultiplayerBattleMode(): void {
     const mapConfig = (gameState as { mapConfig?: { width: number; height: number } }).mapConfig;
     const worldWidth = mapConfig?.width ?? 6000;
     const worldHeight = mapConfig?.height ?? 4000;
+    const { width: viewWidth, height: viewHeight } = getCanvasViewportSize(canvasEle);
 
     // Create network world adapter
     const adapter = new NetworkWorldAdapter(
         client,
         client.playerId,
-        canvasEle.width,
-        canvasEle.height,
+        viewWidth,
+        viewHeight,
         worldWidth,
         worldHeight
     );

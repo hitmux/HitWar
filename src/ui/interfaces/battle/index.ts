@@ -9,6 +9,7 @@ import { SaveUI } from '../../../systems/save/saveUI';
 import { Sounds } from '../../../systems/sound/sounds';
 import { MonsterGroup } from '../../../monsters/monsterGroup';
 import { initWorkerRendering, disposeWorkerRendering } from '../../../workers';
+import { PR } from '../../../core/staticInitData';
 import { GameController } from './gameController';
 import { UIController } from './uiController';
 import { PanelManager } from './panelManager';
@@ -22,6 +23,17 @@ export type { BattleModeConfig, GameEntity, CanvasWithInputHandler } from './typ
 // Re-export multiplayer battle mode
 export { startMultiplayerBattleMode } from './multiplayerBattleMode';
 
+function getCanvasViewportSize(canvasEle: HTMLCanvasElement): { width: number; height: number } {
+    const rect = canvasEle.getBoundingClientRect();
+    const width = Math.round(rect.width || canvasEle.clientWidth || canvasEle.width / PR);
+    const height = Math.round(rect.height || canvasEle.clientHeight || canvasEle.height / PR);
+
+    return {
+        width: Math.max(1, width),
+        height: Math.max(1, height)
+    };
+}
+
 /**
  * Start battle mode
  * @param mode - Game mode: "easy", "normal", "hard"
@@ -34,9 +46,10 @@ export function startBattleMode(mode: string, haveGroup: boolean = true, loadedS
     // Switch background music
     Sounds.switchBgm("war");
 
-    // Create world (3x canvas size)
-    const viewWidth = canvasEle.width;
-    const viewHeight = canvasEle.height;
+    // Create world (3x viewport size).
+    // Use CSS/logical viewport size instead of canvas pixel size to avoid
+    // devicePixelRatio being applied repeatedly across multiple game sessions.
+    const { width: viewWidth, height: viewHeight } = getCanvasViewportSize(canvasEle);
     const worldWidth = viewWidth * 3;
     const worldHeight = viewHeight * 3;
     const world = new World(worldWidth, worldHeight, viewWidth, viewHeight);
