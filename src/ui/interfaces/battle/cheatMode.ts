@@ -149,7 +149,7 @@ export class CheatModeUI {
         this.moneyBtns.forEach(btn => {
             btn.addEventListener("click", () => {
                 const amount = parseInt(btn.dataset.value!);
-                this.world.user.money += amount;
+                this.world.addMoney(amount);
             });
         });
     }
@@ -164,7 +164,7 @@ export class CheatModeUI {
         this.confirmCustomMoney.addEventListener("click", () => {
             const amount = parseInt(this.customMoneyInput.value);
             if (amount && amount > 0) {
-                this.world.user.money += amount;
+                this.world.addMoney(amount);
             }
             this.customMoneyDialog.style.display = "none";
         });

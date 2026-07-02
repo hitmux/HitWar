@@ -7,3 +7,4 @@ export { TowerHell } from './towerHell';
 export { TowerHammer } from './towerHammer';
 export { TowerBoomerang } from './towerBoomerang';
 export { TowerRay } from './towerRay';
+export { TowerManualCannon } from './towerManualCannon';

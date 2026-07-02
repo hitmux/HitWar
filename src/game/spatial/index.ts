@@ -3,4 +3,4 @@
  */
 
 export { SpatialQuerySystem } from './spatialQuerySystem';
-export type { SpatialEntity, BuildingEntity, SpatialQueryContext } from './spatialQuerySystem';
+export type { SpatialGridObject, QuadTreeEntity, SpatialQueryContext } from './spatialQuerySystem';

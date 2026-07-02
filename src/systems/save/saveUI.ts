@@ -2,16 +2,12 @@
  * SaveUI - Handles UI interactions for save/load functionality
  */
 
-import { SaveManager } from './saveManager';
+import { SaveManager, type SaveWorldLike } from './saveManager';
 
 interface SaveData {
     mode: string;
     haveFlow: boolean;
     timestamp: number;
-}
-
-interface WorldLike {
-    [key: string]: unknown;
 }
 
 export class SaveUI {
@@ -135,14 +131,14 @@ export class SaveUI {
     /**
      * Add export button to game interface
      */
-    static addExportButton(container: HTMLElement, getWorld: () => WorldLike | null): HTMLButtonElement {
+    static addExportButton(container: HTMLElement, getWorld: () => SaveWorldLike | null): HTMLButtonElement {
         const btn = document.createElement("button");
         btn.textContent = "导出存档";
         btn.className = "exportSaveBtn";
         btn.onclick = () => {
             const world = getWorld();
             if (world) {
-                const saveData = SaveManager.serialize(world as any);
+                const saveData = SaveManager.serialize(world);
                 SaveManager.exportToFile(saveData);
             }
         };

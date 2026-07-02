@@ -6,6 +6,8 @@
 
 import { Vector } from '@/core/math';
 import { scalePeriod } from '@/core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
+import type { OwnedEntity } from '@/types/player';
 
 // 目标选择策略
 export type TargetStrategy = 'nearest' | 'weakest' | 'threat' | 'balanced';
@@ -33,7 +35,7 @@ export const DEFAULT_TARGET_CONFIG: TargetConfig = {
 };
 
 /** 建筑接口 */
-interface BuildingLike {
+interface BuildingLike extends OwnedEntity {
     pos: { x: number; y: number };
     hp: number;
     maxHp: number;
@@ -44,7 +46,7 @@ interface BuildingLike {
 }
 
 /** 怪物接口 */
-interface MonsterLike {
+interface MonsterLike extends OwnedEntity {
     pos: Vector;
     liveTime: number;
     world: {
@@ -115,6 +117,10 @@ export function selectTarget(
         case 'nearest': {
             let minDist = Infinity;
             for (const b of buildings) {
+                // Filter friendly buildings (same owner)
+                if (!isEnemy(monster, b)) {
+                    continue;
+                }
                 const dx = b.pos.x - monster.pos.x;
                 const dy = b.pos.y - monster.pos.y;
                 const dist = dx * dx + dy * dy; // 不需要开方，只比较大小
@@ -129,6 +135,10 @@ export function selectTarget(
         case 'weakest': {
             let minHp = Infinity;
             for (const b of buildings) {
+                // Filter friendly buildings (same owner)
+                if (!isEnemy(monster, b)) {
+                    continue;
+                }
                 if (b.hp < minHp) {
                     minHp = b.hp;
                     bestTarget = b;
@@ -140,6 +150,10 @@ export function selectTarget(
         case 'threat': {
             let maxThreat = -Infinity;
             for (const b of buildings) {
+                // Filter friendly buildings (same owner)
+                if (!isEnemy(monster, b)) {
+                    continue;
+                }
                 const threat = calcThreatScore(b);
                 if (threat > maxThreat) {
                     maxThreat = threat;
@@ -153,6 +167,10 @@ export function selectTarget(
         default: {
             let bestScore = -Infinity;
             for (const b of buildings) {
+                // Filter friendly buildings (same owner)
+                if (!isEnemy(monster, b)) {
+                    continue;
+                }
                 const score = calcBuildingScore(
                     b,
                     monster.pos.x,

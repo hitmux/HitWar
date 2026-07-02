@@ -4,7 +4,7 @@
  */
 import { Vector } from './vector';
 import { MyColor } from '../../entities/myColor';
-import type { Circle } from './circle';
+import type { CircleLike } from '../../types/worldLike';
 
 export class Line {
     PosStart: Vector;
@@ -80,8 +80,12 @@ export class Line {
     /**
      * Check if line intersects with circle
      */
-    intersectWithCircle(c: Circle): boolean {
-        if (c.pointIn(this.x1, this.y1) || c.pointIn(this.x2, this.y2)) {
+    intersectWithCircle(c: CircleLike): boolean {
+        // Inline pointIn check: (dx*dx + dy*dy) < r*r
+        const rSq = c.r * c.r;
+        const dx1 = this.x1 - c.x, dy1 = this.y1 - c.y;
+        const dx2 = this.x2 - c.x, dy2 = this.y2 - c.y;
+        if (dx1 * dx1 + dy1 * dy1 < rSq || dx2 * dx2 + dy2 * dy2 < rSq) {
             return true;
         }
         const p1 = { x: this.x1, y: this.y1 };

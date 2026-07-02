@@ -156,7 +156,7 @@ export class UIController {
         if (oldBtn) {
             oldBtn.remove();
         }
-        SaveUI.addExportButton(rightTopArea, () => this.world as any);
+        SaveUI.addExportButton(rightTopArea, () => this.world);
     }
 
     /**
@@ -219,7 +219,7 @@ export class UIController {
         }
         if (homeBtn) {
             homeBtn.addEventListener("click", () => {
-                this.world.camera.centerOn(this.world.rootBuilding.pos);
+                this.world.camera.centerOn(this.world.getBaseBuilding().pos);
                 this.callbacks.requestPauseRender();
             });
         }

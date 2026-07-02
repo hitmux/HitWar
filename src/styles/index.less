@@ -653,6 +653,270 @@ body {
 
 }
 
+// ==================== 怪物生成塔面板样式 ====================
+#spawnerPanel {
+  position: absolute;
+  min-width: 250px;
+  max-width: 320px;
+  padding: 8px;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.5);
+  z-index: 1000;
+
+  .spawner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+
+    .spawner-title {
+      color: #333;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .spawner-close {
+      cursor: pointer;
+      color: #666;
+      font-size: 18px;
+      line-height: 1;
+      transition: all 0.2s;
+
+      &:hover {
+        color: #333;
+        transform: scale(1.1);
+      }
+    }
+  }
+
+  .spawner-target-section {
+    margin-bottom: 8px;
+
+    label {
+      color: #333;
+      font-size: 12px;
+      margin-right: 8px;
+    }
+
+    .spawner-target-select {
+      padding: 4px 8px;
+      border-radius: 5px;
+      border: none;
+      background-color: rgba(255, 255, 255, 0.5);
+      color: #333;
+      font-size: 12px;
+      cursor: pointer;
+
+      &:focus {
+        outline: none;
+      }
+    }
+  }
+
+  .spawner-monster-list {
+    max-height: 200px;
+    overflow-y: auto;
+
+    .spawner-monster-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      margin-bottom: 3px;
+      border-radius: 5px;
+      background-color: rgba(255, 255, 255, 0.5);
+      transition: all 0.2s;
+
+      .monster-name {
+        color: #333;
+        font-size: 12px;
+        font-weight: bold;
+        flex: 1;
+      }
+
+      .monster-cost {
+        color: #b8860b;
+        font-size: 11px;
+        margin: 0 10px;
+        font-weight: bold;
+      }
+
+      .monster-status {
+        color: #666;
+        font-size: 10px;
+        text-align: right;
+        min-width: 70px;
+      }
+
+      &.available {
+        cursor: pointer;
+
+        &:hover {
+          transform: scale(1.05);
+          background-color: rgba(255, 255, 255, 0.7);
+        }
+
+        .monster-status {
+          color: #228b22;
+        }
+      }
+
+      &.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+
+        .monster-name {
+          color: #666;
+        }
+      }
+    }
+  }
+
+  .spawner-hint {
+    color: #c00;
+    font-size: 12px;
+    text-align: center;
+    padding: 10px;
+    display: none;
+  }
+}
+
+// ==================== 手动炮塔面板样式 ====================
+#manualCannonPanel {
+  position: absolute;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 8px;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.5);
+  z-index: 1000;
+
+  .cannon-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+
+    .cannon-title {
+      color: #333;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .cannon-close {
+      cursor: pointer;
+      color: #666;
+      font-size: 18px;
+      line-height: 1;
+      transition: all 0.2s;
+
+      &:hover {
+        color: #333;
+        transform: scale(1.1);
+      }
+    }
+  }
+
+  .cannon-stats {
+    margin-bottom: 8px;
+
+    .cannon-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3px 0;
+      font-size: 12px;
+
+      .stat-label {
+        color: #555;
+      }
+
+      .cannon-ammo {
+        color: #b8860b;
+        font-weight: bold;
+      }
+
+      .cannon-damage {
+        color: #c00;
+        font-weight: bold;
+      }
+
+      .cannon-range {
+        color: #228b22;
+      }
+    }
+  }
+
+  .cannon-reload-bar {
+    height: 4px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    margin-bottom: 8px;
+    overflow: hidden;
+
+    .cannon-reload-progress {
+      height: 100%;
+      width: 0%;
+      background-color: #4a9eff;
+      border-radius: 2px;
+      transition: width 0.1s ease;
+    }
+  }
+
+  .cannon-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .cannon-btn {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 5px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #333;
+      background-color: rgba(255, 255, 255, 0.5);
+
+      &:hover:not(:disabled) {
+        transform: scale(1.05);
+        background-color: rgba(255, 255, 255, 0.7);
+      }
+
+      &.cannon-fire-btn {
+        font-weight: bold;
+      }
+
+      &.cannon-semi-btn {
+        font-weight: bold;
+      }
+
+      &.cannon-clear-btn {
+        display: none;
+        color: #c00;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+    }
+  }
+
+  .cannon-hint {
+    color: #666;
+    font-size: 11px;
+    text-align: center;
+    padding: 6px 0 0 0;
+    font-style: italic;
+  }
+}
+
 button {
   color: white;
 }
@@ -1133,6 +1397,540 @@ button {
   }
 }
 
+// ==================== 多人模式界面样式 ====================
+// Multiplayer interface common styles (unified with main game UI)
+
+// Multiplayer button mixin - matches .interfaceBtn() style
+.multiplayerBtn() {
+  background-color: #1e1e1e;
+  color: rgb(241, 243, 244);
+  display: block;
+  padding: 14px 32px;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  border-radius: 100px;
+  font-family: myFont, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: bold;
+
+  &:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.multiplayer-connect-interface,
+.multiplayer-lobby-interface,
+.multiplayer-waiting-interface {
+  // Use default .header() styles for h1/h2 - remove position override
+
+  .leftTopArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+}
+
+// Connect Interface
+.multiplayer-connect-interface {
+  .multiplayer-content {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    padding: 30px;
+    background-color: rgba(30, 30, 30, 0.85);
+    border-radius: 20px;
+  }
+
+  .input-group {
+    margin-bottom: 20px;
+
+    label {
+      display: block;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      margin-bottom: 8px;
+      font-family: myFont, "Times New Roman", serif;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 100px;
+      color: #f1f3f4;
+      font-size: 16px;
+      transition: all 0.2s;
+
+      &:focus {
+        outline: none;
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+
+      &::placeholder {
+        color: #666;
+      }
+    }
+  }
+
+  .connect-btn {
+    .multiplayerBtn();
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  .connection-status {
+    text-align: center;
+    margin-top: 16px;
+    padding: 8px;
+    border-radius: 100px;
+    font-size: 14px;
+    font-family: myFont, "Times New Roman", serif;
+
+    &.info {
+      color: #aaa;
+    }
+
+    &.success {
+      color: #6bff6b;
+      background-color: rgba(107, 255, 107, 0.1);
+    }
+
+    &.error {
+      color: #ff6b6b;
+      background-color: rgba(255, 107, 107, 0.1);
+    }
+  }
+}
+
+// Lobby Interface
+.multiplayer-lobby-interface {
+  .lobby-header {
+    position: absolute;
+    right: 30px;
+    top: 30px;
+    color: #f1f3f4;
+    font-size: 16px;
+    font-family: myFont, "Times New Roman", serif;
+
+    .lobby-player-label {
+      background-color: rgba(30, 30, 30, 0.8);
+      padding: 8px 20px;
+      border-radius: 100px;
+    }
+  }
+
+  .lobby-content {
+    position: absolute;
+    left: 50%;
+    top: 55%;
+    transform: translate(-50%, -50%);
+    width: 500px;
+    max-height: 70vh;
+  }
+
+  .room-list-section {
+    background-color: rgba(30, 30, 30, 0.85);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .room-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background-color: rgba(0, 0, 0, 0.3);
+    color: #f1f3f4;
+    font-weight: bold;
+    font-family: myFont, "Times New Roman", serif;
+
+    .refresh-btn {
+      .multiplayerBtn();
+      padding: 6px 16px;
+      font-size: 12px;
+    }
+  }
+
+  .room-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  .empty-room-list {
+    text-align: center;
+    color: #888;
+    padding: 40px 20px;
+    font-size: 16px;
+    font-family: myFont, "Times New Roman", serif;
+  }
+
+  .room-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 100px;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    &.room-full {
+      opacity: 0.6;
+    }
+
+    .room-icon {
+      font-size: 20px;
+      margin-right: 12px;
+    }
+
+    .room-name {
+      flex: 1;
+      color: #f1f3f4;
+      font-size: 14px;
+      font-family: myFont, "Times New Roman", serif;
+    }
+
+    .room-players {
+      color: #aaa;
+      font-size: 12px;
+      margin-right: 12px;
+    }
+
+    .join-room-btn {
+      .multiplayerBtn();
+      padding: 6px 20px;
+      font-size: 12px;
+    }
+  }
+
+  .lobby-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .lobby-btn {
+    .multiplayerBtn();
+    flex: 1;
+    text-align: center;
+
+    &.searching {
+      background-color: #ff9800;
+      animation: searchPulse 1.5s ease-in-out infinite;
+    }
+  }
+
+  .match-status {
+    text-align: center;
+    color: #aaa;
+    font-size: 14px;
+    font-family: myFont, "Times New Roman", serif;
+
+    &.success {
+      color: #6bff6b;
+    }
+
+    &.error {
+      color: #ff6b6b;
+    }
+  }
+}
+
+@keyframes searchPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+// Create Room Dialog
+.multiplayer-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(3px);
+
+  .dialog-content {
+    background-color: rgba(30, 30, 30, 0.95);
+    padding: 28px;
+    border-radius: 20px;
+    min-width: 380px;
+
+    h3 {
+      color: #f1f3f4;
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 20px;
+      font-family: myFont, "Times New Roman", serif;
+    }
+  }
+
+  .dialog-body {
+    margin-bottom: 20px;
+  }
+
+  .input-group {
+    margin-bottom: 16px;
+
+    label {
+      display: block;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      margin-bottom: 8px;
+      font-family: myFont, "Times New Roman", serif;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 16px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 100px;
+      color: #f1f3f4;
+      font-size: 14px;
+
+      &:focus {
+        outline: none;
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+    }
+  }
+
+  .map-size-group {
+    margin-bottom: 16px;
+
+    > label {
+      display: block;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      margin-bottom: 10px;
+      font-family: myFont, "Times New Roman", serif;
+    }
+
+    .radio-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 100px;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+
+      input[type="radio"] {
+        margin-right: 10px;
+        accent-color: #f1f3f4;
+      }
+
+      span {
+        color: #ddd;
+        font-size: 14px;
+        font-family: myFont, "Times New Roman", serif;
+      }
+    }
+  }
+
+  .checkbox-group {
+    label {
+      display: flex;
+      align-items: center;
+      color: #ddd;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: myFont, "Times New Roman", serif;
+
+      input[type="checkbox"] {
+        margin-right: 10px;
+        accent-color: #f1f3f4;
+      }
+    }
+  }
+
+  .dialog-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+
+    .dialog-btn {
+      .multiplayerBtn();
+      padding: 10px 28px;
+      font-size: 14px;
+
+      &.cancel {
+        background-color: #444;
+      }
+    }
+  }
+}
+
+// Waiting Room Interface
+.multiplayer-waiting-interface {
+  .waiting-room-info {
+    position: absolute;
+    left: 50%;
+    top: 28%;
+    transform: translateX(-50%);
+    color: #aaa;
+    font-size: 16px;
+    font-family: myFont, "Times New Roman", serif;
+    background-color: rgba(30, 30, 30, 0.8);
+    padding: 8px 24px;
+    border-radius: 100px;
+  }
+
+  .waiting-content {
+    position: absolute;
+    left: 50%;
+    top: 55%;
+    transform: translate(-50%, -50%);
+    width: 450px;
+    text-align: center;
+  }
+
+  .waiting-player-list {
+    margin-bottom: 24px;
+  }
+
+  .player-slot {
+    margin-bottom: 16px;
+    padding: 16px 20px;
+    background-color: rgba(30, 30, 30, 0.85);
+    border-radius: 20px;
+
+    &.filled.ready {
+      box-shadow: 0 0 10px rgba(107, 255, 107, 0.3);
+    }
+
+    .player-number {
+      color: #888;
+      font-size: 12px;
+      text-align: left;
+      margin-bottom: 8px;
+      font-family: myFont, "Times New Roman", serif;
+    }
+
+    .player-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .player-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      flex-shrink: 0;
+
+      &.empty {
+        opacity: 0.3;
+      }
+    }
+
+    .player-info {
+      flex: 1;
+      text-align: left;
+
+      .player-name {
+        color: #f1f3f4;
+        font-size: 16px;
+        font-weight: bold;
+        font-family: myFont, "Times New Roman", serif;
+      }
+
+      .host-badge {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 10px;
+        background-color: rgba(255, 215, 0, 0.3);
+        color: #ffd700;
+        font-size: 10px;
+        border-radius: 100px;
+        font-family: myFont, "Times New Roman", serif;
+      }
+    }
+
+    .player-status {
+      font-size: 14px;
+      font-family: myFont, "Times New Roman", serif;
+
+      &.ready {
+        color: #6bff6b;
+      }
+
+      &.waiting {
+        color: #888;
+      }
+    }
+  }
+
+  .ready-btn {
+    .multiplayerBtn();
+    width: 200px;
+    margin: 0 auto;
+
+    &.ready {
+      background-color: #2d5a2d;
+    }
+  }
+
+  .game-countdown {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 12px 28px;
+    background-color: rgba(255, 152, 0, 0.2);
+    color: #ff9800;
+    font-size: 18px;
+    font-weight: bold;
+    font-family: myFont, "Times New Roman", serif;
+    border-radius: 100px;
+    animation: countdownPulse 1s ease-in-out infinite;
+  }
+
+  .waiting-hint {
+    margin-top: 16px;
+    color: #888;
+    font-size: 14px;
+    font-family: myFont, "Times New Roman", serif;
+
+    &.error {
+      color: #ff6b6b;
+    }
+  }
+}
+
+@keyframes countdownPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
 // 公告面板
 .notePanel {
   position: fixed;
@@ -1419,5 +2217,122 @@ button {
     &:hover {
       background-color: #555;
     }
+  }
+}
+
+/* Game End Modal Styles */
+.game-end-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+
+  &.show {
+    opacity: 1;
+  }
+}
+
+.game-end-content {
+  background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+  border-radius: 20px;
+  padding: 50px 60px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(74, 158, 255, 0.3);
+  transform: scale(0.8);
+  animation: modalAppear 0.3s ease forwards;
+}
+
+@keyframes modalAppear {
+  to {
+    transform: scale(1);
+  }
+}
+
+.game-end-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  animation: iconBounce 0.6s ease;
+
+  &.victory {
+    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
+  }
+
+  &.defeat {
+    filter: drop-shadow(0 0 20px rgba(255, 69, 58, 0.6));
+  }
+}
+
+@keyframes iconBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.game-end-title {
+  font-size: 48px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  background: linear-gradient(45deg, #4a9eff, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+
+.game-end-message {
+  font-size: 20px;
+  color: #ccc;
+  margin-bottom: 40px;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+
+.game-end-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+
+.game-end-btn {
+  padding: 15px 40px;
+  font-size: 18px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: "Microsoft YaHei", sans-serif;
+  transition: all 0.3s ease;
+  font-weight: bold;
+
+  &.primary {
+    background: linear-gradient(135deg, #4a9eff, #00d4ff);
+    color: white;
+    box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(74, 158, 255, 0.6);
+    }
+  }
+
+  &.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #4a9eff;
+    border: 2px solid #4a9eff;
+
+    &:hover {
+      background: rgba(74, 158, 255, 0.2);
+      transform: translateY(-2px);
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 }

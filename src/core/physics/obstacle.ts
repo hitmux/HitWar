@@ -4,7 +4,7 @@
 import { Vector } from '../math/vector';
 import type { Circle } from '../math/circle';
 
-interface ObstacleSaveData {
+export interface ObstacleSaveData {
     x: number;
     y: number;
     radius: number;
@@ -13,7 +13,7 @@ interface ObstacleSaveData {
 interface WorldLike {
     width: number;
     height: number;
-    rootBuilding: { pos: Vector };
+    getBaseBuilding(playerId?: string): { pos: Vector };
 }
 
 export class Obstacle {
@@ -88,7 +88,7 @@ export class Obstacle {
         const obstacles: Obstacle[] = [];
         const count = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
 
-        const rootPos = world.rootBuilding.pos;
+        const rootPos = world.getBaseBuilding().pos;
         const minDistance = Math.min(world.width, world.height) * 0.15;
 
         let attempts = 0;
@@ -132,5 +132,106 @@ export class Obstacle {
         }
 
         return obstacles;
+    }
+
+    /**
+     * Generate pseudo-symmetric obstacles for multiplayer maps
+     * Each side of the map gets independent random placement but same count and density
+     * @param world The world reference for dimensions
+     * @param basePositions Array of base positions (one per player)
+     * @param countPerSide Number of obstacles per side (default 35)
+     */
+    static generatePseudoSymmetric(
+        world: WorldLike,
+        basePositions: Vector[],
+        countPerSide: number = 35
+    ): Obstacle[] {
+        const obstacles: Obstacle[] = [];
+        const centerX = world.width / 2;
+        const minDistFromBase = Math.min(world.width, world.height) * 0.15;
+        const gapHalf = 50; // No obstacles in the center gap
+
+        // Generate for left side
+        const leftObs = Obstacle._generateForRegion(
+            world, 0, centerX - gapHalf, basePositions, minDistFromBase, countPerSide, obstacles
+        );
+        obstacles.push(...leftObs);
+
+        // Generate for right side (independent random, same count)
+        const rightObs = Obstacle._generateForRegion(
+            world, centerX + gapHalf, world.width, basePositions, minDistFromBase, countPerSide, obstacles
+        );
+        obstacles.push(...rightObs);
+
+        return obstacles;
+    }
+
+    /**
+     * Generate obstacles within a specific x-region
+     */
+    private static _generateForRegion(
+        world: WorldLike,
+        minX: number,
+        maxX: number,
+        basePositions: Vector[],
+        minDistFromBase: number,
+        count: number,
+        existingObstacles: Obstacle[]
+    ): Obstacle[] {
+        const result: Obstacle[] = [];
+        let attempts = 0;
+        const maxAttempts = count * 100;
+
+        while (result.length < count && attempts < maxAttempts) {
+            attempts++;
+
+            const x = minX + Math.random() * (maxX - minX);
+            const y = Math.random() * world.height;
+            const radius = Math.random() * 15 + 10;
+
+            // Check edge margin
+            const margin = radius;
+            if (x < margin || x > world.width - margin ||
+                y < margin || y > world.height - margin) {
+                continue;
+            }
+
+            // Check distance from all bases
+            let tooCloseToBase = false;
+            for (const basePos of basePositions) {
+                const dx = x - basePos.x;
+                const dy = y - basePos.y;
+                if (Math.sqrt(dx * dx + dy * dy) < minDistFromBase) {
+                    tooCloseToBase = true;
+                    break;
+                }
+            }
+            if (tooCloseToBase) continue;
+
+            // Check overlap with existing obstacles
+            let overlaps = false;
+            for (const obs of existingObstacles) {
+                const distObs = Math.sqrt((x - obs.pos.x) ** 2 + (y - obs.pos.y) ** 2);
+                if (distObs < radius + obs.radius + 5) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (overlaps) continue;
+
+            // Check overlap with new obstacles in this region
+            for (const obs of result) {
+                const distObs = Math.sqrt((x - obs.pos.x) ** 2 + (y - obs.pos.y) ** 2);
+                if (distObs < radius + obs.radius + 5) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (overlaps) continue;
+
+            result.push(new Obstacle(new Vector(x, y), radius));
+        }
+
+        return result;
     }
 }

@@ -7,8 +7,9 @@ import { TerritoryRenderer } from './territoryRenderer';
 import { Vector } from '../../core/math/vector';
 import { QuadTree } from '../../core/physics/quadTree';
 import type { FogOfWarLike } from '../../types/systems';
+import { TERRITORY_PENALTY } from '../../../shared/config/index';
 
-interface BuildingLike {
+export interface BuildingLike {
     pos: Vector;
     gameType?: string;
     otherHpAddAble?: boolean;
@@ -17,18 +18,21 @@ interface BuildingLike {
     hp: number;
     rangeR?: number;
     inValidTerritory: boolean;
-    _territoryPenaltyApplied: boolean;
-    _originalMaxHp: number | null;
+    // Penalty fields (optional for network proxies where server handles penalties)
+    _territoryPenaltyApplied?: boolean;
+    _originalMaxHp?: number | null;
     _originalRangeR?: number | null;
+    // Owner ID for multiplayer (null = neutral/single-player)
+    ownerId?: string | null;
 }
 
-interface WorldLike {
+export interface TerritoryWorldLike {
     width: number;
     height: number;
     viewWidth: number;
     viewHeight: number;
     camera: { x: number; y: number; zoom: number; viewWidth: number; viewHeight: number };
-    rootBuilding: BuildingLike;
+    getBaseBuilding(playerId?: string): BuildingLike;
     batterys: BuildingLike[];
     buildings: BuildingLike[];
     mines: Set<BuildingLike>;
@@ -36,7 +40,11 @@ interface WorldLike {
 }
 
 export class Territory {
-    world: WorldLike;
+    world: TerritoryWorldLike;
+
+    // Player ID for multiplayer (null = single-player mode, includes all entities)
+    playerId: string | null = null;
+
     territoryRadius: number = 100;  // Territory radius in px
     private _territoryRadiusSq: number = 10000;  // territoryRadius² (cached)
     dirty: boolean = true;           // Dirty flag, needs recalculation
@@ -59,8 +67,9 @@ export class Territory {
     // Renderer
     renderer: TerritoryRenderer;
 
-    constructor(world: WorldLike) {
+    constructor(world: TerritoryWorldLike, playerId?: string) {
         this.world = world;
+        this.playerId = playerId ?? null;
         this.renderer = new TerritoryRenderer(this);
         // Perform initial calculation immediately (rootBuilding should be present)
         this.recalculate();
@@ -71,7 +80,7 @@ export class Territory {
      */
     markDirty(): void {
         this.dirty = true;
-        
+
         // Schedule deferred recalculation if not already pending
         if (this._pendingIdleCallback === null) {
             // Use requestIdleCallback if available, otherwise use setTimeout
@@ -87,6 +96,21 @@ export class Territory {
                     this.recalculate();
                 }, 16) as unknown as number; // ~1 frame
             }
+        }
+    }
+
+    /**
+     * Cancel any pending deferred recalculation
+     * Called when recalculate() is triggered synchronously (e.g., from isPositionInValidTerritory)
+     */
+    private cancelPendingRecalc(): void {
+        if (this._pendingIdleCallback !== null) {
+            if (typeof requestIdleCallback !== 'undefined') {
+                cancelIdleCallback(this._pendingIdleCallback);
+            } else {
+                clearTimeout(this._pendingIdleCallback);
+            }
+            this._pendingIdleCallback = null;
         }
     }
 
@@ -109,21 +133,22 @@ export class Territory {
         const posToBuilding = new Map<string, BuildingLike>();
         
         for (const provider of providers) {
-            const posKey = `${provider.pos.x},${provider.pos.y}`;
+            const posKey = `${Math.round(provider.pos.x)},${Math.round(provider.pos.y)}`;
             posToBuilding.set(posKey, provider);
             quadTree.insert({
                 pos: { x: provider.pos.x, y: provider.pos.y },
                 r: this.territoryRadius * 2
-            } as any);
+            });
         }
 
         const visited = new Set<BuildingLike>();
         // Use index-based queue to avoid O(n) shift() operations
-        const queue: BuildingLike[] = [this.world.rootBuilding];
+        const baseBuilding = this._getBaseBuilding();
+        const queue: BuildingLike[] = [baseBuilding];
         let queueIndex = 0;
-        visited.add(this.world.rootBuilding);
+        visited.add(baseBuilding);
         // Reusable array for QuadTree queries to avoid GC pressure
-        const retrieveBuffer: any[] = [];
+        const retrieveBuffer: { pos: { x: number; y: number }; r: number }[] = [];
 
         // BFS traversal (only between territory providers)
         // Optimized: Use QuadTree to only check nearby buildings instead of all providers
@@ -138,11 +163,11 @@ export class Territory {
                 current.pos.y,
                 searchRadius,
                 retrieveBuffer
-            ) as any[];
+            ) as { pos: { x: number; y: number }; r: number }[];
 
             // Check each nearby building
             for (const quadObj of nearbyObjects) {
-                const posKey = `${quadObj.pos.x},${quadObj.pos.y}`;
+                const posKey = `${Math.round(quadObj.pos.x)},${Math.round(quadObj.pos.y)}`;
                 const other = posToBuilding.get(posKey);
                 
                 if (other && !visited.has(other)) {
@@ -213,7 +238,7 @@ export class Territory {
         this.renderer.invalidateCache();
 
         // Rebuild reference counting grid (incremental update needs this)
-        this._rebuildRefCountGrid();
+        this.rebuildRefCountGrid();
 
         // Invalidate old grid cache (for isPositionInAnyTerritory which still uses old mechanism)
         this._gridCacheValid = false;
@@ -227,8 +252,19 @@ export class Territory {
      * Optimized: Uses reference counting grid for O(1) lookup
      * IMPORTANT: Only territory PROVIDERS (towers, not mines/gold mines/repair towers)
      * can provide territory coverage
+     *
+     * If territory is dirty (pending deferred recalculation), forces synchronous
+     * recalculation first to ensure the result is always up-to-date.
+     * This prevents buildings from being placed in territory that is about to
+     * become invalid (e.g., after selling a tower that removes coverage).
      */
     isPositionInValidTerritory(pos: Vector): boolean {
+        // Synchronous recalculation if dirty to prevent stale reads
+        if (this.dirty) {
+            this.cancelPendingRecalc();
+            this.recalculate();
+        }
+
         const gx = Math.floor(pos.x / this._gridCellSize);
         const gy = Math.floor(pos.y / this._gridCellSize);
         const key = this._getNumericKey(gx, gy);
@@ -293,10 +329,24 @@ export class Territory {
     }
 
     /**
+     * Get the base building for this territory
+     * In multiplayer mode, returns the base for this player
+     */
+    private _getBaseBuilding(): BuildingLike {
+        return this.world.getBaseBuilding(this.playerId ?? undefined);
+    }
+
+    /**
      * Get all buildings list (towers + buildings + mines)
+     * In multiplayer mode, only includes buildings owned by this player
      */
     _getAllBuildings(): BuildingLike[] {
-        return [...this.world.batterys, ...this.world.buildings, ...this.world.mines];
+        const all = [...this.world.batterys, ...this.world.buildings, ...this.world.mines];
+        // Multiplayer: filter by owner
+        if (this.playerId !== null) {
+            return all.filter(b => b.ownerId === this.playerId);
+        }
+        return all;
     }
 
     /**
@@ -377,7 +427,8 @@ export class Territory {
     /**
      * Rebuild reference counting grid from validBuildings (used in recalculate)
      */
-    private _rebuildRefCountGrid(): void {
+    /** Rebuild the reference count grid from validBuildings (public for network sync) */
+    rebuildRefCountGrid(): void {
         this._validGridRefCount.clear();
         this._buildingGridCells.clear();
 
@@ -704,7 +755,7 @@ export class Territory {
      */
     _canProvideTerritory(building: BuildingLike): boolean {
         // Headquarters can provide territory
-        if (building === this.world.rootBuilding) return true;
+        if (building === this._getBaseBuilding()) return true;
         // Mines/power plants cannot provide territory (same as gold mines)
         if (building.gameType === "Mine") return false;
         // Repair towers and gold mines cannot provide territory
@@ -725,7 +776,7 @@ export class Territory {
      */
     _applyInvalidPenalty(building: BuildingLike): void {
         // Headquarters is never penalized
-        if (building === this.world.rootBuilding) return;
+        if (building === this._getBaseBuilding()) return;
 
         // Skip if penalty already applied
         if (building._territoryPenaltyApplied) return;
@@ -734,8 +785,8 @@ export class Territory {
 
         // HP halved (all buildings receive this penalty)
         building._originalMaxHp = building.maxHp;
-        building.maxHp = Math.round(building.maxHp / 2);
-        building.hp = Math.round(building.hp / 2);
+        building.maxHp = Math.round(building.maxHp * TERRITORY_PENALTY.HP_MULTIPLIER);
+        building.hp = Math.round(building.hp * TERRITORY_PENALTY.HP_MULTIPLIER);
 
         // Towers: save original range (for display, actual range calculated dynamically via getEffectiveRangeR())
         if (building.gameType === 'Tower') {
@@ -748,7 +799,7 @@ export class Territory {
      */
     _removeInvalidPenalty(building: BuildingLike): void {
         // Headquarters is never penalized
-        if (building === this.world.rootBuilding) return;
+        if (building === this._getBaseBuilding()) return;
 
         // Skip if penalty not applied
         if (!building._territoryPenaltyApplied) return;
@@ -756,7 +807,7 @@ export class Territory {
         building.inValidTerritory = true;
 
         // Restore max HP (current HP not restored)
-        if (building._originalMaxHp !== null) {
+        if (building._originalMaxHp !== null && building._originalMaxHp !== undefined) {
             building.maxHp = building._originalMaxHp;
             building._originalMaxHp = null;
         }

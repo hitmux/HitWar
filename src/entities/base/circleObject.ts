@@ -11,16 +11,13 @@ import {
     BAR_OFFSET,
     type StatusBarCache
 } from '../statusBar';
+import type { CheatModeLike } from '@/types/worldLike';
 
-interface CheatMode {
-    enabled: boolean;
-    infiniteHp: boolean;
-}
-
-interface WorldLike {
+export interface CircleObjectWorldLike {
     width: number;
     height: number;
-    cheatMode?: CheatMode;
+    cheatMode?: CheatModeLike;
+    markSpatialDirty?(entity: unknown): void;
 }
 
 export class CircleObject {
@@ -30,7 +27,7 @@ export class CircleObject {
     private static _tempVec: Vector = new Vector(0, 0);
 
     pos: Vector;
-    world: WorldLike;
+    world: CircleObjectWorldLike;
     gameType: string;
     liveTime: number;
     r: number;
@@ -53,21 +50,27 @@ export class CircleObject {
     selected: boolean;
 
     protected _bodyCircle: Circle | null;
-    protected _hpBarCache: StatusBarCache;
+    _hpBarCache: StatusBarCache;
 
-    protected _bodyVersion: number = 0;
+    _bodyVersion: number = 0;
 
-    // Territory related properties
+    // Territory related properties (public for Territory system access)
     inValidTerritory: boolean;
-    protected _originalMaxHp: number | null;
-    protected _territoryPenaltyApplied: boolean;
-    protected _originalRangeR: number | null;
+    _originalMaxHp: number | null;
+    _territoryPenaltyApplied: boolean;
+    _originalRangeR: number | null;
 
     // 上一帧位置（用于扫掠碰撞检测）
     prevX: number = 0;
     prevY: number = 0;
 
-    constructor(pos: Vector, world: WorldLike) {
+    // Owner ID for multiplayer support (null = neutral/single-player default)
+    ownerId: string | null = null;
+
+    // Unique ID for multiplayer entity tracking (null = single-player)
+    id: string | null = null;
+
+    constructor(pos: Vector, world: CircleObjectWorldLike) {
         this.pos = pos;
         this.world = world;
         this.gameType = "CircleObject";
@@ -120,7 +123,7 @@ export class CircleObject {
 
     protected _markMovement(prevX: number, prevY: number): void {
         if (prevX !== this.pos.x || prevY !== this.pos.y) {
-            (this.world as any)?.markSpatialDirty?.call(this.world, this);
+            this.world.markSpatialDirty?.(this);
         }
     }
 
@@ -184,8 +187,7 @@ export class CircleObject {
         } else {
             this.r += dr;
         }
-        // 使用 call 保持 world 作为 this 上下文
-        (this.world as any)?.markSpatialDirty?.call(this.world, this);
+        this.world.markSpatialDirty?.(this);
         this._markBodyDirty();
     }
 

@@ -4,10 +4,13 @@
  */
 
 // Type for a creator function that produces an entity
-export type Creator<T> = (...args: unknown[]) => T;
+// Uses any[] for params since registries store heterogeneous factory functions
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Creator<T> = (...args: any[]) => T;
 
 // Type for a class getter function (lazy loading)
-export type ClassGetter = () => unknown;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ClassGetter = () => abstract new (...args: any[]) => any;
 
 /**
  * Abstract base class for entity registries
@@ -40,9 +43,10 @@ export abstract class BaseRegistry<C extends Creator<unknown>> {
     }
 
     /**
-     * Get a class type by name
+     * Get a class type by name (returns constructor suitable for instanceof)
      */
-    static getClassType(name: string): unknown | null {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    static getClassType(name: string): (abstract new (...args: any[]) => any) | null {
         const getter = this._classTypes.get(name);
         return getter ? getter() : null;
     }

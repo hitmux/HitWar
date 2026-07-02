@@ -4,15 +4,33 @@
  */
 
 import { Vector } from '../../core/math/vector';
-import { SpatialQuerySystem, SpatialEntity } from '../spatial';
+import { SpatialQuerySystem, SpatialGridObject } from '../spatial';
 import { EffectCircle } from '../../effects/effectCircle';
 import { EffectLine } from '../../effects/effectLine';
 import { Mine } from '../../systems/energy/mine';
 import type { IEffect } from '../../types';
+import type { VisionType } from '../../../shared/config/visionMeta';
+
+// Fields required for territory system interaction (from CircleObject base)
+export interface TerritoryCompatibleEntity {
+    pos: Vector;
+    gameType?: string;
+    maxHp: number;
+    hp: number;
+    rangeR?: number;
+    inValidTerritory: boolean;
+    _territoryPenaltyApplied: boolean;
+    _originalMaxHp: number | null;
+    _originalRangeR?: number | null;
+    otherHpAddAble?: boolean;
+    moneyAddedAble?: boolean;
+    ownerId?: string | null;
+}
 
 // 塔防实体接口
-export interface TowerLike {
+export interface TowerLike extends TerritoryCompatibleEntity {
     pos: Vector;
+    r: number;
     bullys: Set<unknown>;
     isDead: () => boolean;
     goStep: () => void;
@@ -21,21 +39,34 @@ export interface TowerLike {
     // 分离的移动和碰撞方法
     goStepMove: () => void;
     goStepCollide: () => void;
+    // Rendering methods
+    renderBody?: (ctx: CanvasRenderingContext2D) => void;
+    renderBars?: (ctx: CanvasRenderingContext2D) => void;
+    // Vision system fields (for FogOfWar)
+    visionType: VisionType;
+    visionLevel: number;
+    radarAngle: number;
+    getVisionRadius(): number;
+    // Energy system fields
+    getTowerLevel: () => number;
 }
 
 // 建筑实体接口
-export interface BuildingLike {
+export interface BuildingLike extends TerritoryCompatibleEntity {
     pos: Vector;
-    gameType?: string;
+    r: number;
     isDead: () => boolean;
     goStep: () => void;
     render: (ctx: CanvasRenderingContext2D) => void;
     destroy?: (skipRemoveFromBuildings?: boolean) => void;
     getBodyCircle: () => any; // Returns Circle or compatible object
+    // Rendering methods
+    renderStatic?: (ctx: CanvasRenderingContext2D) => void;
+    renderDynamic?: (ctx: CanvasRenderingContext2D) => void;
 }
 
 // 怪物实体接口
-export interface MonsterLike extends SpatialEntity {
+export interface MonsterLike extends SpatialGridObject {
     pos: Vector;
     r: number;
     maxHp: number;
@@ -53,10 +84,13 @@ export interface MonsterLike extends SpatialEntity {
     // 上一帧位置（用于扫掠碰撞检测）
     prevX: number;
     prevY: number;
+    // Multiplayer support
+    ownerId?: string | null;
+    destination?: Vector;
 }
 
 // 子弹实体接口
-export interface BullyLike extends SpatialEntity {
+export interface BullyLike extends SpatialGridObject {
     pos: Vector;
     r: number;
     isOutScreen: () => boolean;
@@ -74,8 +108,8 @@ export interface BullyLike extends SpatialEntity {
 // 实体管理器需要的上下文接口
 export interface EntityManagerContext {
     territory?: {
-        addBuildingIncremental: (building: any) => void;
-        removeBuildingIncremental: (building: any) => void;
+        addBuildingIncremental: (building: TerritoryCompatibleEntity) => void;
+        removeBuildingIncremental: (building: TerritoryCompatibleEntity) => void;
     };
 }
 
@@ -83,6 +117,10 @@ export interface EntityManagerContext {
 export interface EntityRemovalCallbacks {
     onTowerRemoved?: () => void;
     onBuildingRemoved?: () => void;
+    /** Called when a building dies, with the building as parameter */
+    onBuildingDied?: (building: BuildingLike) => void;
+    /** Called when a tower dies, with the tower as parameter */
+    onTowerDied?: (tower: TowerLike) => void;
 }
 
 /**
@@ -120,7 +158,7 @@ export class EntityManager {
         this._spatialSystem.markBuildingQuadTreeDirty();
         // Use incremental update for territory
         if (this._context.territory) {
-            this._context.territory.addBuildingIncremental(tower as any);
+            this._context.territory.addBuildingIncremental(tower);
         }
     }
 
@@ -159,7 +197,7 @@ export class EntityManager {
         this._spatialSystem.markBuildingQuadTreeDirty();
         // Use incremental update for territory
         if (this._context.territory) {
-            this._context.territory.addBuildingIncremental(building as any);
+            this._context.territory.addBuildingIncremental(building);
         }
     }
 
@@ -273,10 +311,12 @@ export class EntityManager {
             } else {
                 towerRemoved = true;
                 // Incremental update for immediate territory response (no 100ms delay)
-                this._context.territory?.removeBuildingIncremental(t as any);
+                this._context.territory?.removeBuildingIncremental(t);
                 const e = EffectCircle.acquire(t.pos);
                 e.animationFunc = e.destroyAnimation;
                 this.addEffect(e as unknown as IEffect);
+                // Notify about tower death
+                callbacks?.onTowerDied?.(t);
             }
         }
         this.batterys.length = writeIdx;
@@ -290,10 +330,12 @@ export class EntityManager {
             } else {
                 buildingRemoved = true;
                 // Incremental update for immediate territory response (no 100ms delay)
-                this._context.territory?.removeBuildingIncremental(b as any);
+                this._context.territory?.removeBuildingIncremental(b);
                 if (b.gameType === "Mine" && b.destroy) {
                     b.destroy(true);
                 }
+                // Notify about building death (for base building check)
+                callbacks?.onBuildingDied?.(b);
             }
         }
         this.buildings.length = writeIdx;
@@ -320,7 +362,7 @@ export class EntityManager {
                 if (e instanceof EffectLine) {
                     EffectLine.release(e);
                 } else if (e instanceof EffectCircle) {
-                    EffectCircle.release(e as any);
+                    EffectCircle.release(e);
                 }
             }
         }
@@ -360,7 +402,7 @@ export class EntityManager {
         }
         // Standalone bullet 碰撞检测
         for (const p of this.othersBullys) {
-            p.collide(this._context as any);
+            p.collide(this._context);
         }
         // Monster 碰撞检测
         for (const m of this.monsters) {

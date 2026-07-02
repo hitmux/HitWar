@@ -7,24 +7,30 @@ import { Circle } from '../../core/math/circle';
 import { MyColor, ReadonlyColor } from '../../entities/myColor';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
+import { renderMonsterMortis } from '../rendering/monsterRenderer';
 import { scaleSpeed } from '../../core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
+import type {
+    VectorLike as BaseVectorLike,
+    CircleLike as BaseCircleLike,
+    BuildingLike as BaseBuildingLike,
+    UserLike,
+    RootBuildingLike,
+} from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
 declare const EffectCircle: {
     acquire(pos: VectorLike): EffectCircleLike;
 } | undefined;
 
-interface VectorLike {
-    x: number;
-    y: number;
+// Extended VectorLike with copy method
+interface VectorLike extends BaseVectorLike {
     copy(): VectorLike;
 }
 
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
-    impact(other: CircleLike): boolean;
+// Extended CircleLike with additional methods
+interface CircleLike extends BaseCircleLike {
+    impact(other: BaseCircleLike): boolean;
     pointIn?(x: number, y: number): boolean;
 }
 
@@ -35,20 +41,19 @@ interface EffectCircleLike {
     initCircleStyle(fillColor: ReadonlyColor, strokeColor: ReadonlyColor, strokeWidth: number): void;
 }
 
-interface BuildingLike {
-    pos: VectorLike;
+// Extended BuildingLike for mortis targeting
+interface BuildingLike extends BaseBuildingLike {
     getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
-    isDead(): boolean;
 }
 
+// WorldLike interface for MonsterMortis
 interface WorldLike {
     width: number;
     height: number;
     monsters: Set<Monster>;
     allBullys: Iterable<unknown>;
-    rootBuilding: { pos: Vector };
-    user: { money: number };
+    rootBuilding: RootBuildingLike & { pos: Vector };
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): Monster[];
     getBullysInRange(x: number, y: number, range: number): unknown[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
@@ -83,6 +88,11 @@ export class MonsterMortis extends Monster {
         this.bodyStrokeWidth = 3;
     }
 
+    resetBumpState(): void {
+        this.bumpEndPoint = null;
+        this.bumpSpeedVector = Vector.zero();
+    }
+
     setEndPoint(): void {
         if (!this.target) return;
         let dv = (this.target.pos as Vector).sub(this.pos).to1();
@@ -97,7 +107,11 @@ export class MonsterMortis extends Monster {
     refreshTarget(): void {
         const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.viewRadius);
         for (let building of nearbyBuildings) {
-            if (building.getBodyCircle().impact(new Circle(this.pos.x, this.pos.y, this.viewRadius) as any)) {
+            // Filter friendly buildings (same owner)
+            if (!isEnemy(this, building)) {
+                continue;
+            }
+            if (building.getBodyCircle().impact(new Circle(this.pos.x, this.pos.y, this.viewRadius))) {
                 this.target = building;
                 return;
             }
@@ -114,53 +128,16 @@ export class MonsterMortis extends Monster {
      * Movement phase: handle bump movement with proper prevX/prevY tracking
      */
     moveOnly(): void {
-        this.refreshTarget();
-        
-        if (this.haveTarget()) {
-            // Save previous position for sweep collision detection
-            this.prevX = this.pos.x;
-            this.prevY = this.pos.y;
-            
-            // Initialize bump if needed
-            if (this.bumpEndPoint === null) {
-                this.setEndPoint();
-            }
-            
-            // Check if reached endpoint
-            if (this.bumpEndPoint && new Circle(this.bumpEndPoint.x, this.bumpEndPoint.y, 12).pointIn(this.pos.x, this.pos.y)) {
-                if (this.haveTarget()) {
-                    this.setEndPoint();
-                } else {
-                    this.bumpEndPoint = null;
-                    this.bumpSpeedVector = Vector.zero();
-                }
-            } else {
-                // Visual effect
-                if (typeof EffectCircle !== 'undefined' && EffectCircle.acquire) {
-                    let ec = EffectCircle.acquire(this.pos.copy());
-                    ec.circle.r = this.r;
-                    ec.initCircleStyle(this.bodyColor, this.bodyStrokeColor, 0);
-                    ec.animationFunc = ec.flashAnimation;
-                    this.world.addEffect(ec);
-                }
-                // Execute bump movement
-                this.pos.add(this.bumpSpeedVector);
-            }
-            
-            // Update spatial index
-            this._markMovement(this.prevX, this.prevY);
-            
-            // Handle burn damage (copied from Monster.moveOnly since we skip super call)
-            if (this.burnRate > this.maxBurnRate) {
-                this.burnRate = this.maxBurnRate;
-            }
-            if (this.burnRate !== 0) {
-                this.hpChange(-this.burnRate * this.maxHp);
-            }
-        } else {
-            this.bumpEndPoint = null;
-            super.moveOnly();
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
         }
+        this.refreshTarget();
+
+        if (!this.haveTarget()) {
+            this.resetBumpState();
+        }
+
+        super.moveOnly();
     }
 
     clash(): void {
@@ -183,8 +160,15 @@ export class MonsterMortis extends Monster {
      * 碰撞检测阶段（使用扫掠检测）
      */
     clashOnly(): void {
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
         for (let b of nearbyBuildings) {
+            // Skip friendly buildings (multiplayer support)
+            if (!isEnemy(this, b)) {
+                continue;
+            }
             const bc = b.getBodyCircle();
             // 使用扫掠检测（建筑不移动）
             if (Circle.sweepCollides(
@@ -204,12 +188,53 @@ export class MonsterMortis extends Monster {
     move(): void {
         if (!this.haveTarget()) {
             super.move();
+            return;
+        }
+
+        if (this.bumpEndPoint === null) {
+            this.setEndPoint();
+        }
+
+        if (this.bumpEndPoint === null) {
+            return;
+        }
+
+        if (new Circle(this.bumpEndPoint.x, this.bumpEndPoint.y, 12).pointIn(this.pos.x, this.pos.y)) {
+            if (this.haveTarget()) {
+                this.setEndPoint();
+            } else {
+                this.resetBumpState();
+            }
+            return;
+        }
+
+        if (typeof EffectCircle !== 'undefined' && EffectCircle.acquire) {
+            let ec = EffectCircle.acquire(this.pos.copy());
+            ec.circle.r = this.r;
+            ec.initCircleStyle(this.bodyColor, this.bodyStrokeColor, 0);
+            ec.animationFunc = ec.flashAnimation;
+            this.world.addEffect(ec);
+        }
+
+        const previousDestinationX = this.destination.x;
+        const previousDestinationY = this.destination.y;
+        const previousSpeedNumb = this.speedNumb;
+
+        this.destination.x = this.bumpEndPoint.x;
+        this.destination.y = this.bumpEndPoint.y;
+        this.speedNumb = this.bumpV;
+
+        try {
+            super.move();
+        } finally {
+            this.destination.x = previousDestinationX;
+            this.destination.y = previousDestinationY;
+            this.speedNumb = previousSpeedNumb;
         }
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        super.render(ctx);
-        new Circle(this.pos.x, this.pos.y, this.viewRadius).renderView(ctx);
+        renderMonsterMortis(this, ctx);
     }
 }
 

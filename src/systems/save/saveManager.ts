@@ -8,8 +8,10 @@ import { Vector } from '../../core/math/vector';
 import { TowerRegistry } from '../../towers/towerRegistry';
 import { MonsterRegistry } from '../../monsters/monsterRegistry';
 import { BuildingRegistry } from '../../buildings/buildingRegistry';
-import { Obstacle } from '../../core/physics/obstacle';
-import { Mine } from '../energy/mine';
+import { Obstacle, type ObstacleSaveData } from '../../core/physics/obstacle';
+import { Mine, type MineSaveData, type MineWorldLike } from '../energy/mine';
+import type { TowerLike, BuildingLike, MonsterLike } from '../../game/entities/entityManager';
+import { VisionType } from '../../../shared/config/visionMeta';
 
 export const SAVE_VERSION = 4;
 export const SAVE_KEY_PREFIX = "HitWar_save_";
@@ -113,28 +115,16 @@ interface MonsterData {
     bullys?: MonsterBulletData[];  // MonsterShooter bullets
 }
 
-interface MineData {
-    x: number;
-    y: number;
-    state: string;
-    powerPlantLevel: number;
-    hp: number;
-    maxHp: number;
-    repairing: boolean;
-    repairProgress: number;
-    inValidTerritory: boolean;
-    _originalMaxHp: number | null;
-    _territoryPenaltyApplied: boolean;
-}
+type MineData = MineSaveData;
 
-interface SaveData {
+export interface SaveData {
     version: number;
     timestamp: number;
     mode: string;
     haveFlow: boolean;
     world: WorldData;
     camera: CameraData;
-    obstacles: unknown[];
+    obstacles: ObstacleSaveData[];
     cheatMode: CheatModeData;
     rootBuilding: RootBuildingData;
     towers: TowerData[];
@@ -155,27 +145,83 @@ interface EntityValidationConfig {
     registry?: { has(name: string): boolean };
 }
 
+// Serializable extensions: extra properties that SaveManager reads/writes
+// beyond what the entity manager interfaces (TowerLike, MonsterLike) expose.
+// Class-specific optional properties included since getClassType instanceof
+// narrowing doesn't produce usable types.
+type SerializableTower = TowerLike & {
+    liveTime: number;
+    towerLevel: number;
+    // TowerLaser specific
+    laserFreezeNow?: number;
+    laserDamageAdd?: number;
+    // TowerHell specific
+    targetLiveTime?: number;
+    target?: unknown;
+    // TowerBoomerang specific
+    bar?: unknown;
+    initBar?: () => unknown;
+    // TowerHammer specific
+    additionItem?: unknown;
+    initAdditionItem?: () => unknown;
+    // TowerRay specific
+    rayRotate?: number;
+};
+
+type SerializableMonster = MonsterLike & {
+    hp: number;
+    speed: Vector;
+    changedSpeed: Vector;
+    speedFreezeNumb: number;
+    burnRate: number;
+    haveLaserDefence?: boolean;
+    laserDefendNum?: number;
+    summonAble?: boolean;
+    summonCount?: number;
+    liveTime?: number;
+    bullys?: Set<MonsterBulletLike>;
+    // MonsterShooter specific
+    getRunningBully?: () => MonsterBulletLike | null;
+};
+
+// Properties available on monster bullets for serialization
+interface MonsterBulletLike {
+    pos: Vector;
+    speed: Vector;
+    originalPos: Vector;
+    slideRate: number;
+    r: number;
+    isSliptedBully?: boolean;
+}
+
 // World-like interface for type safety
-interface WorldLike {
+export interface SaveWorldLike extends MineWorldLike {
     time: number;
     mode: string;
     haveFlow: boolean;
     width: number;
     height: number;
     gameSpeed: number;
-    user: { money: number };
     monsterFlow: { level: number; delayTick: number; state: string };
     monsterFlowNext?: unknown;
     camera: { x: number; y: number; zoom: number; clampPosition: () => void };
     obstacles: Obstacle[];
     cheatMode: { enabled: boolean; priceMultiplier: number; infiniteHp: boolean; disableEnergy: boolean };
-    rootBuilding: { pos: Vector; hp: number; maxHp: number };
-    batterys: unknown[];
-    buildings: unknown[];
-    monsters: Set<unknown>;
-    mines: Set<unknown>;
-    territory?: { markDirty: () => void; recalculate: () => void };
+    getBaseBuilding(): BuildingLike;
+    batterys: TowerLike[];
+    buildings: BuildingLike[];
+    monsters: Set<MonsterLike>;
+    mines: Set<Mine>;
+    territory?: {
+        markDirty: () => void;
+        addBuildingIncremental?: (building: BuildingLike) => void;
+        recalculate: () => void;
+    };
+    fog?: { markDirty: () => void };
     markStaticLayerDirty: () => void;
+    // Money management (multiplayer compatible)
+    getMoney(): number;
+    setMoney(amount: number): void;
 }
 
 interface MonsterGroupClassLike {
@@ -195,11 +241,11 @@ export class SaveManager {
      * Get tower type name for serialization
      */
     static getTowerTypeName(tower: unknown): string {
-        const TowerHell = TowerRegistry.getClassType('TowerHell') as any;
-        const TowerBoomerang = TowerRegistry.getClassType('TowerBoomerang') as any;
-        const TowerHammer = TowerRegistry.getClassType('TowerHammer') as any;
-        const TowerRay = TowerRegistry.getClassType('TowerRay') as any;
-        const TowerLaser = TowerRegistry.getClassType('TowerLaser') as any;
+        const TowerHell = TowerRegistry.getClassType('TowerHell');
+        const TowerBoomerang = TowerRegistry.getClassType('TowerBoomerang');
+        const TowerHammer = TowerRegistry.getClassType('TowerHammer');
+        const TowerRay = TowerRegistry.getClassType('TowerRay');
+        const TowerLaser = TowerRegistry.getClassType('TowerLaser');
 
         if (TowerHell && tower instanceof TowerHell) return "TowerHell";
         if (TowerBoomerang && tower instanceof TowerBoomerang) return "TowerBoomerang";
@@ -213,9 +259,9 @@ export class SaveManager {
      * Get monster type name for serialization
      */
     static getMonsterTypeName(monster: unknown): string {
-        const MonsterTerminator = MonsterRegistry.getClassType('MonsterTerminator') as any;
-        const MonsterMortis = MonsterRegistry.getClassType('MonsterMortis') as any;
-        const MonsterShooter = MonsterRegistry.getClassType('MonsterShooter') as any;
+        const MonsterTerminator = MonsterRegistry.getClassType('MonsterTerminator');
+        const MonsterMortis = MonsterRegistry.getClassType('MonsterMortis');
+        const MonsterShooter = MonsterRegistry.getClassType('MonsterShooter');
 
         if (MonsterTerminator && monster instanceof MonsterTerminator) return "MonsterTerminator";
         if (MonsterMortis && monster instanceof MonsterMortis) return "MonsterMortis";
@@ -226,13 +272,13 @@ export class SaveManager {
     /**
      * Find creator function name by matching tower properties
      */
-    static findTowerCreatorName(tower: unknown, world: WorldLike): string | null {
+    static findTowerCreatorName(tower: unknown, world: SaveWorldLike): string | null {
         const towerObj = tower as { name: string };
         const names = TowerRegistry.getNames();
         for (const name of names) {
             const creator = TowerRegistry.getCreator(name);
             if (creator) {
-                const sample = creator(world as any) as { name: string };
+                const sample = creator(world) as { name: string };
                 if (sample.name === towerObj.name) {
                     return name;
                 }
@@ -244,14 +290,34 @@ export class SaveManager {
     /**
      * Find creator function name by matching monster properties
      */
-    static findMonsterCreatorName(monster: unknown, world: WorldLike): string | null {
+    static findMonsterCreatorName(monster: unknown, world: SaveWorldLike): string | null {
         const monsterObj = monster as { name: string };
         const names = MonsterRegistry.getNames();
         for (const name of names) {
             const creator = MonsterRegistry.getCreator(name);
             if (creator) {
-                const sample = creator(world as any) as { name: string };
+                const sample = creator(world) as { name: string };
                 if (sample.name === monsterObj.name) {
+                    return name;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find creator function name by matching building properties
+     */
+    static findBuildingCreatorName(building: unknown, world: SaveWorldLike): string | null {
+        const buildingObj = building as { name: string };
+        const names = BuildingRegistry.getNames();
+        for (const name of names) {
+            // Skip Root as it's handled separately
+            if (name === 'Root') continue;
+            const creator = BuildingRegistry.getCreator(name);
+            if (creator) {
+                const sample = creator(world) as { name: string };
+                if (sample.name === buildingObj.name) {
                     return name;
                 }
             }
@@ -262,7 +328,7 @@ export class SaveManager {
     /**
      * Serialize world state to save data object
      */
-    static serialize(world: WorldLike): SaveData {
+    static serialize(world: SaveWorldLike): SaveData {
         const saveData: SaveData = {
             version: SAVE_VERSION,
             timestamp: Date.now(),
@@ -271,7 +337,7 @@ export class SaveManager {
 
             world: {
                 time: world.time,
-                money: world.user.money,
+                money: world.getMoney(),
                 flowLevel: world.monsterFlow.level,
                 flowDelayTick: world.monsterFlow.delayTick,
                 flowState: world.monsterFlow.state,
@@ -296,10 +362,10 @@ export class SaveManager {
             },
 
             rootBuilding: {
-                x: world.rootBuilding.pos.x,
-                y: world.rootBuilding.pos.y,
-                hp: world.rootBuilding.hp,
-                maxHp: world.rootBuilding.maxHp,
+                x: world.getBaseBuilding().pos.x,
+                y: world.getBaseBuilding().pos.y,
+                hp: world.getBaseBuilding().hp,
+                maxHp: world.getBaseBuilding().maxHp,
             },
 
             towers: [],
@@ -309,10 +375,10 @@ export class SaveManager {
         };
 
         // Get class types for instanceof checks
-        const TowerLaser = TowerRegistry.getClassType('TowerLaser') as any;
-        const TowerHell = TowerRegistry.getClassType('TowerHell') as any;
-        const TowerRay = TowerRegistry.getClassType('TowerRay') as any;
-        const MonsterShooter = MonsterRegistry.getClassType('MonsterShooter') as any;
+        const TowerLaser = TowerRegistry.getClassType('TowerLaser');
+        const TowerHell = TowerRegistry.getClassType('TowerHell');
+        const TowerRay = TowerRegistry.getClassType('TowerRay');
+        const MonsterShooter = MonsterRegistry.getClassType('MonsterShooter');
 
         // Warn if tower count seems abnormally low for the game progress
         const towerCount = world.batterys.length;
@@ -322,7 +388,7 @@ export class SaveManager {
 
         // Serialize towers
         for (const tower of world.batterys) {
-            const t = tower as any;
+            const t = tower as SerializableTower;
             const towerData: TowerData = {
                 type: this.getTowerTypeName(tower),
                 creatorFunc: this.findTowerCreatorName(tower, world),
@@ -335,7 +401,7 @@ export class SaveManager {
                 inValidTerritory: t.inValidTerritory,
                 _originalMaxHp: t._originalMaxHp,
                 _territoryPenaltyApplied: t._territoryPenaltyApplied,
-                _originalRangeR: t._originalRangeR,
+                _originalRangeR: t._originalRangeR ?? null,
                 // Vision attributes
                 visionType: t.visionType,
                 visionLevel: t.visionLevel,
@@ -363,13 +429,13 @@ export class SaveManager {
 
         // Serialize buildings (excluding rootBuilding and Mine)
         for (const building of world.buildings) {
-            const b = building as any;
-            if (building === world.rootBuilding) continue;
+            const b = building;
+            if (building === world.getBaseBuilding()) continue;
             if (b.gameType === "Mine") continue;
 
             const buildingData: BuildingData = {
                 type: "Building",
-                creatorFunc: b.name === "金矿" ? "Collector" : "Treatment",
+                creatorFunc: this.findBuildingCreatorName(building, world) || "Treatment",
                 x: b.pos.x,
                 y: b.pos.y,
                 hp: b.hp,
@@ -383,7 +449,7 @@ export class SaveManager {
 
         // Serialize monsters
         for (const monster of world.monsters) {
-            const m = monster as any;
+            const m = monster as SerializableMonster;
             const monsterData: MonsterData = {
                 type: this.getMonsterTypeName(monster),
                 creatorFunc: this.findMonsterCreatorName(monster, world),
@@ -412,7 +478,7 @@ export class SaveManager {
 
                 // Serialize bullets
                 if (m.bullys && m.bullys.size > 0) {
-                    monsterData.bullys = Array.from(m.bullys).map((b: any) => ({
+                    monsterData.bullys = Array.from(m.bullys).map((b: MonsterBulletLike) => ({
                         x: b.pos.x,
                         y: b.pos.y,
                         speedX: b.speed.x,
@@ -431,7 +497,7 @@ export class SaveManager {
 
         // Serialize mines
         for (const mine of world.mines) {
-            const m = mine as any;
+            const m = mine;
             const mineData: MineData = {
                 x: m.pos.x,
                 y: m.pos.y,
@@ -454,18 +520,18 @@ export class SaveManager {
     /**
      * Deserialize save data and restore world state
      */
-    static deserialize(saveData: SaveData, world: WorldLike, MonsterGroupClass: MonsterGroupClassLike | null): boolean {
+    static deserialize(saveData: SaveData, world: SaveWorldLike, MonsterGroupClass: MonsterGroupClassLike | null): boolean {
         try {
             // Get class types for instanceof checks
-            const TowerLaser = TowerRegistry.getClassType('TowerLaser') as any;
-            const TowerHell = TowerRegistry.getClassType('TowerHell') as any;
-            const TowerBoomerang = TowerRegistry.getClassType('TowerBoomerang') as any;
-            const TowerHammer = TowerRegistry.getClassType('TowerHammer') as any;
-            const TowerRay = TowerRegistry.getClassType('TowerRay') as any;
+            const TowerLaser = TowerRegistry.getClassType('TowerLaser');
+            const TowerHell = TowerRegistry.getClassType('TowerHell');
+            const TowerBoomerang = TowerRegistry.getClassType('TowerBoomerang');
+            const TowerHammer = TowerRegistry.getClassType('TowerHammer');
+            const TowerRay = TowerRegistry.getClassType('TowerRay');
 
             // Restore world basic properties
             world.time = saveData.world.time;
-            world.user.money = saveData.world.money;
+            world.setMoney(saveData.world.money);
             world.mode = saveData.mode;
             world.haveFlow = saveData.haveFlow;
 
@@ -475,18 +541,19 @@ export class SaveManager {
 
             // Restore rootBuilding position and HP
             // Position must be restored to avoid overlapping with other buildings
+            const baseBuilding = world.getBaseBuilding();
             if (saveData.rootBuilding.x !== undefined && saveData.rootBuilding.y !== undefined) {
-                world.rootBuilding.pos.x = saveData.rootBuilding.x;
-                world.rootBuilding.pos.y = saveData.rootBuilding.y;
+                baseBuilding.pos.x = saveData.rootBuilding.x;
+                baseBuilding.pos.y = saveData.rootBuilding.y;
             }
-            world.rootBuilding.hp = saveData.rootBuilding.hp;
-            world.rootBuilding.maxHp = saveData.rootBuilding.maxHp;
+            baseBuilding.hp = saveData.rootBuilding.hp;
+            baseBuilding.maxHp = saveData.rootBuilding.maxHp;
 
             // Restore wave state
             if (MonsterGroupClass) {
-                world.monsterFlow = MonsterGroupClass.getMonsterFlow(world, saveData.world.flowLevel, saveData.mode) as any;
-                (world.monsterFlow as any).delayTick = saveData.world.flowDelayTick;
-                (world.monsterFlow as any).state = saveData.world.flowState;
+                world.monsterFlow = MonsterGroupClass.getMonsterFlow(world, saveData.world.flowLevel, saveData.mode);
+                world.monsterFlow.delayTick = saveData.world.flowDelayTick;
+                world.monsterFlow.state = saveData.world.flowState;
                 world.monsterFlowNext = MonsterGroupClass.getMonsterFlow(world, saveData.world.flowLevel + 1, saveData.mode);
             }
 
@@ -510,13 +577,13 @@ export class SaveManager {
 
             // Restore obstacles
             if (saveData.obstacles) {
-                world.obstacles = saveData.obstacles.map(data => Obstacle.deserialize(data as any));
+                world.obstacles = saveData.obstacles.map(data => Obstacle.deserialize(data));
                 world.markStaticLayerDirty();
             }
 
             // Clear existing entities (except rootBuilding)
             world.batterys = [];
-            world.buildings = [world.rootBuilding];
+            world.buildings = [world.getBaseBuilding()];
             world.monsters = new Set();
             world.mines = new Set();
 
@@ -528,7 +595,7 @@ export class SaveManager {
                     continue;
                 }
 
-                const tower = creator(world as any) as any;
+                const tower = creator(world) as SerializableTower;
                 tower.pos = new Vector(towerData.x, towerData.y);
                 tower.hp = towerData.hp;
                 tower.maxHp = towerData.maxHp;
@@ -551,11 +618,11 @@ export class SaveManager {
                 }
 
                 if (TowerBoomerang && tower instanceof TowerBoomerang) {
-                    tower.bar = tower.initBar();
+                    tower.bar = tower.initBar?.();
                 }
 
                 if (TowerHammer && tower instanceof TowerHammer) {
-                    tower.additionItem = tower.initAdditionItem();
+                    tower.additionItem = tower.initAdditionItem?.();
                 }
 
                 if (TowerRay && tower instanceof TowerRay && towerData.rayRotate !== undefined) {
@@ -563,7 +630,7 @@ export class SaveManager {
                 }
 
                 // Restore vision attributes (backward compatible with old saves)
-                tower.visionType = towerData.visionType || 'none';
+                tower.visionType = (towerData.visionType || 'none') as VisionType;
                 tower.visionLevel = towerData.visionLevel || 0;
                 tower.radarAngle = towerData.radarAngle || 0;
 
@@ -578,7 +645,7 @@ export class SaveManager {
                     continue;
                 }
 
-                const building = creator(world as any) as any;
+                const building = creator(world) as BuildingLike;
                 building.pos = new Vector(buildingData.x, buildingData.y);
                 building.hp = buildingData.hp;
                 building.maxHp = buildingData.maxHp;
@@ -591,7 +658,7 @@ export class SaveManager {
             }
 
             // Restore monsters
-            const MonsterShooter = MonsterRegistry.getClassType('MonsterShooter') as any;
+            const MonsterShooter = MonsterRegistry.getClassType('MonsterShooter');
             for (const monsterData of saveData.monsters) {
                 const creator = MonsterRegistry.getCreator(monsterData.creatorFunc || '');
                 if (!creator) {
@@ -599,7 +666,7 @@ export class SaveManager {
                     continue;
                 }
 
-                const monster = creator(world as any) as any;
+                const monster = creator(world) as SerializableMonster;
                 monster.pos = new Vector(monsterData.x, monsterData.y);
                 monster.hp = monsterData.hp;
                 monster.maxHp = monsterData.maxHp;
@@ -608,8 +675,9 @@ export class SaveManager {
                 monster.speedFreezeNumb = monsterData.speedFreezeNumb;
                 monster.burnRate = monsterData.burnRate;
                 monster.colishDamage = monsterData.colishDamage;
-                // Create a copy, not a reference! Otherwise monster AI will modify rootBuilding.pos
-                monster.destination = new Vector(world.rootBuilding.pos.x, world.rootBuilding.pos.y);
+                // Create a copy, not a reference! Otherwise monster AI will modify baseBuilding.pos
+                const baseBuildingPos = world.getBaseBuilding().pos;
+                monster.destination = new Vector(baseBuildingPos.x, baseBuildingPos.y);
 
                 if (monsterData.laserDefendNum !== undefined) {
                     monster.laserDefendNum = monsterData.laserDefendNum;
@@ -626,7 +694,7 @@ export class SaveManager {
                 // Restore MonsterShooter bullets
                 if (monsterData.bullys && MonsterShooter && monster instanceof MonsterShooter) {
                     for (const bulletData of monsterData.bullys) {
-                        const bullet = monster.getRunningBully();
+                        const bullet = monster.getRunningBully?.();
                         if (bullet) {
                             bullet.pos = new Vector(bulletData.x, bulletData.y);
                             bullet.speed = new Vector(bulletData.speedX, bulletData.speedY);
@@ -638,7 +706,7 @@ export class SaveManager {
                             if (bulletData.isSliptedBully !== undefined) {
                                 bullet.isSliptedBully = bulletData.isSliptedBully;
                             }
-                            monster.bullys.add(bullet);
+                            monster.bullys?.add(bullet);
                         }
                     }
                 }
@@ -649,18 +717,14 @@ export class SaveManager {
             // Restore mines
             if (saveData.mines) {
                 for (const mineData of saveData.mines) {
-                    const mine = new Mine(new Vector(mineData.x, mineData.y), world as any) as any;
-                    mine.state = mineData.state;
-                    mine.powerPlantLevel = mineData.powerPlantLevel;
-                    mine.hp = mineData.hp;
-                    mine.maxHp = mineData.maxHp;
-                    mine.repairing = mineData.repairing || false;
-                    mine.repairProgress = mineData.repairProgress || 0;
-                    mine._updateRadius();
-
-                    mine.inValidTerritory = mineData.inValidTerritory !== undefined ? mineData.inValidTerritory : true;
-                    mine._originalMaxHp = mineData._originalMaxHp || null;
-                    mine._territoryPenaltyApplied = mineData._territoryPenaltyApplied || false;
+                    const mine = Mine.fromSaveData({
+                        ...mineData,
+                        repairing: mineData.repairing ?? false,
+                        repairProgress: mineData.repairProgress ?? 0,
+                        inValidTerritory: mineData.inValidTerritory !== undefined ? mineData.inValidTerritory : true,
+                        _originalMaxHp: mineData._originalMaxHp ?? null,
+                        _territoryPenaltyApplied: mineData._territoryPenaltyApplied ?? false,
+                    }, world);
 
                     world.mines.add(mine);
 
@@ -677,15 +741,13 @@ export class SaveManager {
             }
 
             // Rebuild fog vision cache after loading
-            if ((world as any).fog) {
-                (world as any).fog.markDirty();
+            if (world.fog) {
+                world.fog.markDirty();
             }
 
             // Mark static layer dirty to rebuild building render cache
             // This ensures rootBuilding renders at the restored position
-            if (typeof (world as any).markStaticLayerDirty === 'function') {
-                (world as any).markStaticLayerDirty();
-            }
+            world.markStaticLayerDirty();
 
             return true;
         } catch (error) {

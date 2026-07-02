@@ -147,7 +147,7 @@ export class GameController {
         }
         this.autoSaveTimer = setInterval(() => {
             if (!this._isGamePause && !this._gameEnd) {
-                const saveData = SaveManager.serialize(this.world as any);
+                const saveData = SaveManager.serialize(this.world);
                 SaveManager.saveToLocal(this.mode, this.haveGroup, saveData);
                 if (!this.hasShownAutoSaveIndicator) {
                     SaveUI.showAutoSaveIndicator();
@@ -247,7 +247,7 @@ export class GameController {
         }
 
         // Check for game failure
-        if ((this.world.rootBuilding as any).isDead()) {
+        if (this.world.getBaseBuilding().isDead()) {
             SaveManager.clearSave(this.mode, this.haveGroup);
             this.callbacks.onFailure();
             if (this.rafId !== null) {

@@ -113,3 +113,41 @@ export type {
   SystemEventHandler,
   ISystemManager,
 } from './systems';
+
+// WorldLike types (unified interfaces for decoupling)
+export type {
+  VectorLike,
+  CircleLike,
+  UserLike,
+  MonsterLike,
+  BulletLike,
+  BuildingLike,
+  TowerLike,
+  TerritoryLike,
+  FogOfWarLike,
+  CameraLike,
+  EnergyLike,
+  CheatModeLike,
+  RootBuildingLike,
+  WorldLike,
+  WorldLikeForTower,
+  WorldLikeForMonster,
+  WorldLikeForBullet,
+  WorldLikeForBuilding,
+  WorldLikeForCircleObject,
+  WorldLikeForFactory,
+} from './worldLike';
+
+// Player types (multiplayer support)
+export type {
+  Player,
+  PlayerConfig,
+  OwnedEntity,
+} from './player';
+
+export {
+  DEFAULT_PLAYER_ID,
+  NEUTRAL_OWNER_ID,
+  PVP_CONFIG,
+  PLAYER_COLORS,
+} from './player';

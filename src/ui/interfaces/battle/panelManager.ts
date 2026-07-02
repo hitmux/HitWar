@@ -2,19 +2,21 @@
  * Panel manager - handles tower/building selection, level up, and mine panels
  */
 
-import { World } from '../../../game/world';
 import { Vector } from '../../../core/math/vector';
 import { Circle } from '../../../core/math/circle';
 import { EffectText } from '../../../effects/effect';
-import { TowerFinallyCompat } from '../../../towers/index';
 import { TOWER_IMG_WIDTH, TOWER_IMG_HEIGHT, TOWER_IMG_PRE_WIDTH, TOWER_IMG_PRE_HEIGHT } from '../../../towers/index';
 import { TowerRegistry } from '../../../towers/towerRegistry';
 import { getBuildingFuncArr } from '../../../buildings/index';
+import type { MonsterSpawner } from '../../../buildings/variants/monsterSpawner';
 import { Mine } from '../../../systems/energy/mine';
 import { VisionType } from '../../../systems/fog/visionConfig';
-import type { GameEntity, CanvasWithInputHandler } from './types';
+import { SpawnerPanel } from './spawnerPanel';
+import { ManualCannonPanel } from './manualCannonPanel';
+import type { TowerManualCannon } from '../../../towers/base/towerManualCannon';
+import type { GameEntity, CanvasWithInputHandler, PanelManagerWorldLike, PanelEntityLike, PanelCircleLike } from './types';
+import type { NetworkClient } from '../../../network/networkClient';
 
-const BUILDING_FUNC_ARR = getBuildingFuncArr();
 const LEVELUP_POOL_SIZE = 10;
 
 // Move mode constants
@@ -38,7 +40,7 @@ export interface PanelManagerCallbacks {
 }
 
 export class PanelManager {
-    private world: World;
+    private world: PanelManagerWorldLike;
     private canvasEle: CanvasWithInputHandler;
     private callbacks: PanelManagerCallbacks;
     private sessionId: string;
@@ -84,23 +86,40 @@ export class PanelManager {
     private refreshPanelInterval: ReturnType<typeof setInterval> | null = null;
     private freshBtnInterval: ReturnType<typeof setInterval> | null = null;
 
+    // Spawner panel
+    private spawnerPanel: SpawnerPanel;
+
+    // Manual cannon panel
+    private manualCannonPanel: ManualCannonPanel;
+
+    // Network client for multiplayer mode (null = single-player)
+    private networkClient: NetworkClient | null = null;
+
     constructor(
-        world: World,
+        world: PanelManagerWorldLike,
         canvasEle: CanvasWithInputHandler,
         sessionId: string,
         eventSignal: AbortSignal,
-        callbacks: PanelManagerCallbacks
+        callbacks: PanelManagerCallbacks,
+        networkClient?: NetworkClient
     ) {
         this.world = world;
         this.canvasEle = canvasEle;
         this.sessionId = sessionId;
         this.eventSignal = eventSignal;
         this.callbacks = callbacks;
+        this.networkClient = networkClient ?? null;
 
         this.choiceBtn = document.querySelector(".choiceBtn") as HTMLElement;
         this.smallLevelUpPanelEle = document.querySelector("#smallLevelUpPanel") as HTMLElement;
         this.listEle = this.smallLevelUpPanelEle.querySelector(".levelUpItems") as HTMLElement;
         this.otherItemsEle = this.smallLevelUpPanelEle.querySelector(".otherItems") as HTMLElement;
+
+        // Initialize spawner panel
+        this.spawnerPanel = new SpawnerPanel(eventSignal);
+
+        // Initialize manual cannon panel
+        this.manualCannonPanel = new ManualCannonPanel(eventSignal, this.networkClient ?? undefined, canvasEle);
     }
 
     /**
@@ -126,6 +145,16 @@ export class PanelManager {
             clearInterval(this.freshBtnInterval);
             this.freshBtnInterval = null;
         }
+        // Cleanup spawner panel
+        this.spawnerPanel.destroy();
+        // Cleanup manual cannon panel
+        this.manualCannonPanel.destroy();
+        // Cancel pending RAF
+        if (this.pendingPanelRAF !== null) {
+            cancelAnimationFrame(this.pendingPanelRAF);
+            this.pendingPanelRAF = null;
+        }
+        this.pendingPanelUpdate = null;
         // 恢复默认光标
         this.setMoveCursor(false);
     }
@@ -245,23 +274,34 @@ export class PanelManager {
             if (this.currentPanelEntity && this.currentClickPos) {
                 const price = parseInt(target.dataset.price!);
                 const towerName = target.dataset.towerName!;
-                if (this.world.user.money >= price) {
-                    const pos = this.currentPanelEntity.pos.copy();
-                    this.world.user.money -= price;
-                    const newThing = TowerRegistry.create(towerName, this.world) as GameEntity;
-                    newThing.towerLevel = this.currentPanelEntity.towerLevel + 1;
-                    newThing.pos = pos;
-                    // Preserve vision attributes
-                    newThing.visionType = this.currentPanelEntity.visionType;
-                    newThing.visionLevel = this.currentPanelEntity.visionLevel;
-                    newThing.radarAngle = this.currentPanelEntity.radarAngle;
-                    this.world.addTower(newThing as any);
-                    this.currentPanelEntity.remove();
-                    this.showSmallLevelUpPanel(newThing, this.currentClickPos);
-                } else {
-                    const et = new EffectText("钱不够！");
-                    et.pos = this.currentClickPos;
-                    this.world.addEffect(et as any);
+                const isMultiplayer = this.networkClient !== null;
+
+                if (isMultiplayer && this.currentPanelEntity.id) {
+                    // Multiplayer: send upgrade request to server
+                    this.networkClient!.upgradeTower({
+                        towerId: this.currentPanelEntity.id,
+                        targetType: towerName
+                    });
+                    this.hideLevelUpPanel();
+                } else if (!isMultiplayer) {
+                    // Single-player: local handling
+                    if (this.world.spendMoney(price)) {
+                        const pos = this.currentPanelEntity.pos.copy();
+                        const newThing = TowerRegistry.create(towerName, this.world) as GameEntity;
+                        newThing.towerLevel = this.currentPanelEntity.towerLevel + 1;
+                        newThing.pos = pos;
+                        // Preserve vision attributes
+                        newThing.visionType = this.currentPanelEntity.visionType;
+                        newThing.visionLevel = this.currentPanelEntity.visionLevel;
+                        newThing.radarAngle = this.currentPanelEntity.radarAngle;
+                        this.world.addTower(newThing);
+                        this.currentPanelEntity.remove();
+                        this.showSmallLevelUpPanel(newThing, this.currentClickPos);
+                    } else {
+                        const et = new EffectText("钱不够！");
+                        et.pos = this.currentClickPos;
+                        this.world.addEffect(et);
+                    }
                 }
                 this.callbacks.requestPauseRender();
                 return;
@@ -271,28 +311,44 @@ export class PanelManager {
             if (this.currentPanelMine && this.currentMineScreenPos) {
                 const action = target.dataset.mineAction;
                 const price = parseInt(target.dataset.price || "0");
+                const isMultiplayer = this.networkClient !== null;
+
                 if (action === "upgrade" || action === "repair") {
-                    // Re-check territory validity (may have changed since panel opened)
-                    if (!this.currentPanelMine.inValidTerritory) {
-                        const et = new EffectText("不在有效领地，无法操作");
-                        et.pos = this.currentPanelMine.pos.copy();
-                        this.world.addEffect(et as any);
-                        this.hideLevelUpPanel();
-                        this.callbacks.requestPauseRender();
-                        return;
-                    }
-                    if (this.world.user.money >= price) {
-                        this.world.user.money -= price;
-                        if (action === "upgrade") {
-                            this.currentPanelMine.upgrade();
-                        } else {
-                            this.currentPanelMine.startRepair();
+                    if (isMultiplayer && this.currentPanelMine.id) {
+                        // Multiplayer: send mine action to server
+                        const facade = this.world as unknown as {
+                            upgradeMine?: (id: string) => void;
+                            repairMine?: (id: string) => void;
+                        };
+                        if (action === "upgrade" && facade.upgradeMine) {
+                            facade.upgradeMine(this.currentPanelMine.id);
+                        } else if (action === "repair" && facade.repairMine) {
+                            facade.repairMine(this.currentPanelMine.id);
                         }
-                        this.showMinePanel(this.currentPanelMine, this.currentMineScreenPos);
-                    } else {
-                        const et = new EffectText("钱不够！");
-                        et.pos = this.currentPanelMine.pos.copy();
-                        this.world.addEffect(et as any);
+                        this.hideLevelUpPanel();
+                    } else if (!isMultiplayer) {
+                        // Single-player: local handling
+                        // Re-check territory validity (may have changed since panel opened)
+                        if (!this.currentPanelMine.inValidTerritory) {
+                            const et = new EffectText("不在有效领地，无法操作");
+                            et.pos = this.currentPanelMine.pos.copy();
+                            this.world.addEffect(et);
+                            this.hideLevelUpPanel();
+                            this.callbacks.requestPauseRender();
+                            return;
+                        }
+                        if (this.world.spendMoney(price)) {
+                            if (action === "upgrade") {
+                                this.currentPanelMine.upgrade();
+                            } else {
+                                this.currentPanelMine.startRepair();
+                            }
+                            this.showMinePanel(this.currentPanelMine, this.currentMineScreenPos);
+                        } else {
+                            const et = new EffectText("钱不够！");
+                            et.pos = this.currentPanelMine.pos.copy();
+                            this.world.addEffect(et);
+                        }
                     }
                 }
                 this.callbacks.requestPauseRender();
@@ -306,44 +362,73 @@ export class PanelManager {
 
             // Handle tower operations
             if (this.currentPanelEntity && this.currentClickPos) {
+                const isMultiplayer = this.networkClient !== null;
+
                 if (target.classList.contains("levelDown")) {
-                    const towerName = this.currentPanelEntity.levelDownGetter as string | null;
-                    if (towerName === null) {
-                        const et = new EffectText("无法降级！");
+                    if (isMultiplayer) {
+                        // Multiplayer: level down not supported yet
+                        const et = new EffectText("多人模式暂不支持降级");
                         et.pos = this.currentClickPos;
-                        this.world.addEffect(et as any);
+                        this.world.addEffect(et);
                     } else {
-                        const downObj = TowerRegistry.create(towerName, this.world) as GameEntity;
-                        downObj.towerLevel = Math.max(1, this.currentPanelEntity.towerLevel - 1);
-                        // Preserve vision attributes
-                        downObj.visionType = this.currentPanelEntity.visionType;
-                        downObj.visionLevel = this.currentPanelEntity.visionLevel;
-                        downObj.radarAngle = this.currentPanelEntity.radarAngle;
-                        this.world.user.money += this.currentPanelEntity.price / 4;
-                        const newPos = this.currentPanelEntity.pos.copy();
-                        this.currentPanelEntity.remove();
-                        downObj.pos = newPos;
-                        this.world.addTower(downObj as any);
-                        this.showSmallLevelUpPanel(downObj, this.currentClickPos);
+                        // Single-player: local handling
+                        const towerName = this.currentPanelEntity.levelDownGetter as string | null;
+                        if (towerName === null) {
+                            const et = new EffectText("无法降级！");
+                            et.pos = this.currentClickPos;
+                            this.world.addEffect(et);
+                        } else {
+                            const downObj = TowerRegistry.create(towerName, this.world) as GameEntity;
+                            downObj.towerLevel = Math.max(1, this.currentPanelEntity.towerLevel - 1);
+                            // Preserve vision attributes
+                            downObj.visionType = this.currentPanelEntity.visionType;
+                            downObj.visionLevel = this.currentPanelEntity.visionLevel;
+                            downObj.radarAngle = this.currentPanelEntity.radarAngle;
+                            this.world.addMoney(this.currentPanelEntity.price / 4);
+                            const newPos = this.currentPanelEntity.pos.copy();
+                            this.currentPanelEntity.remove();
+                            downObj.pos = newPos;
+                            this.world.addTower(downObj);
+                            this.showSmallLevelUpPanel(downObj, this.currentClickPos);
+                        }
                     }
                 } else if (target.classList.contains("sell")) {
-                    const refund = this.currentPanelEntity.getSellRefund?.() ?? Math.floor(this.currentPanelEntity.price / 2);
-                    this.world.user.money += refund;
-                    this.currentPanelEntity.remove();
-                    this.hideLevelUpPanel();
+                    if (isMultiplayer && this.currentPanelEntity.id) {
+                        // Multiplayer: route through facade for client prediction
+                        if (this.world.sellTower) {
+                            this.world.sellTower(this.currentPanelEntity.id);
+                        } else {
+                            this.networkClient!.sellTower({
+                                towerId: this.currentPanelEntity.id
+                            });
+                        }
+                        this.hideLevelUpPanel();
+                    } else if (!isMultiplayer) {
+                        // Single-player: local handling
+                        const refund = this.currentPanelEntity.getSellRefund?.() ?? Math.floor(this.currentPanelEntity.price / 2);
+                        this.world.addMoney(refund);
+                        this.currentPanelEntity.remove();
+                        this.hideLevelUpPanel();
+                    }
                 } else if (target.classList.contains("visionUpgrade")) {
                     const visionType = (target.dataset.visionType || VisionType.NONE) as VisionType;
-                    if (this.currentPanelEntity.canUpgradeVision?.(visionType)) {
+                    if (this.networkClient && this.currentPanelEntity.id) {
+                        // Multiplayer: send to server
+                        this.networkClient.sendUpgradeVision({
+                            towerId: this.currentPanelEntity.id,
+                            visionType: visionType as 'observer' | 'radar',
+                        });
+                    } else if (this.currentPanelEntity.canUpgradeVision?.(visionType)) {
+                        // Single-player: local handling
                         const price = this.currentPanelEntity.getVisionUpgradePrice?.(visionType) ?? 0;
-                        if (this.world.user.money >= price) {
+                        if (this.world.spendMoney(price)) {
                             this.currentPanelEntity.upgradeVision?.(visionType);
-                            this.world.user.money -= price;
-                            this.world.fog.markDirty();
+                            this.world.fog?.markDirty?.();
                             this.showSmallLevelUpPanel(this.currentPanelEntity, this.currentClickPos);
                         } else {
                             const et = new EffectText("金币不足！");
                             et.pos = this.currentPanelEntity.pos.copy();
-                            this.world.addEffect(et as any);
+                            this.world.addEffect(et);
                         }
                     }
                 }
@@ -353,16 +438,32 @@ export class PanelManager {
 
             // Handle mine operations
             if (this.currentPanelMine && this.currentMineScreenPos) {
+                const isMultiplayer = this.networkClient !== null;
+                const facade = this.world as unknown as {
+                    downgradeMine?: (id: string) => void;
+                    sellMine?: (id: string) => void;
+                };
+
                 if (target.classList.contains("levelDown")) {
-                    const refund = parseInt(target.dataset.refund || "0");
-                    this.world.user.money += refund;
-                    this.currentPanelMine.downgrade();
-                    this.showMinePanel(this.currentPanelMine, this.currentMineScreenPos);
+                    if (isMultiplayer && this.currentPanelMine.id && facade.downgradeMine) {
+                        facade.downgradeMine(this.currentPanelMine.id);
+                        this.hideLevelUpPanel();
+                    } else if (!isMultiplayer) {
+                        const refund = parseInt(target.dataset.refund || "0");
+                        this.world.addMoney(refund);
+                        this.currentPanelMine.downgrade();
+                        this.showMinePanel(this.currentPanelMine, this.currentMineScreenPos);
+                    }
                 } else if (target.classList.contains("sell")) {
-                    const sellPrice = parseInt(target.dataset.sellPrice || "0");
-                    this.world.user.money += sellPrice;
-                    this.currentPanelMine.destroy();
-                    this.hideLevelUpPanel();
+                    if (isMultiplayer && this.currentPanelMine.id && facade.sellMine) {
+                        facade.sellMine(this.currentPanelMine.id);
+                        this.hideLevelUpPanel();
+                    } else if (!isMultiplayer) {
+                        const sellPrice = parseInt(target.dataset.sellPrice || "0");
+                        this.world.addMoney(sellPrice);
+                        this.currentPanelMine.destroy();
+                        this.hideLevelUpPanel();
+                    }
                 }
                 this.callbacks.requestPauseRender();
             }
@@ -381,8 +482,9 @@ export class PanelManager {
             panelEle.innerHTML = "";
             panelEle.dataset.sessionId = this.sessionId;
             const thingsFuncArr: ((world: unknown) => GameEntity)[] = [];
-            thingsFuncArr.push((TowerFinallyCompat as any).BasicCannon as (world: unknown) => GameEntity);
-            for (const bF of BUILDING_FUNC_ARR) {
+            const buildingFuncs = getBuildingFuncArr(this.networkClient !== null);
+            thingsFuncArr.push(TowerRegistry.getCreator('BasicCannon') as (world: unknown) => GameEntity);
+            for (const bF of buildingFuncs) {
                 thingsFuncArr.push(bF as (world: unknown) => GameEntity);
             }
             for (const bFunc of thingsFuncArr) {
@@ -481,7 +583,7 @@ export class PanelManager {
         if (thing.inValidTerritory === false) {
             const et = new EffectText("无效领地内无法操作！");
             et.pos = thing.pos.copy();
-            this.world.addEffect(et as any);
+            this.world.addEffect(et);
             this.callbacks.requestPauseRender();
             return;
         }
@@ -582,7 +684,7 @@ export class PanelManager {
         if (!mine.inValidTerritory) {
             const et = new EffectText("不在有效领地，无法操作");
             et.pos = mine.pos.copy();
-            this.world.addEffect(et as any);
+            this.world.addEffect(et);
             this.callbacks.requestPauseRender();
             return;
         }
@@ -696,29 +798,49 @@ export class PanelManager {
                     return;
                 }
 
+                // Manual cannon targeting mode handling
+                if (this.manualCannonPanel.isInTargetingMode() && this.manualCannonPanel.getCurrentCannon()) {
+                    const handled = this.manualCannonPanel.handleTargetSelected(clickPos);
+                    if (handled) {
+                        this.callbacks.requestPauseRender();
+                        return;
+                    }
+                }
+
                 if (this.addedThingFunc === null) {
                     for (const item of this.world.getAllBuildingArr()) {
-                        if ((item as any).getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
-                            if ((item as any).gameType === "Mine") {
+                        if (item.getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
+                            if (item.gameType === "Mine") {
                                 this.showMinePanel(item as Mine, screenPos);
                                 return;
                             }
+                            // Check for MonsterSpawner
+                            if (item.canSpawnMonsters) {
+                                this.spawnerPanel.show(item as unknown as MonsterSpawner, screenPos);
+                                return;
+                            }
+                            // Check for ManualCannon tower
+                            if (item.canAttackBuildings && item.gameType === "Tower") {
+                                this.manualCannonPanel.show(item as unknown as TowerManualCannon, screenPos);
+                                item.selected = true;
+                                return;
+                            }
                             this.showSmallLevelUpPanel(item as unknown as GameEntity, screenPos);
-                            (item as any).selected = true;
+                            item.selected = true;
                             return;
                         }
                     }
-                    for (const mine of this.world.mines) {
-                        if ((mine as any).getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
-                            this.showMinePanel(mine as Mine, screenPos);
+                    for (const mine of this.world.mines as Iterable<PanelEntityLike>) {
+                        if (mine.getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
+                            this.showMinePanel(mine as unknown as Mine, screenPos);
                             return;
                         }
                     }
-                    for (const item of this.world.monsters) {
-                        if ((item as any).getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
+                    for (const item of this.world.monsters as Iterable<PanelEntityLike>) {
+                        if (item.getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
                             this.selectedThing = item as unknown as GameEntity;
                             this.showSelectedPanel(true);
-                            (item as any).selected = true;
+                            item.selected = true;
                             return;
                         }
                     }
@@ -726,42 +848,52 @@ export class PanelManager {
                     this.hideLevelUpPanel();
                 } else {
                     const addedThing = this.addedThingFunc(this.world);
-                    if (this.world.user.money < addedThing.price) {
+                    if (addedThing.canSpawnMonsters && this.networkClient === null) {
+                        const et = new EffectText("怪物生成塔仅多人模式可用");
+                        et.pos = clickPos.copy();
+                        this.world.addEffect(et);
+                        this.addedThingFunc = null;
+                        this.world.user.putLoc.building = null;
+                        this.cachedBuilding = null;
+                        this.lastAddedFunc = null;
+                        return;
+                    }
+                    if (this.world.getMoney() < addedThing.price) {
                         const et = new EffectText("钱不够了！");
                         et.pos = clickPos.copy();
-                        this.world.addEffect(et as any);
+                        this.world.addEffect(et);
                         return;
                     }
                     addedThing.pos = clickPos;
                     for (const item of this.world.getAllBuildingArr()) {
-                        if (addedThing.getBodyCircle().impact((item as any).getBodyCircle())) {
+                        if (addedThing.getBodyCircle().impact(item.getBodyCircle())) {
                             const et = new EffectText("这里不能放建筑，换一个地方点一下");
                             et.pos = addedThing.pos.copy();
-                            this.world.addEffect(et as any);
+                            this.world.addEffect(et);
                             return;
                         }
                     }
                     for (const obs of this.world.obstacles) {
-                        if (obs.intersectsCircle(addedThing.getBodyCircle() as any)) {
+                        if (obs.intersectsCircle(addedThing.getBodyCircle())) {
                             const et = new EffectText("这里有障碍物，不能放置建筑");
                             et.pos = addedThing.pos.copy();
-                            this.world.addEffect(et as any);
+                            this.world.addEffect(et);
                             return;
                         }
                     }
-                    if (this.world.territory && !this.world.territory.isPositionInValidTerritory(addedThing.pos)) {
+                    if (this.world.territory?.isPositionInValidTerritory && !this.world.territory.isPositionInValidTerritory(addedThing.pos)) {
                         const et = new EffectText("只能在有效领地内放置建筑");
                         et.pos = addedThing.pos.copy();
-                        this.world.addEffect(et as any);
+                        this.world.addEffect(et);
                         return;
                     }
-                    this.world.user.money -= addedThing.price;
+                    this.world.spendMoney(addedThing.price);
                     switch (addedThing.gameType) {
                         case "Tower":
-                            this.world.addTower(addedThing as any);
+                            this.world.addTower(addedThing);
                             break;
                         case "Building":
-                            this.world.addBuilding(addedThing as any);
+                            this.world.addBuilding(addedThing);
                             break;
                     }
                 }
@@ -769,7 +901,7 @@ export class PanelManager {
                 console.error("Canvas click error:", error);
                 const et = new EffectText("放置出错！请刷新浏览器重试");
                 et.pos = new Vector(this.world.width / 2, this.world.height / 2);
-                this.world.addEffect(et as any);
+                this.world.addEffect(et);
             }
             this.callbacks.requestPauseRender();
         }, { signal: this.eventSignal });
@@ -785,7 +917,7 @@ export class PanelManager {
                 this.cachedBuilding = this.addedThingFunc(this.world);
                 this.lastAddedFunc = this.addedThingFunc;
             }
-            this.world.user.putLoc.building = this.cachedBuilding as any;
+            this.world.user.putLoc.building = this.cachedBuilding;
 
             const rect = this.canvasEle.getBoundingClientRect();
             const screenPos = new Vector(e.clientX - rect.left, e.clientY - rect.top);
@@ -805,26 +937,26 @@ export class PanelManager {
         if (this.moveTarget === null) {
             // 检查是否点击了建筑（不包括矿井）
             for (const item of this.world.getAllBuildingArr()) {
-                if ((item as any).getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
+                if (item.getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
                     // 矿井不能移动
-                    if ((item as any).gameType === "Mine") {
+                    if (item.gameType === "Mine") {
                         const et = new EffectText("矿井不能移动！");
                         et.pos = clickPos.copy();
-                        this.world.addEffect(et as any);
+                        this.world.addEffect(et);
                         return;
                     }
                     // 检查是否在有效领地内（直接使用建筑的 inValidTerritory 属性）
-                    if ((item as any).inValidTerritory === false) {
+                    if (item.inValidTerritory === false) {
                         const et = new EffectText("只能移动有效领地内的建筑！");
                         et.pos = clickPos.copy();
-                        this.world.addEffect(et as any);
+                        this.world.addEffect(et);
                         return;
                     }
                     // 选中建筑
                     this.moveTarget = item as unknown as GameEntity;
-                    (item as any).selected = true;
+                    item.selected = true;
                     // 设置渲染器用的移动目标信息
-                    const bodyCircle = (item as any).getBodyCircle();
+                    const bodyCircle = item.getBodyCircle();
                     this.world.user.moveTarget = {
                         x: bodyCircle.x,
                         y: bodyCircle.y,
@@ -832,7 +964,7 @@ export class PanelManager {
                     };
                     const et = new EffectText("已选中，点击目标位置移动");
                     et.pos = clickPos.copy();
-                    this.world.addEffect(et as any);
+                    this.world.addEffect(et);
                     return;
                 }
             }
@@ -849,75 +981,75 @@ export class PanelManager {
         if (distance > MOVE_MAX_DISTANCE) {
             const et = new EffectText(`距离太远！最大${MOVE_MAX_DISTANCE}像素`);
             et.pos = clickPos.copy();
-            this.world.addEffect(et as any);
+            this.world.addEffect(et);
             return;
         }
 
         // 检查目标位置是否在有效领地内
-        if (this.world.territory && !this.world.territory.isPositionInValidTerritory(clickPos)) {
+        if (this.world.territory?.isPositionInValidTerritory && !this.world.territory.isPositionInValidTerritory(clickPos)) {
             const et = new EffectText("目标位置不在有效领地内！");
             et.pos = clickPos.copy();
-            this.world.addEffect(et as any);
+            this.world.addEffect(et);
             return;
         }
 
         // 检查碰撞：其他建筑
         const originalCircle = this.moveTarget.getBodyCircle();
-        const targetCircle = new Circle(clickPos.x, clickPos.y, (originalCircle as any).r ?? this.moveTarget.r ?? 20);
+        const targetCircle = new Circle(clickPos.x, clickPos.y, originalCircle.r ?? this.moveTarget.r ?? 20);
         for (const item of this.world.getAllBuildingArr()) {
             if ((item as unknown) === (this.moveTarget as unknown)) continue; // 跳过自己
-            if (targetCircle.impact((item as any).getBodyCircle())) {
+            if (targetCircle.impact(item.getBodyCircle())) {
                 const et = new EffectText("目标位置有其他建筑！");
                 et.pos = clickPos.copy();
-                this.world.addEffect(et as any);
+                this.world.addEffect(et);
                 return;
             }
         }
 
         // 检查碰撞：障碍物
         for (const obs of this.world.obstacles) {
-            if (obs.intersectsCircle(targetCircle as any)) {
+            if (obs.intersectsCircle(targetCircle)) {
                 const et = new EffectText("目标位置有障碍物！");
                 et.pos = clickPos.copy();
-                this.world.addEffect(et as any);
+                this.world.addEffect(et);
                 return;
             }
         }
 
         // 检查金币
-        if (this.world.user.money < MOVE_COST) {
+        if (this.world.getMoney() < MOVE_COST) {
             const et = new EffectText(`金币不足！需要${MOVE_COST}元`);
             et.pos = clickPos.copy();
-            this.world.addEffect(et as any);
+            this.world.addEffect(et);
             return;
         }
 
         // 执行移动
         // 1. 从领地系统移除
-        this.world.territory?.removeBuildingIncremental(this.moveTarget as any);
-        
+        this.world.territory?.removeBuildingIncremental?.(this.moveTarget);
+
         // 2. 更新位置
         this.moveTarget.pos = clickPos.copy();
-        
+
         // 3. 重新添加到领地系统
-        this.world.territory?.addBuildingIncremental(this.moveTarget as any);
-        
+        this.world.territory?.addBuildingIncremental?.(this.moveTarget);
+
         // 4. 标记迷雾需要更新
-        this.world.fog?.markDirty();
+        this.world.fog?.markDirty?.();
 
         // 5. 标记静态层需要重建（建筑位置已改变）
         this.world.markStaticLayerDirty();
 
         // 6. 扣除金币
-        this.world.user.money -= MOVE_COST;
+        this.world.spendMoney(MOVE_COST);
 
         // 7. 取消选中状态
-        (this.moveTarget as any).selected = false;
+        this.moveTarget.selected = false;
 
         // 8. 显示成功提示
         const et = new EffectText("移动成功！");
         et.pos = clickPos.copy();
-        this.world.addEffect(et as any);
+        this.world.addEffect(et);
 
         // 9. 退出移动模式
         this.moveMode = false;
@@ -958,14 +1090,17 @@ export class PanelManager {
         this.freshBtnInterval = setInterval(() => {
             const towerBtnArr = document.getElementsByClassName("towerBtn");
 
-            const basicC = ((TowerFinallyCompat as any).BasicCannon as (world: unknown) => GameEntity)(this.world);
-            towerBtnArr[0]?.setAttribute("data-price", basicC.price.toString());
-            if (towerBtnArr[0]) {
-                towerBtnArr[0].innerHTML = basicC.name + `<br>${basicC.price}￥`;
+            const basicCCreator = TowerRegistry.getCreator('BasicCannon') as ((world: unknown) => GameEntity) | undefined;
+            const basicC = basicCCreator?.(this.world);
+            if (basicC) {
+                towerBtnArr[0]?.setAttribute("data-price", basicC.price.toString());
+                if (towerBtnArr[0]) {
+                    towerBtnArr[0].innerHTML = basicC.name + `<br>${basicC.price}￥`;
+                }
             }
             for (let i = 0; i < towerBtnArr.length; i++) {
                 const btn = towerBtnArr[i] as HTMLElement;
-                if (parseInt(btn.dataset.price!) <= this.world.user.money) {
+                if (parseInt(btn.dataset.price!) <= this.world.getMoney()) {
                     btn.removeAttribute("disabled");
                 } else {
                     btn.setAttribute("disabled", "disabled");
@@ -982,7 +1117,7 @@ export class PanelManager {
             const itemArr = this.smallLevelUpPanelEle.getElementsByClassName("levelUpItem");
             for (let i = 0; i < itemArr.length; i++) {
                 const itemEle = itemArr[i] as HTMLElement;
-                if (parseInt(itemEle.dataset.price!) <= this.world.user.money) {
+                if (parseInt(itemEle.dataset.price!) <= this.world.getMoney()) {
                     itemEle.removeAttribute("disabled");
                     itemEle.style.opacity = "1";
                 } else {

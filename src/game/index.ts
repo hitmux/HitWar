@@ -6,7 +6,7 @@ export { World } from './world';
 
 // New manager modules
 export { SpatialQuerySystem } from './spatial';
-export type { SpatialEntity, BuildingEntity, SpatialQueryContext } from './spatial';
+export type { SpatialGridObject, QuadTreeEntity, SpatialQueryContext } from './spatial';
 
 export { EntityManager } from './entities';
 export type {
@@ -30,3 +30,7 @@ export type {
 
 export { WorldRenderer } from './rendering';
 export type { WorldRendererContext } from './rendering';
+
+// Player module (multiplayer support)
+export { PlayerManager, isEnemy, isFriendly, belongsTo, isNeutral, filterEnemies, filterFriendlies } from './player';
+export type { GameResult } from './player';

@@ -193,8 +193,8 @@ function applyExtendedParams(monster: Monster, config: MonsterConfig): void {
         }
         // Set summon function using registry
         const summonName = params.summon.summonMonsterName;
-        monster.summonMonsterFunc = ((world: unknown) =>
-            MonsterRegistry.create(summonName, world) as Monster) as any;
+        monster.summonMonsterFunc = (world: unknown) =>
+            MonsterRegistry.create(summonName, world) as Monster | null;
     }
 
     // AI: Bullet dodge
@@ -236,7 +236,7 @@ function applyShooterParams(monster: MonsterShooter, config: ShooterMonsterConfi
     if (params.rangeR !== undefined) monster.rangeR = params.rangeR;
     if (params.clock !== undefined) monster.clock = scalePeriod(params.clock);
     if (params.bulletType) {
-        monster.getmMainBullyFunc = getBulletFunc(params.bulletType) as any;
+        monster.getmMainBullyFunc = getBulletFunc(params.bulletType) as typeof monster.getmMainBullyFunc;
     }
 }
 
@@ -264,7 +264,8 @@ function applyTerminatorParams(_monster: MonsterTerminator, _config: TerminatorM
  */
 export function createMonsterFromConfig(config: AnyMonsterConfig, world: WorldLike): Monster {
     const MonsterClass = getMonsterClass(config.baseClass);
-    const monster = MonsterClass.randInit(world as any);
+    // Factory WorldLike is minimal; actual World satisfies Monster.randInit requirements
+    const monster = MonsterClass.randInit(world as unknown as Parameters<typeof Monster.randInit>[0]);
 
     // Apply common params
     applyMonsterParams(monster, config);
@@ -293,7 +294,7 @@ export function createMonsterFromConfig(config: AnyMonsterConfig, world: WorldLi
  */
 export function registerMonsterFromConfig(config: AnyMonsterConfig): void {
     const creator = (world: WorldLike) => createMonsterFromConfig(config, world);
-    MonsterRegistry.register(config.id, creator as any);
+    MonsterRegistry.register(config.id, creator);
 }
 
 /**

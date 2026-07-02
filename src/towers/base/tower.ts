@@ -8,15 +8,44 @@ import { MyColor } from '../../entities/myColor';
 import { CircleObject } from '../../entities/base/circleObject';
 import { TowerRegistry } from '../towerRegistry';
 import { TOWER_IMG_PRE_WIDTH, TOWER_IMG_PRE_HEIGHT, getTowersImg } from '../towerConstants';
+import { renderTower } from '../rendering/towerRenderer';
 import { VisionType, VISION_CONFIG } from '@/systems/fog/visionConfig';
+import {
+    getVisionRadius as sharedGetVisionRadius,
+    getVisionUpgradePrice as sharedGetVisionUpgradePrice,
+    canUpgradeVision as sharedCanUpgradeVision,
+} from '../../../shared/config/visionMeta.js';
+import { MAX_TARGET_SCORING_MONSTER_SPEED } from '../../../shared/config/monsterMeta.js';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
+import { TERRITORY_PENALTY } from '../../../shared/config/index';
+import { calcMonsterTargetScore, DEFAULT_TOWER_TARGET_WEIGHTS } from '../../../shared/formulas/targetScoring';
+import type {
+    MonsterLike as BaseMonsterLike,
+    TerritoryLike,
+    FogOfWarLike,
+    UserLike,
+    TowerLike,
+    EnergyLike,
+} from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
-declare const BullyFinally: { Normal: () => BulletLike } | undefined;
+declare const BullyFinally: { Normal: () => TowerBulletLike } | undefined;
 declare const SoundManager: { play(src: string): void } | undefined;
 declare const UP_LEVEL_ICON: HTMLImageElement | undefined;
 
-interface BulletLike {
+// Extended FogOfWarLike with markDirty for tower
+interface FogOfWarLikeExt extends FogOfWarLike {
+    markDirty(): void;
+}
+
+// Extended MonsterLike for tower targeting (pos is Vector)
+interface MonsterLike extends BaseMonsterLike {
+    pos: Vector;
+}
+
+// Tower-specific bullet interface (has tower-specific properties)
+export interface TowerBulletLike {
     originalPos: Vector;
     father: Tower;
     world: WorldLike;
@@ -30,49 +59,31 @@ interface BulletLike {
     split(): void;
     outTowerViewRange(): boolean;
     remove(): void;
-    // 分离的移动和碰撞方法
+    // Two-phase update methods
     move(): void;
     rChange(): void;
     getTarget(): void;
     collide(world: WorldLike): void;
+    // Owner ID for multiplayer
+    ownerId?: string | null;
 }
 
-interface MonsterLike {
-    pos: Vector;
-    getBodyCircle(): Circle;
-    hpChange(delta: number): void;
-    isDead(): boolean;
-}
-
-interface TerritoryLike {
-    markDirty(): void;
-    addBuildingIncremental(building: unknown): void;
-    removeBuildingIncremental(building: unknown): void;
-}
-
-interface FogOfWarLike {
-    enabled: boolean;
-    isPositionVisible(x: number, y: number): boolean;
-    isCircleVisible(x: number, y: number, radius: number): boolean;
-    markDirty(): void;
-}
-
-interface UserLike {
-    money: number;
-}
-
+// WorldLike interface for Tower (uses unified sub-interfaces)
 interface WorldLike {
     width: number;
     height: number;
-    batterys: Tower[];
+    batterys: TowerLike[];
     territory?: TerritoryLike;
-    fog?: FogOfWarLike;
+    fog?: FogOfWarLikeExt;
     user: UserLike;
-    energy: { getSatisfactionRatio(): number };
+    energy: EnergyLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
-    addBully(bully: BulletLike): void;
-    removeBully(bully: BulletLike): void;
+    addBully(bully: TowerBulletLike): void;
+    removeBully(bully: TowerBulletLike): void;
     addEffect?(effect: unknown): void;
+    getMoney(): number;
+    spendMoney(amount: number): boolean;
+    getEnergyForOwner?(ownerId: string | null): EnergyLike;
 }
 
 type AttackFunc = () => void;
@@ -83,8 +94,8 @@ export class Tower extends CircleObject {
     rangeR: number;
     dirction: Vector;
     clock: number;
-    bullys: Set<BulletLike>;
-    getmMainBullyFunc: (() => BulletLike) | null;
+    bullys: Set<TowerBulletLike>;
+    getmMainBullyFunc: (() => TowerBulletLike) | null;
     bullySpeed: number;
     bullySpeedAddMax: number;
     bullyDeviationRotate: number;
@@ -106,7 +117,7 @@ export class Tower extends CircleObject {
     declare world: WorldLike;
 
     // Cached vector for upgrade icon
-    protected _upIconOffset: Vector | null;
+    _upIconOffset: Vector | null;
 
     // Cached view circle for collision detection
     private _viewCircle: Circle | null = null;
@@ -242,7 +253,7 @@ export class Tower extends CircleObject {
         }
         // Use incremental update instead of markDirty
         if (this.world.territory) {
-            this.world.territory.removeBuildingIncremental(this as any);
+            this.world.territory.removeBuildingIncremental?.(this);
         }
         super.remove();
     }
@@ -266,24 +277,17 @@ export class Tower extends CircleObject {
             return;
         }
 
-        let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.rangeR + 50);
-        const viewCircle = this.getViewCircle();
-        for (let m of nearbyMonsters) {
-            // Check fog first (fast rejection), using circle visibility for edge detection
-            const mc = m.getBodyCircle();
-            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
-                continue;
-            }
-            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
-                this.dirction = m.pos.sub(this.pos).to1();
-                for (let i = 0; i < this.attackBullyNum; i++) {
-                    this.fire();
-                }
-                if (typeof SoundManager !== 'undefined') {
-                    SoundManager.play(this.audioSrcString);
-                }
-                break;
-            }
+        const target = this.findFirstTarget();
+        if (!target) {
+            return;
+        }
+
+        this.dirction = target.pos.sub(this.pos).to1();
+        for (let i = 0; i < this.attackBullyNum; i++) {
+            this.fire();
+        }
+        if (typeof SoundManager !== 'undefined') {
+            SoundManager.play(this.audioSrcString);
         }
     }
 
@@ -295,6 +299,10 @@ export class Tower extends CircleObject {
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.rangeR + 50);
         const viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
+            // Filter friendly monsters (same owner)
+            if (!isEnemy(this, m)) {
+                continue;
+            }
             // Check fog first (fast rejection), using circle visibility for edge detection
             const mc = m.getBodyCircle();
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
@@ -320,7 +328,7 @@ export class Tower extends CircleObject {
         }
     }
 
-    getRunningBully(): BulletLike | undefined {
+    getRunningBully(): TowerBulletLike | undefined {
         if (!this.getmMainBullyFunc) {
             return undefined;
         }
@@ -338,6 +346,7 @@ export class Tower extends CircleObject {
         res.speed = bDir;
         res.slideRate = this.bullySlideRate;
         res.damage = res.damage * this.getDamageMultiplier();
+        res.ownerId = this.ownerId;
         return res;
     }
 
@@ -364,11 +373,7 @@ export class Tower extends CircleObject {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        if (this.isDead()) {
-            return;
-        }
-        this.renderBody(ctx);
-        this.renderBars(ctx);
+        renderTower(this, ctx);
     }
 
     /**
@@ -448,35 +453,59 @@ export class Tower extends CircleObject {
         const effectiveRange = this.getEffectiveRangeR();
         const nearbyMonsters = cachedMonsters ?? this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
         const viewCircle = this.getViewCircle();
+        const rangeSq = viewCircle.r * viewCircle.r;
+
+        let bestTarget: MonsterLike | null = null;
+        let bestScore = -1;
 
         for (const m of nearbyMonsters) {
+            if (!isEnemy(this, m)) {
+                continue;
+            }
             const mc = m.getBodyCircle();
-            // Check fog first (fast rejection)
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
-            if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
-                return m;
+            if (!Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
+                continue;
+            }
+
+            const dx = mc.x - this.pos.x;
+            const dy = mc.y - this.pos.y;
+            const distSq = dx * dx + dy * dy;
+            const speed = m.speedNumb ?? 0;
+
+            const score = calcMonsterTargetScore(
+                distSq, rangeSq,
+                m.hp, m.maxHp,
+                speed, MAX_TARGET_SCORING_MONSTER_SPEED,
+                DEFAULT_TOWER_TARGET_WEIGHTS,
+            );
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestTarget = m;
             }
         }
-        return null;
+        return bestTarget;
     }
 
     getDamageMultiplier(): number {
-        let multiplier = this.inValidTerritory ? 1 : (1 / 3);
-        // Apply energy deficit penalty
-        const energyRatio = this.world.energy.getSatisfactionRatio();
+        let multiplier = this.inValidTerritory ? 1 : TERRITORY_PENALTY.DAMAGE_MULTIPLIER;
+        // Apply energy deficit penalty (multiplayer: use owner's energy system)
+        const energy = this.world.getEnergyForOwner?.(this.ownerId) ?? this.world.energy;
+        const energyRatio = energy.getSatisfactionRatio();
         return multiplier * energyRatio;
     }
 
     getEffectiveRangeR(): number {
-        return this.inValidTerritory ? this.rangeR : this.rangeR * (2 / 3);
+        return this.inValidTerritory ? this.rangeR : this.rangeR * TERRITORY_PENALTY.RANGE_MULTIPLIER;
     }
 
     isUpLevelAble(): boolean {
         for (let towerName of this.levelUpArr) {
             const meta = TowerRegistry.getMeta(towerName);
-            if (meta && this.world.user.money >= meta.basePrice) {
+            if (meta && this.world.getMoney() >= meta.basePrice) {
                 return true;
             }
         }
@@ -485,36 +514,15 @@ export class Tower extends CircleObject {
 
     // Vision system methods
     getVisionRadius(): number {
-        switch (this.visionType) {
-            case VisionType.OBSERVER:
-                return VISION_CONFIG.observer.radius[this.visionLevel] || VISION_CONFIG.basicTower;
-            case VisionType.RADAR:
-                if (VISION_CONFIG.radar.radius[this.visionLevel] !== undefined) {
-                    return VISION_CONFIG.radar.radius[this.visionLevel];
-                }
-                const maxDefinedRadarLevel = Math.max(...Object.keys(VISION_CONFIG.radar.radius).map(Number));
-                return VISION_CONFIG.radar.radius[maxDefinedRadarLevel] || VISION_CONFIG.basicTower;
-            default:
-                return VISION_CONFIG.basicTower;
-        }
+        return sharedGetVisionRadius(this.visionType, this.visionLevel);
     }
 
     getVisionUpgradePrice(type: VisionType): number {
-        const nextLevel = this.visionType === type ? this.visionLevel + 1 : 1;
-        if (type === VisionType.OBSERVER) {
-            return VISION_CONFIG.observer.price[nextLevel] || 0;
-        } else if (type === VisionType.RADAR) {
-            return VISION_CONFIG.radar.price[nextLevel] || 0;
-        }
-        return 0;
+        return sharedGetVisionUpgradePrice(this.visionType, this.visionLevel, type);
     }
 
     canUpgradeVision(type: VisionType): boolean {
-        if (this.visionType !== VisionType.NONE && this.visionType !== type) {
-            return false;  // Already has other type
-        }
-        const maxLevel = type === VisionType.OBSERVER ? 3 : 5;
-        return this.visionLevel < maxLevel;
+        return sharedCanUpgradeVision(this.visionType, this.visionLevel, type);
     }
 
     upgradeVision(type: VisionType): boolean {

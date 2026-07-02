@@ -9,33 +9,38 @@ import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import { renderTowerBoomerang } from '../rendering/towerRenderer';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
+import type {
+    VectorLike,
+    CircleLike,
+    MonsterLike as BaseMonsterLike,
+    TerritoryLike,
+    FogOfWarLike,
+    UserLike,
+    TowerLike,
+} from '@/types/worldLike';
 
-interface VectorLike {
-    x: number;
-    y: number;
-}
-
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
+// Extended CircleLike with impact method
+interface CircleLikeExt extends CircleLike {
     impact(other: CircleLike): boolean;
 }
 
-interface MonsterLike {
+// Extended MonsterLike for boomerang tower (uses Vector for pos)
+interface MonsterLike extends BaseMonsterLike {
     pos: Vector;
-    getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
+    getBodyCircle(): CircleLikeExt;
 }
 
+// WorldLike interface for TowerBoomerang
 interface WorldLike {
     width: number;
     height: number;
-    batterys: Tower[];
-    territory?: { markDirty(): void };
-    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean; isCircleVisible(x: number, y: number, radius: number): boolean };
-    user: { money: number };
+    batterys: TowerLike[];
+    territory?: TerritoryLike;
+    fog?: FogOfWarLike;
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: unknown): void;
     removeBully(bully: unknown): void;
@@ -118,8 +123,8 @@ export class TowerBoomerang extends Tower {
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
             }
-            if (this.bar.intersectWithCircle(mc as any)) {
-                m.hpChange(-actualDamage);
+            if (this.bar.intersectWithCircle(mc)) {
+                m.hpChange(-actualDamage, this.ownerId);
             }
         }
         this.barGo();
@@ -155,6 +160,10 @@ export class TowerBoomerang extends Tower {
         let nearbyMonsters = this.world.getMonstersInRange(barCenter.x, barCenter.y, barLen);
         let actualDamage = this.damage * this.getDamageMultiplier();
         for (let m of nearbyMonsters) {
+            // Filter friendly monsters (same owner)
+            if (!isEnemy(this, m)) {
+                continue;
+            }
             const mc = m.getBodyCircle();
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
@@ -164,19 +173,15 @@ export class TowerBoomerang extends Tower {
             if (this.liveTime - lastHit < HIT_COOLDOWN_FRAMES) {
                 continue;
             }
-            if (this.bar.intersectWithCircle(mc as any)) {
-                m.hpChange(-actualDamage);
+            if (this.bar.intersectWithCircle(mc)) {
+                m.hpChange(-actualDamage, this.ownerId);
                 this.hitCooldown.set(m, this.liveTime);
             }
         }
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        if (this.isDead()) {
-            return;
-        }
-        this.renderBody(ctx);
-        this.renderBars(ctx);
+        renderTowerBoomerang(this, ctx);
     }
 
     /**

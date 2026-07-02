@@ -12,7 +12,7 @@ import { BulletRegistry } from '../bulletRegistry';
  */
 export function S(): Bully {
     const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
-    b.r = 1.6;
+    b.r = 2;
     b.damage = 40;
     b.bodyColor = MyColor.arrTo([0, 0, 255, 1]);
     return b;

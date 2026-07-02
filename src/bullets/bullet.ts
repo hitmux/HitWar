@@ -7,6 +7,7 @@ import { Circle } from '../core/math/circle';
 import { MyColor } from '../entities/myColor';
 import { CircleObject } from '../entities/base/circleObject';
 import { BulletRegistry } from './bulletRegistry';
+import { isEnemy } from '@/game/player/ownership';
 
 // Declare globals for non-migrated modules
 declare const EffectCircle: {
@@ -47,7 +48,7 @@ interface EffectCircleLike {
 interface EntityLike {
     pos: VectorLike;
     getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
+    hpChange(delta: number, attackerId?: string | null): void;
     isDead(): boolean;
     teleportingAble?: boolean;
     teleporting?(): void;
@@ -55,9 +56,11 @@ interface EntityLike {
     burnRate?: number;
     bodyColor?: { change(dr: number, dg: number, db: number, da: number): void };
     changedSpeed?: VectorLike;
-    // 上一帧位置（用于扫掠碰撞检测）
+    // Previous frame position (for sweep collision detection)
     prevX?: number;
     prevY?: number;
+    // Owner ID for friend/enemy determination
+    ownerId?: string | null;
 }
 
 interface TowerLike {
@@ -151,11 +154,13 @@ export class Bully extends CircleObject {
 
     // Target is tower instead of monster
     targetTower: boolean;
+    // Can also hit buildings (used by ManualCannon shells)
+    canHitBuildings: boolean;
 
     declare world: WorldLike;
 
     constructor(pos: Vector, speed: Vector, father: TowerLike | null, damage: number, r: number) {
-        super(pos, null as any);
+        super(pos, null as unknown as ConstructorParameters<typeof CircleObject>[1]);
         if (father !== null) {
             this.world = father.world;
         }
@@ -217,6 +222,8 @@ export class Bully extends CircleObject {
 
         // Target is tower instead of monster
         this.targetTower = false;
+        // Can also hit buildings (used by ManualCannon shells)
+        this.canHitBuildings = false;
     }
 
     goStep(): void {
@@ -337,8 +344,18 @@ export class Bully extends CircleObject {
         } else {
             // Use quadtree for monster collision detection
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.r + 100);
+            if (this.canHitBuildings) {
+                // Also check buildings (used by ManualCannon shells)
+                const buildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
+                arr = arr.concat(buildings);
+            }
         }
         for (const m of arr) {
+            // Skip friendly entities (same owner)
+            if (!isEnemy(this, m as { ownerId: string | null })) {
+                continue;
+            }
+
             const mc = m.getBodyCircle();
             
             // 使用扫掠碰撞检测
@@ -364,8 +381,8 @@ export class Bully extends CircleObject {
                 if (m.teleportingAble && m.teleporting) {
                     m.teleporting();
                 }
-                // Direct hit damage
-                m.hpChange(-this.damage);
+                // Direct hit damage (pass ownerId for kill reward tracking)
+                m.hpChange(-this.damage, this.ownerId);
                 // Direct hit slow effect
                 if (m.speedFreezeNumb !== undefined) {
                     m.speedFreezeNumb *= this.freezeCutDown;  // slow stacks
@@ -455,6 +472,7 @@ export class Bully extends CircleObject {
                 if (!b) continue;
                 b.isSliptedBully = true;
                 b.world = this.world;
+                b.ownerId = this.ownerId;
                 b.pos = this.pos.copy();
                 b.originalPos = this.pos.copy();
                 b.speed = Vector.randCircle().mul(this.splitRandomV);
@@ -481,20 +499,29 @@ export class Bully extends CircleObject {
         bC.x = this.pos.x;
         bC.y = this.pos.y;
         bC.r = this.bombRange;
-        
+
         let arr: EntityLike[];
         if (this.targetTower) {
             arr = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.bombRange + 50);
         } else {
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.bombRange + 50);
+            if (this.canHitBuildings) {
+                const buildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.bombRange + 50);
+                arr = arr.concat(buildings);
+            }
         }
         for (const m of arr) {
-            if (m.getBodyCircle().impact(bC as any)) {
+            // Skip friendly entities (same owner)
+            if (!isEnemy(this, m as { ownerId: string | null })) {
+                continue;
+            }
+
+            if (m.getBodyCircle().impact(bC)) {
                 // Use disSq for distance calculation, only sqrt when needed for damage
                 const disSq = this.pos.disSq(m.pos as Vector);
                 const dis = Math.sqrt(disSq);
                 const damage = (1 - (dis / this.bombRange)) * this.bombDamage;
-                m.hpChange(-Math.abs(damage));
+                m.hpChange(-Math.abs(damage), this.ownerId);
             }
         }
         // Add explosion effect circle
@@ -516,17 +543,26 @@ export class Bully extends CircleObject {
         bC.x = this.pos.x;
         bC.y = this.pos.y;
         bC.r = this.bombRange;
-        
+
         let arr: EntityLike[];
         if (this.targetTower) {
             arr = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.bombRange + 50);
         } else {
             arr = this.world.getMonstersInRange(this.pos.x, this.pos.y, this.bombRange + 50);
+            if (this.canHitBuildings) {
+                const buildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.bombRange + 50);
+                arr = arr.concat(buildings);
+            }
         }
         for (const m of arr) {
-            if (m.getBodyCircle().impact(bC as any)) {
-                // Spread damage
-                m.hpChange(-this.bombDamage);
+            // Skip friendly entities (same owner)
+            if (!isEnemy(this, m as { ownerId: string | null })) {
+                continue;
+            }
+
+            if (m.getBodyCircle().impact(bC)) {
+                // Spread damage (pass ownerId for kill reward tracking)
+                m.hpChange(-this.bombDamage, this.ownerId);
                 if (m.speedFreezeNumb !== undefined) {
                     m.speedFreezeNumb *= this.freezeCutDown;  // slow stacks
                 }

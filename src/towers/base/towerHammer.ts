@@ -10,33 +10,44 @@ import { MyColor } from '../../entities/myColor';
 import { CircleObject } from '../../entities/base/circleObject';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import { renderTowerHammer } from '../rendering/towerRenderer';
 import { scalePeriod } from '../../core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
+import type {
+    VectorLike,
+    CircleLike,
+    MonsterLike as BaseMonsterLike,
+    TerritoryLike,
+    FogOfWarLike,
+    UserLike,
+    TowerLike,
+} from '@/types/worldLike';
 
-interface VectorLike {
-    x: number;
-    y: number;
+// Extended VectorLike with dis method
+interface VectorLikeExt extends VectorLike {
     dis(other: VectorLike): number;
+    disSq(other: VectorLike): number;
 }
 
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
+// Extended CircleLike with impact method
+interface CircleLikeExt extends CircleLike {
     impact(other: CircleLike): boolean;
 }
 
-interface MonsterLike {
-    pos: VectorLike;
-    getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
+// Extended MonsterLike for hammer tower
+interface MonsterLike extends BaseMonsterLike {
+    pos: VectorLikeExt;
+    getBodyCircle(): CircleLikeExt;
 }
 
+// WorldLike interface for TowerHammer
 interface WorldLike {
     width: number;
     height: number;
-    batterys: Tower[];
-    territory?: { markDirty(): void };
-    user: { money: number };
+    batterys: TowerLike[];
+    territory?: TerritoryLike;
+    fog?: FogOfWarLike;
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: unknown): void;
     removeBully(bully: unknown): void;
@@ -68,7 +79,7 @@ export class TowerHammer extends Tower {
 
     initAdditionItem(): CircleObject {
         let loc = this.pos.plus(Vector.randCircle().mul(this.itemRange));
-        let c = new CircleObject(loc, this.world as any);
+        let c = new CircleObject(loc, this.world as unknown as ConstructorParameters<typeof CircleObject>[1]);
         c.r = this.itemRidus;
 
         c.hpInit(-1);
@@ -78,43 +89,10 @@ export class TowerHammer extends Tower {
         return c;
     }
 
-    itemGoStep(): void {
-        let a = this.itemSpeed;
-        let loc = new Vector(Math.sin(this.liveTime / a), Math.cos(this.liveTime / a)).mul(this.itemRange);
-        this.additionItem.pos = this.pos.plus(loc);
-
-        let itemPos = this.additionItem.pos;
-        let itemR = this.additionItem.r;
-        let nearbyMonsters = this.world.getMonstersInRange(itemPos.x, itemPos.y, itemR + 50);
-        let itemCircle = this.additionItem.getBodyCircle();
-        let actualDamage = this.itemDamage * this.getDamageMultiplier();
-        for (let m of nearbyMonsters) {
-            // Check fog first, using circle visibility for edge detection
-            const mc = m.getBodyCircle();
-            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
-                continue;
-            }
-            if (Circle.collides(itemCircle.x, itemCircle.y, itemCircle.r, mc.x, mc.y, mc.r)) {
-                m.hpChange(-actualDamage);
-            }
-        }
-    }
-
     toTarget(): void {
-        let effectiveRange = this.getEffectiveRangeR();
-        let effectiveRangeSq = effectiveRange * effectiveRange;
-        let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
-        for (let m of nearbyMonsters) {
-            // Check fog first, using circle visibility for edge detection
-            const mc = m.getBodyCircle();
-            if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
-                continue;
-            }
-            let distanceSq = m.pos.disSq(this.pos);
-            if (distanceSq < effectiveRangeSq) {
-                this.itemRange = Math.sqrt(distanceSq);
-                break;
-            }
+        const target = this.findFirstTarget();
+        if (target) {
+            this.itemRange = Math.sqrt(target.pos.disSq(this.pos));
         }
     }
 
@@ -127,11 +105,7 @@ export class TowerHammer extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        if (this.isDead()) {
-            return;
-        }
-        this.renderBody(ctx);
-        this.renderBars(ctx);
+        renderTowerHammer(this, ctx);
     }
 
     /**
@@ -172,6 +146,10 @@ export class TowerHammer extends Tower {
         let itemCircle = this.additionItem.getBodyCircle();
         let actualDamage = this.itemDamage * this.getDamageMultiplier();
         for (let m of nearbyMonsters) {
+            // Filter friendly monsters (same owner)
+            if (!isEnemy(this, m)) {
+                continue;
+            }
             const mc = m.getBodyCircle();
             if (this.world.fog?.enabled && !this.world.fog.isCircleVisible(mc.x, mc.y, mc.r)) {
                 continue;
@@ -182,7 +160,7 @@ export class TowerHammer extends Tower {
                 continue;
             }
             if (Circle.collides(itemCircle.x, itemCircle.y, itemCircle.r, mc.x, mc.y, mc.r)) {
-                m.hpChange(-actualDamage);
+                m.hpChange(-actualDamage, this.ownerId);
                 this.hitCooldown.set(m, this.liveTime);
             }
         }

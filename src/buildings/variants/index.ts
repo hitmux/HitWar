@@ -4,6 +4,7 @@
 
 // Import all variant files to trigger registration
 import * as buildings from './buildings';
+import * as monsterSpawner from './monsterSpawner';
 
 // Re-export all variants for direct access if needed
-export { buildings };
+export { buildings, monsterSpawner };

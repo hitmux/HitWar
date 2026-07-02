@@ -7,21 +7,23 @@ import { MyColor } from '../../entities/myColor';
 import { Circle } from '../../core/math/circle';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import type {
+    VectorLike,
+    CircleLike,
+    MonsterLike as BaseMonsterLike,
+    TerritoryLike,
+    FogOfWarLike,
+    UserLike,
+    TowerLike,
+} from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
     acquire(start: VectorLike, end: VectorLike): EffectLineLike;
 } | undefined;
 
-interface VectorLike {
-    x: number;
-    y: number;
-}
-
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
+// Extended CircleLike with impact method
+interface CircleLikeExt extends CircleLike {
     impact(other: CircleLike): boolean;
 }
 
@@ -29,20 +31,19 @@ interface EffectLineLike {
     initLineStyle(color: MyColor, width: number): void;
 }
 
-interface MonsterLike {
-    pos: VectorLike;
-    getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
-    isDead(): boolean;
+// Extended MonsterLike for hell tower
+interface MonsterLike extends BaseMonsterLike {
+    getBodyCircle(): CircleLikeExt;
 }
 
+// WorldLike interface for TowerHell
 interface WorldLike {
     width: number;
     height: number;
-    batterys: Tower[];
-    territory?: { markDirty(): void };
-    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean; isCircleVisible(x: number, y: number, radius: number): boolean };
-    user: { money: number };
+    batterys: TowerLike[];
+    territory?: TerritoryLike;
+    fog?: FogOfWarLike;
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: unknown): void;
     removeBully(bully: unknown): void;
@@ -88,6 +89,17 @@ export class TowerHell extends Tower {
         }
     }
 
+    private canAttackThisFrame(): boolean {
+        return this.laserFreezeNow === this.laserFreezeMax;
+    }
+
+    private clearInvalidTargetState(): void {
+        if (this.target !== null && this.target !== undefined && this.target.isDead()) {
+            this.target = null;
+            this.targetLiveTime = 0;
+        }
+    }
+
     attack(): void {
         if (this.target === null || this.target === undefined || this.target.isDead()) {
             this.targetLiveTime = 0;
@@ -96,7 +108,7 @@ export class TowerHell extends Tower {
         if (this.laserFreezeNow === this.laserFreezeMax) {
             let damage = Math.pow(this.targetLiveTime, 2) / this.damageRate;
             damage = damage * this.getDamageMultiplier();
-            this.target.hpChange(-damage);
+            this.target.hpChange(-damage, this.ownerId);
             this.targetLiveTime++;
 
             if (typeof EffectLine !== 'undefined') {
@@ -135,6 +147,10 @@ export class TowerHell extends Tower {
      */
     goStepCollide(): void {
         super.goStepCollide();
+        if (!this.canAttackThisFrame()) {
+            this.clearInvalidTargetState();
+            return;
+        }
         this.getTarget();
         this.attack();
     }

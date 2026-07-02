@@ -1,6 +1,6 @@
 # ⚔️ HITWAR: 炮塔战争
 
-注意：目前2.3.1版本为预览版。**可能存在Bug**！！如遇，请反馈给 ck@hitmux.org or caokai674@gmail.com 或者提交issue
+注意：目前2.4.3版本为预览版。**可能存在Bug**！！如遇，请反馈给 ck@hitmux.org or caokai674@gmail.com 或者提交issue
 
 ## **官方预览**: [Hitmux Game](https://game.hitmux.org)
 
@@ -98,7 +98,7 @@
 ## 📡 联络站
 
 - **官方预览**: [Hitmux Game](https://game.hitmux.org)
-- **版本**: 2.2.3
+- **版本**: 2.4.3
 
 > **“在炮塔的轰鸣声中，书写你的传奇。”**
 

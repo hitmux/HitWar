@@ -15,7 +15,18 @@ import {
 } from '../../entities/statusBar';
 import { Tower } from './tower';
 import { TowerRegistry } from '../towerRegistry';
+import { renderTowerLaser } from '../rendering/towerRenderer';
 import { scalePeriod } from '../../core/speedScale';
+import { isEnemy } from '../../game/player/ownership';
+import type {
+    VectorLike,
+    CircleLike,
+    MonsterLike as BaseMonsterLike,
+    TerritoryLike,
+    FogOfWarLike,
+    UserLike,
+    TowerLike,
+} from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
@@ -26,17 +37,14 @@ declare const EffectCircle: {
     acquire(pos: VectorLike): EffectCircleLike;
 } | undefined;
 
-interface VectorLike {
-    x: number;
-    y: number;
-    copy(): VectorLike;
-    sub(other: VectorLike): VectorLike;
+// Extended VectorLike with copy/sub methods for effect rendering
+interface VectorLikeExt extends VectorLike {
+    copy(): VectorLikeExt;
+    sub(other: VectorLike): VectorLikeExt;
 }
 
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
+// Extended CircleLike with impact method
+interface CircleLikeExt extends CircleLike {
     impact(other: CircleLike): boolean;
 }
 
@@ -56,20 +64,20 @@ interface EffectCircleLike {
     initCircleStyle(fillColor: MyColor, strokeColor: MyColor, strokeWidth: number): void;
 }
 
-interface MonsterLike {
-    pos: VectorLike;
-    getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
-    isDead(): boolean;
+// Extended MonsterLike for laser tower
+interface MonsterLike extends BaseMonsterLike {
+    pos: VectorLikeExt;
+    getBodyCircle(): CircleLikeExt;
 }
 
+// WorldLike interface for TowerLaser
 interface WorldLike {
     width: number;
     height: number;
-    batterys: Tower[];
-    territory?: { markDirty(): void };
-    fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean; isCircleVisible(x: number, y: number, radius: number): boolean };
-    user: { money: number };
+    batterys: TowerLike[];
+    territory?: TerritoryLike;
+    fog?: FogOfWarLike;
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     addBully(bully: unknown): void;
     removeBully(bully: unknown): void;
@@ -95,8 +103,8 @@ export class TowerLaser extends Tower {
     zapInitColor: MyColor;
 
     // Cached status bar caches
-    protected _cooldownBarCache: StatusBarCache;
-    protected _chargeBarCache: StatusBarCache;
+    _cooldownBarCache: StatusBarCache;
+    _chargeBarCache: StatusBarCache;
 
     declare attackFunc: LaserAttackFunc;
 
@@ -201,6 +209,11 @@ export class TowerLaser extends Tower {
                         continue;
                     }
 
+                    // Skip friendly monsters
+                    if (!isEnemy(this, m)) {
+                        continue;
+                    }
+
                     // Check fog visibility
                     if (fogEnabled) {
                         const mc = m.getBodyCircle();
@@ -218,7 +231,7 @@ export class TowerLaser extends Tower {
                         // Check collision with circle
                         const mc = m.getBodyCircle() as Circle;
                         if (Circle.collides(node.pos.x, node.pos.y, searchRadius, mc.x, mc.y, mc.r)) {
-                            m.hpChange(-currentDamage);
+                            m.hpChange(-currentDamage, this.ownerId);
                             monsterSet.add(m);
                             attacked = true;
 
@@ -270,12 +283,16 @@ export class TowerLaser extends Tower {
         let nearbyMonsters = this.world.getMonstersInRange(this.pos.x, this.pos.y, effectiveRange);
         let viewCircle = this.getViewCircle();
         for (let m of nearbyMonsters) {
+            // Skip friendly monsters
+            if (!isEnemy(this, m)) {
+                continue;
+            }
             const mc = m.getBodyCircle() as Circle;
             if (Circle.collides(viewCircle.x, viewCircle.y, viewCircle.r, mc.x, mc.y, mc.r)) {
                 if (this.laserFreezeNow === this.laserFreezeMax) {
                     let d = this.laserBaseDamage + this.laserDamageAdd;
                     d = d * this.getDamageMultiplier();
-                    m.hpChange(-d);
+                    m.hpChange(-d, this.ownerId);
                     isAttacked = true;
                 }
             }
@@ -321,7 +338,7 @@ export class TowerLaser extends Tower {
             d = d * this.getDamageMultiplier();
             this.laserFreezeNow = 0;
             this.laserDamageAdd = 0;
-            this.target.hpChange(-d);
+            this.target.hpChange(-d, this.ownerId);
 
             if (typeof EffectLine !== 'undefined') {
                 let e = EffectLine.acquire(this.pos, this.target.pos);
@@ -334,11 +351,7 @@ export class TowerLaser extends Tower {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        if (this.isDead()) {
-            return;
-        }
-        this.renderBody(ctx);
-        this.renderBars(ctx);
+        renderTowerLaser(this, ctx);
     }
 
     /**

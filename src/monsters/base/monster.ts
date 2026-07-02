@@ -15,8 +15,10 @@ import {
 } from '../../entities/statusBar';
 import { MonsterRegistry } from '../monsterRegistry';
 import { MONSTER_IMG_PRE_WIDTH, MONSTER_IMG_PRE_HEIGHT, getMonstersImg } from '../monsterConstants';
+import { renderMonster } from '../rendering/monsterRenderer';
 import { World } from '../../game/world';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
 import {
     calcBulletDodge,
     selectTarget,
@@ -25,6 +27,17 @@ import {
     type DodgeConfig,
     type TargetConfig
 } from '../ai';
+import type {
+    VectorLike as BaseVectorLike,
+    CircleLike as BaseCircleLike,
+    BulletLike as BaseBulletLike,
+    BuildingLike as BaseBuildingLike,
+    TerritoryLike,
+    UserLike,
+    RootBuildingLike as BaseRootBuildingLike,
+    FogOfWarLike,
+    CheatModeLike,
+} from '@/types/worldLike';
 
 // Declare globals for non-migrated modules
 declare const EffectLine: {
@@ -41,20 +54,17 @@ declare const Functions: {
     levelAddPrice(level: number): number;
 } | undefined;
 
-interface VectorLike {
-    x: number;
-    y: number;
+// Extended VectorLike with additional methods for monster movement
+interface VectorLike extends BaseVectorLike {
     copy(): VectorLike;
-    sub(other: VectorLike): VectorLike;
+    sub(other: BaseVectorLike): VectorLike;
     abs(): number;
-    add(other: VectorLike): void;
+    add(other: BaseVectorLike): void;
 }
 
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
-    impact(other: CircleLike): boolean;
+// Extended CircleLike with additional methods
+interface CircleLike extends BaseCircleLike {
+    impact(other: BaseCircleLike): boolean;
     pointIn?(x: number, y: number): boolean;
 }
 
@@ -68,46 +78,27 @@ interface EffectCircleLike {
     flashRedAnimation: () => void;
 }
 
-interface BulletLike {
+// Extended BulletLike for monster interaction
+interface BulletLike extends BaseBulletLike {
     pos: VectorLike;
-    speed: VectorLike;  // Required by bulletDodge AI
-    r: number;
-    laserDestoryAble?: boolean;
-    bodyRadiusChange(dr: number): void;
-    acceleration: VectorLike;
-    damageChange(delta: number): void;
-    remove(): void;
 }
 
-interface BuildingLike {
-    pos: VectorLike;
-    hp: number;         // Required by targetSelection AI
-    maxHp: number;      // Required by targetSelection AI
+// Extended BuildingLike for monster targeting
+interface BuildingLike extends BaseBuildingLike {
     getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
-    isDead(): boolean;
-    // Tower-specific (optional, for threat calculation)
-    damage?: number;
-    clock?: number;
 }
 
-interface TerritoryLike {
-    markDirty(): void;
-}
-
-interface UserLike {
-    money: number;
-}
-
-interface RootBuildingLike {
+// Extended RootBuildingLike with Vector pos
+interface RootBuildingLike extends BaseRootBuildingLike {
     pos: Vector;
 }
 
-interface FogLike {
-    enabled: boolean;
+// Extended FogLike
+interface FogLike extends FogOfWarLike {
     isCircleVisible(x: number, y: number, radius: number): boolean;
 }
 
+// WorldLike interface for Monster
 interface WorldLike {
     width: number;
     height: number;
@@ -118,11 +109,11 @@ interface WorldLike {
     monsterRadiusRange: number;
     monsters: Set<Monster>;
     allBullys: Iterable<BulletLike>;
-    rootBuilding: RootBuildingLike;
+    getBaseBuilding(): RootBuildingLike;
     user: UserLike;
     territory?: TerritoryLike;
     fog?: FogLike;
-    cheatMode?: { enabled: boolean; infiniteHp: boolean };
+    cheatMode?: CheatModeLike;
     getMonstersInRange(x: number, y: number, range: number): Monster[];
     getBullysInRange(x: number, y: number, range: number): BulletLike[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
@@ -130,6 +121,7 @@ interface WorldLike {
     addMonster(monster: Monster): void;
     removeMonster(monster: Monster): void;
     addEffect(effect: unknown): void;
+    addMoneyToOwner(ownerId: string | null, amount: number): void;
 }
 
 interface GainDetails {
@@ -239,7 +231,7 @@ export class Monster extends CircleObject {
     laserRecoverFreeze: number;
     laserRecoverNum: number;
     laserRadius: number;
-    protected _laserBarCache: StatusBarCache;
+    _laserBarCache: StatusBarCache;
 
     // Death summon ability
     deadSummonAble: boolean;
@@ -265,6 +257,10 @@ export class Monster extends CircleObject {
     protected _targetVec: Vector;
 
     imgIndex: number;
+
+    // Multiplayer: track who dealt the last damage (for kill reward)
+    lastDamageOwnerId: string | null = null;
+    protected _removedFromWorld: boolean;
 
     declare world: WorldLike;
 
@@ -358,15 +354,17 @@ export class Monster extends CircleObject {
         this._targetVec = new Vector(0, 0);
 
         this.imgIndex = 0;
+        this._removedFromWorld = false;
     }
 
-    static randInit(world: WorldLike): Monster {
-        let rootPos = world.rootBuilding.pos;
+    static randInit(world: WorldLike, targetBuilding?: { pos: { x: number; y: number } }): Monster {
+        // Use specified target building or default to rootBuilding
+        let targetPos = targetBuilding?.pos ?? world.getBaseBuilding().pos;
         let minRadius = Math.min(world.width, world.height) * 0.5;
         let maxRadius = Math.max(world.width, world.height) * 0.6;
 
         let pos = Vector.randCircleOutside(
-            rootPos.x, rootPos.y,
+            targetPos.x, targetPos.y,
             minRadius, maxRadius,
             world.width, world.height
         );
@@ -386,7 +384,19 @@ export class Monster extends CircleObject {
 
     teleporting(): void {
         if (this.teleportingAble) {
+            // Save old position for spatial grid update
+            const oldX = this.pos.x;
+            const oldY = this.pos.y;
+            
             this.pos.add(Vector.randCircle().mul(this.teleportingRange));
+            
+            // Update prevX/prevY to new position to avoid sweep detection treating teleport as a line
+            this.prevX = this.pos.x;
+            this.prevY = this.pos.y;
+            
+            // Notify spatial grid of position change
+            this._markMovement(oldX, oldY);
+            
             this.teleportingCount--;
             if (this.teleportingCount < 0) {
                 this.teleportingCount = 0;
@@ -513,6 +523,9 @@ export class Monster extends CircleObject {
         
         // Direct position update (skip CircleObject.move's acceleration logic)
         this.pos.add(this.speed);
+        
+        // Notify spatial grid of position change for accurate range queries
+        this._markMovement(this.prevX, this.prevY);
     }
 
     laserDefend(): void {
@@ -617,7 +630,7 @@ export class Monster extends CircleObject {
                         let av = diffVec.to1().mul(this.bullyChangeDetails.bullyAN);
                         let q = 1 - diffVec.abs() / this.bullyChangeDetails.r;
                         av = av.mul(q);
-                        b.acceleration = av as any;
+                        b.acceleration = av;
                         b.damageChange(this.bullyChangeDetails.bullyDD);
                     }
                 }
@@ -630,9 +643,13 @@ export class Monster extends CircleObject {
             let nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.gAreaR + 50);
             const gAreaRSq = this.gAreaR * this.gAreaR;
             for (let b of nearbyBuildings) {
+                // Filter friendly buildings (same owner)
+                if (!isEnemy(this, b)) {
+                    continue;
+                }
                 if (this.pos.disSq(b.pos as Vector) < gAreaRSq) {
                     // Power plants (Mine in buildings array) cannot be moved, take damage instead
-                    if ((b as any).gameType === "Mine") {
+                    if (b.gameType === "Mine") {
                         b.hpChange(-Math.abs(this.gAreaNum) * 2);
                         continue;
                     }
@@ -655,7 +672,11 @@ export class Monster extends CircleObject {
             
             let nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.bombSelfRange + 50);
             for (let b of nearbyBuildings) {
-                if (b.getBodyCircle().impact(bC as any)) {
+                // Filter friendly buildings (same owner)
+                if (!isEnemy(this, b)) {
+                    continue;
+                }
+                if (b.getBodyCircle().impact(bC)) {
                     // Use disSq for distance calculation, only sqrt when needed for damage
                     let disSq = this.pos.disSq(b.pos as Vector);
                     let dis = Math.sqrt(disSq);
@@ -696,22 +717,50 @@ export class Monster extends CircleObject {
         }
     }
 
-    hpChange(dh: number): void {
+    hpChange(dh: number, sourceOwnerId?: string | null): void {
+        // Track who dealt damage (for kill reward in multiplayer)
+        if (dh < 0 && sourceOwnerId !== undefined) {
+            this.lastDamageOwnerId = sourceOwnerId;
+        }
         return super.hpChange(dh);
     }
 
+    protected shouldSkipPostDeathPhases(): boolean {
+        return this._removedFromWorld || this.isDead();
+    }
+
+    protected removeIfDead(): boolean {
+        if (!this.isDead()) {
+            return false;
+        }
+        if (!this._removedFromWorld) {
+            this.bombSelf();
+            this.remove();
+        }
+        return true;
+    }
+
     remove(): void {
+        if (this._removedFromWorld) {
+            return;
+        }
+        this._removedFromWorld = true;
         this.deadSummon();
         super.remove();
         this.hpSet(0);
         this.world.removeMonster(this);
-        this.world.user.money += this.addPrice;
+        // Kill reward: dispatch to killer (multiplayer compatible)
+        this.world.addMoneyToOwner(this.lastDamageOwnerId, this.addPrice);
     }
 
     clash(): void {
         let nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 50);
         const myCircle = this.getBodyCircle();
         for (let b of nearbyBuildings) {
+            // Filter friendly buildings (same owner)
+            if (!isEnemy(this, b)) {
+                continue;
+            }
             const bc = b.getBodyCircle();
             if (Circle.collides(myCircle.x, myCircle.y, myCircle.r, bc.x, bc.y, bc.r)) {
                 this.bombSelf();
@@ -743,9 +792,8 @@ export class Monster extends CircleObject {
         this.summon();
         this.gainOther();
         this.bullyChange();
-        if (this.isDead()) {
-            this.bombSelf();
-            this.remove();
+        if (this.removeIfDead()) {
+            return;
         }
         this.gravyPower();
     }
@@ -755,11 +803,17 @@ export class Monster extends CircleObject {
      * 用于分离移动和碰撞检测的两阶段更新
      */
     moveOnly(): void {
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         if (this.burnRate > this.maxBurnRate) {
             this.burnRate = this.maxBurnRate;
         }
         if (this.burnRate !== 0) {
             this.hpChange(-this.burnRate * this.maxHp);
+        }
+        if (this.removeIfDead()) {
+            return;
         }
         this.move();
     }
@@ -770,8 +824,15 @@ export class Monster extends CircleObject {
      * 使用扫掠检测以处理高速移动的穿透问题
      */
     clashOnly(): void {
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         let nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
         for (let b of nearbyBuildings) {
+            // Skip friendly buildings (multiplayer support)
+            if (!isEnemy(this, b)) {
+                continue;
+            }
             const bc = b.getBodyCircle();
             // 使用扫掠检测（建筑不移动，所以用基础扫掠检测）
             if (Circle.sweepCollides(
@@ -789,61 +850,7 @@ export class Monster extends CircleObject {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        super.render(ctx);
-        const MONSTERS_IMG = getMonstersImg();
-        if (MONSTERS_IMG && MONSTERS_IMG.complete && MONSTERS_IMG.naturalWidth > 0) {
-            let imgStartPos = this.getImgStartPosByIndex(this.imgIndex);
-            ctx.drawImage(
-                MONSTERS_IMG,
-                imgStartPos.x,
-                imgStartPos.y,
-                MONSTER_IMG_PRE_WIDTH,
-                MONSTER_IMG_PRE_HEIGHT,
-                this.pos.x - this.r,
-                this.pos.y - this.r,
-                this.r * 2,
-                this.r * 2
-            );
-        }
-
-        ctx.fillStyle = "black";
-        ctx.font = Monster.FONT_12;
-        ctx.textAlign = "center";
-        ctx.fillText(this.name, this.pos.x, this.pos.y + this.r * 1.5);
-
-        if (this.bombSelfAble) {
-            Monster.getRenderCircle(this.pos.x, this.pos.y, this.bombSelfRange).renderView(ctx);
-        }
-        if (this.haveGArea) {
-            Monster.getRenderCircle(this.pos.x, this.pos.y, this.gAreaR).renderView(ctx);
-        }
-        if (this.haveBullyChangeArea) {
-            Monster.getRenderCircle(this.pos.x, this.pos.y, this.bullyChangeDetails.r).renderView(ctx);
-        }
-        if (this.haveGain) {
-            Monster.getRenderCircle(this.pos.x, this.pos.y, this.gainDetails.gainRadius).renderView(ctx);
-        }
-        if (this.haveLaserDefence) {
-            Monster.getRenderCircle(this.pos.x, this.pos.y, this.laserRadius).renderView(ctx);
-            
-            const barH = this.hpBarHeight;
-            const barX = this.pos.x - this.r;
-            const barY = this.pos.y - this.r + BAR_OFFSET.LASER_DEFENSE * barH;
-            const barW = this.r * 2;
-            const laserRate = this.laserDefendNum / this.maxLaserNum;
-
-            renderStatusBar(ctx, {
-                x: barX,
-                y: barY,
-                width: barW,
-                height: barH,
-                fillRate: laserRate,
-                fillColor: BAR_COLORS.LASER_DEFENSE,
-                showText: true,
-                textValue: this.laserDefendNum,
-                cache: this._laserBarCache
-            });
-        }
+        renderMonster(this, ctx);
     }
 
     getImgStartPosByIndex(n: number): Vector {

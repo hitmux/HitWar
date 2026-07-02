@@ -8,28 +8,35 @@ import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
+import { renderMonsterTerminator } from '../rendering/monsterRenderer';
 import { scaleSpeed } from '../../core/speedScale';
+import { isEnemy } from '@/game/player/ownership';
+import type {
+    CircleLike as BaseCircleLike,
+    BuildingLike as BaseBuildingLike,
+    UserLike,
+    RootBuildingLike,
+} from '@/types/worldLike';
 
-interface CircleLike {
-    x: number;
-    y: number;
-    r: number;
-    impact(other: CircleLike): boolean;
+// Extended CircleLike with impact method
+interface CircleLike extends BaseCircleLike {
+    impact(other: BaseCircleLike): boolean;
 }
 
-interface BuildingLike {
+// Extended BuildingLike for terminator targeting (uses Vector pos)
+interface BuildingLike extends BaseBuildingLike {
     pos: Vector;
     getBodyCircle(): CircleLike;
-    hpChange(delta: number): void;
 }
 
+// WorldLike interface for MonsterTerminator
 interface WorldLike {
     width: number;
     height: number;
     monsters: Set<Monster>;
     allBullys: Iterable<unknown>;
-    rootBuilding: { pos: Vector };
-    user: { money: number };
+    rootBuilding: RootBuildingLike & { pos: Vector };
+    user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): Monster[];
     getBullysInRange(x: number, y: number, range: number): unknown[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
@@ -53,23 +60,23 @@ export class MonsterTerminator extends Monster {
         this.scar = new Set();
     }
 
-    hpChange(dh: number): void {
+    hpChange(dh: number, sourceOwnerId?: string | null): void {
         let damage = -dh;
         if (damage < 10) {
             return;
         }
         if (damage < 100) {
-            super.hpChange(-1);
+            super.hpChange(-1, sourceOwnerId);
         } else if (damage < 300) {
-            super.hpChange(-5);
+            super.hpChange(-5, sourceOwnerId);
         } else if (damage < 500) {
-            super.hpChange(-100);
+            super.hpChange(-100, sourceOwnerId);
         } else if (damage < 1500) {
-            super.hpChange(-300);
+            super.hpChange(-300, sourceOwnerId);
         } else if (damage < 3000) {
-            super.hpChange(-500);
+            super.hpChange(-500, sourceOwnerId);
         } else {
-            super.hpChange(-damage * 0.75);
+            super.hpChange(-damage * 0.75, sourceOwnerId);
         }
     }
 
@@ -110,9 +117,16 @@ export class MonsterTerminator extends Monster {
      * 碰撞检测阶段（使用扫掠检测）
      */
     clashOnly(): void {
+        if (this.shouldSkipPostDeathPhases()) {
+            return;
+        }
         this.meeleAttacking = false;
         const nearbyBuildings = this.world.getBuildingsInRange(this.pos.x, this.pos.y, this.r + 100);
         for (let b of nearbyBuildings) {
+            // Skip friendly buildings (multiplayer support)
+            if (!isEnemy(this, b)) {
+                continue;
+            }
             const bc = b.getBodyCircle();
             // 使用扫掠检测（建筑不移动）
             if (Circle.sweepCollides(
@@ -134,10 +148,7 @@ export class MonsterTerminator extends Monster {
     }
 
     render(ctx: CanvasRenderingContext2D): void {
-        super.render(ctx);
-        for (let s of this.scar) {
-            s.render(ctx);
-        }
+        renderMonsterTerminator(this, ctx);
     }
 }
 

@@ -6,7 +6,7 @@
 import { Circle } from '../../core/math/circle';
 import { Camera } from '../../core/camera';
 import { Obstacle } from '../../core/physics/obstacle';
-import { SpatialHashGrid } from '../../core/physics/spatialHashGrid';
+import { SpatialHashGrid, SpatialGridObject } from '../../core/physics/spatialHashGrid';
 import { PR } from '../../core/staticInitData';
 import { renderStatusBar, BAR_OFFSET, type StatusBarCache } from '../../entities/statusBar';
 
@@ -44,8 +44,8 @@ export interface WorldRendererContext {
     obstacles: Obstacle[];
 
     // Spatial grids (只读)
-    monsterGrid: SpatialHashGrid<MonsterLike> | null;
-    bullyGrid: SpatialHashGrid<BullyLike> | null;
+    monsterGrid: SpatialHashGrid<SpatialGridObject> | null;
+    bullyGrid: SpatialHashGrid<SpatialGridObject> | null;
 
     // User state
     user: {
@@ -54,7 +54,7 @@ export interface WorldRendererContext {
             x: number;
             y: number;
             able: boolean;
-            building: { r: number; rangeR: number } | null;
+            building: { r: number; rangeR: number; otherHpAddAble?: boolean; otherHpAddRadius?: number } | null;
         };
         /** 移动模式下选中的建筑位置和半径 */
         moveTarget: { x: number; y: number; r: number } | null;
@@ -62,6 +62,7 @@ export interface WorldRendererContext {
 
     // Systems
     territory?: { renderer: { render: (ctx: CanvasRenderingContext2D) => void } };
+    allTerritories?: Array<{ renderer: { render: (ctx: CanvasRenderingContext2D) => void } }>;
     fog?: {
         enabled: boolean;
         renderer: { render: (ctx: CanvasRenderingContext2D, width: number, height: number) => void };
@@ -220,17 +221,21 @@ export class WorldRenderer {
             );
         }
 
-        // Render territory
-        if (this._context.territory) {
+        // Render territory (all players in multiplayer, or single player)
+        if (this._context.allTerritories) {
+            for (const territory of this._context.allTerritories) {
+                territory.renderer.render(ctx);
+            }
+        } else if (this._context.territory) {
             this._context.territory.renderer.render(ctx);
         }
 
         // Render dynamic parts of buildings (HP bars)
         for (const b of this._context.buildings) {
-            if ((b as any).gameType === "Mine") continue;
+            if (b.gameType === "Mine") continue;
             if (this._isObjectVisible(b, this._visibleBounds)) {
-                if (typeof (b as any).renderDynamic === 'function') {
-                    (b as any).renderDynamic(ctx);
+                if (typeof b.renderDynamic === 'function') {
+                    b.renderDynamic(ctx);
                 }
             }
         }
@@ -239,14 +244,14 @@ export class WorldRenderer {
         // 阶段1: 先渲染所有塔的主体
         for (const b of this._context.batterys) {
             if (this._isObjectVisible(b, this._visibleBounds)) {
-                (b as any).renderBody(ctx);
+                b.renderBody?.(ctx);
             }
         }
         // 阶段2: 再渲染所有塔的状态条（血条、蓄力条等）
         // 这样状态条都在同一层级，避免塔A的蓄力条覆盖塔B的血条
         for (const b of this._context.batterys) {
             if (this._isObjectVisible(b, this._visibleBounds)) {
-                (b as any).renderBars(ctx);
+                b.renderBars?.(ctx);
             }
         }
 
@@ -537,16 +542,16 @@ export class WorldRenderer {
 
         // Only render static parts of buildings (body, not HP bar) within buffer
         for (const b of buildings) {
-            if ((b as any).gameType === "Mine") continue;
-            const pos = (b as any).pos;
-            const r = (b as any).r || 50;
+            if (b.gameType === "Mine") continue;
+            const pos = b.pos;
+            const r = b.r || 50;
             // Skip buildings outside buffer
             if (pos.x + r < this._bufferLeft || pos.x - r > bufferRight ||
                 pos.y + r < this._bufferTop || pos.y - r > bufferBottom) {
                 continue;
             }
-            if (typeof (b as any).renderStatic === 'function') {
-                (b as any).renderStatic(ctx);
+            if (typeof b.renderStatic === 'function') {
+                b.renderStatic(ctx);
             } else {
                 b.render(ctx);
             }
@@ -639,6 +644,12 @@ export class WorldRenderer {
                 cache: cache
             });
         }
+
+        // Render monster name below the body
+        ctx.fillStyle = "black";
+        ctx.font = "12px Microsoft YaHei";
+        ctx.textAlign = "center";
+        ctx.fillText(monster.name, monster.pos.x, monster.pos.y + monster.r * 1.5);
     }
 
     private _renderPlacementPreview(ctx: CanvasRenderingContext2D): void {
@@ -646,7 +657,7 @@ export class WorldRenderer {
         if (user.putLoc.building !== null && user.putLoc.building !== undefined) {
             const x = user.putLoc.x;
             const y = user.putLoc.y;
-            const building = user.putLoc.building as any;
+            const building = user.putLoc.building;
 
             // 渲染建筑体圆圈
             if (!this._previewBodyCircle) {
@@ -756,10 +767,12 @@ export class WorldRenderer {
         };
 
         let changed = false;
+        // Cast for dynamic key comparison; all UiStateCache values are number | string
+        const cache = this._uiStateCache as unknown as Record<keyof UiStateCache, number | string>;
         for (const key of Object.keys(nextState) as (keyof UiStateCache)[]) {
             const nextValue = nextState[key];
-            if ((this._uiStateCache as any)[key] !== nextValue) {
-                (this._uiStateCache as any)[key] = nextValue;
+            if (cache[key] !== nextValue) {
+                cache[key] = nextValue;
                 changed = true;
             }
         }
@@ -829,7 +842,7 @@ export class WorldRenderer {
     }
 
     private _getBodyVersion(entity: any): number {
-        const v = (entity as any)._bodyVersion;
+        const v = entity._bodyVersion;
         return typeof v === "number" ? v : 0;
     }
 

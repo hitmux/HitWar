@@ -1,0 +1,41 @@
+/**
+ * Player State Schema
+ * Represents a player in the multiplayer game
+ */
+import { Schema, type } from '@colyseus/schema';
+import { VectorSchema } from './VectorSchema.js';
+
+export class PlayerState extends Schema {
+  @type('string') id: string = '';
+  @type('string') name: string = '';
+  @type('string') color: string = '#ffffff';
+  @type('number') money: number = 0;
+  @type('boolean') isAlive: boolean = true;
+  @type('boolean') isConnected: boolean = true;
+  @type('boolean') isReady: boolean = false;
+  @type('string') sessionId: string = ''; // For reconnection
+  @type(VectorSchema) basePosition: VectorSchema = new VectorSchema();
+
+  // Player index (0 for left, 1 for right)
+  @type('number') playerIndex: number = 0;
+
+  // Statistics
+  @type('number') towersBuilt: number = 0;
+  @type('number') monstersKilled: number = 0;
+  @type('number') monstersSpawned: number = 0;
+
+  // Energy system
+  @type('number') energyProduction: number = 6;
+  @type('number') energyConsumption: number = 0;
+  @type('number') energySatisfaction: number = 1;
+
+  constructor(id: string = '', name: string = '', playerIndex: number = 0) {
+    super();
+    this.id = id;
+    this.name = name;
+    this.playerIndex = playerIndex;
+  }
+}
+
+// Re-export from shared config (single source of truth)
+export { PLAYER_COLORS } from '../../../shared/config/playerMeta.js';
