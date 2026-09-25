@@ -34,11 +34,11 @@ interface WorldLike {
     width: number;
     height: number;
     monsters: Set<Monster>;
-    allBullys: Iterable<unknown>;
+    allBullets: Iterable<unknown>;
     rootBuilding: RootBuildingLike & { pos: Vector };
     user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): Monster[];
-    getBullysInRange(x: number, y: number, range: number): unknown[];
+    getBulletsInRange(x: number, y: number, range: number): unknown[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
     getAllBuildingArr(): BuildingLike[];
     addMonster(monster: Monster): void;

@@ -49,29 +49,29 @@ export interface IWorld {
   // Entity collections
   towers: Map<number, ITower>;
   monsters: Map<number, IMonster>;
-  bullys: Map<number, IBullet>;
+  bullets: Map<number, IBullet>;
   buildings: Map<number, IBuilding>;
   effects: IEffect[];
 
   // QuadTrees for spatial queries
   monsterQuadTree: IQuadTree<IMonster>;
-  bullyQuadTree: IQuadTree<IBullet>;
+  bulletQuadTree: IQuadTree<IBullet>;
   buildingQuadTree: IQuadTree<IBuilding>;
 
   // Entity management
   addTower(tower: ITower): void;
   addMonster(monster: IMonster): void;
   removeMonster(monster: IMonster): void;
-  addBully(bully: IBullet): void;
+  addBullet(bullet: IBullet): void;
   addBuilding(building: IBuilding): void;
   addEffect(effect: IEffect): void;
-  removeBully(bully: IBullet): void;
+  removeBullet(bullet: IBullet): void;
 
   // Query methods
   getMonstersInRange(circle: ICircle): IMonster[];
-  getBullysInRange(circle: ICircle): IBullet[];
+  getBulletsInRange(circle: ICircle): IBullet[];
   getBuildingsInRange(circle: ICircle): IBuilding[];
-  getAllBullyToArr(): IBullet[];
+  getAllBulletsToArr(): IBullet[];
   getAllBuildingArr(): IBuilding[];
 
   // Position checks

@@ -74,6 +74,12 @@ export function lobbyInterface(): void {
   const privateRoomCheckbox = container.querySelector(
     '#privateRoomCheckbox'
   ) as HTMLInputElement;
+  // Private rooms are not supported until password validation is implemented.
+  if (privateRoomCheckbox) {
+    const privateRoomControl = privateRoomCheckbox.closest('label, .form-group, .checkbox-row') as HTMLElement | null;
+    (privateRoomControl || privateRoomCheckbox).style.display = 'none';
+    privateRoomCheckbox.checked = false;
+  }
   const confirmCreateBtn = container.querySelector(
     '#confirmCreateRoom'
   ) as HTMLButtonElement;
@@ -206,7 +212,7 @@ export function lobbyInterface(): void {
     mapSizeRadios.forEach((radio) => {
       if (radio.checked) mapSize = radio.value;
     });
-    const isPrivate = privateRoomCheckbox.checked;
+    const isPrivate = false;
 
     hideCreateDialog();
     updateMatchStatus('正在创建房间...', 'info');

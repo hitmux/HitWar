@@ -43,7 +43,7 @@ interface ManualCannonWorld {
     batterys: unknown[];
     buildings: unknown[];
     monsters: unknown[];
-    addBully(bullet: unknown): void;
+    addBullet(bullet: unknown): void;
     addEffect(effect: unknown): void;
     getMonstersInRange(x: number, y: number, r: number): unknown[];
     getBuildingsInRange(x: number, y: number, r: number): unknown[];
@@ -225,8 +225,8 @@ export class TowerManualCannon extends Tower {
         bullet.targetPos = targetPos;
 
         // Add to world
-        this.cannonWorld.addBully(bullet);
-        this.bullys.add(bullet);
+        this.cannonWorld.addBullet(bullet);
+        this.bullets.add(bullet);
 
         // Consume ammo
         this.currentAmmo--;

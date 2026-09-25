@@ -4,11 +4,16 @@
 export { TOWER_META, getTowerMeta, isTowerTypeValid } from './towerMeta.js';
 export type { TowerMetaData } from '../validation/towerValidation.js';
 
+export * from './monsterDefinitions.js';
+export * from './monsterDefinitionTypes.js';
+
 export {
   SPAWNABLE_MONSTER_META,
   getMonsterMeta,
+  getMonsterThreatSpeed,
   isMonsterTypeValid,
   getMonstersForWave,
+  MAX_TARGET_SCORING_MONSTER_SPEED,
 } from './monsterMeta.js';
 export type { MonsterMetaData } from './monsterMeta.js';
 

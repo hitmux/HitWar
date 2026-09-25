@@ -4,14 +4,14 @@
  */
 import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
-import { Bully } from '../bullet';
+import { Bullet } from '../bullet';
 import { BulletRegistry } from '../bulletRegistry';
 
 /**
  * Armor-piercing bullet - medium
  */
-export function T_M(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function T_M(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.throughable = true;
     b.throughCutNum = 0.1;
 
@@ -24,8 +24,8 @@ export function T_M(): Bully {
 /**
  * Armor-piercing bullet - large
  */
-export function T_L(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function T_L(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.throughable = true;
     b.throughCutNum = 1;
 
@@ -39,8 +39,8 @@ export function T_L(): Bully {
 /**
  * Armor-piercing bullet - extra large
  */
-export function T_LL(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 8);
+export function T_LL(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 8);
     b.throughable = true;
     b.throughCutNum = 1;
     b.damage = 120;

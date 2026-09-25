@@ -56,9 +56,8 @@ import {
 // Test imports from bullets module (Phase 6)
 import {
     BulletRegistry,
-    Bully,
-    getBulletFuncArr,
-    BullyFinallyCompat
+    Bullet,
+    getBulletFuncArr
 } from './bullets/index';
 
 // Test imports from effects module (Phase 7)
@@ -149,8 +148,7 @@ console.log('  - MONSTER_IMG_PRE_HEIGHT:', MONSTER_IMG_PRE_HEIGHT);
 
 console.log('');
 console.log('Bullet classes loaded:');
-console.log('  - Bully:', typeof Bully);
-console.log('  - BullyFinallyCompat:', typeof BullyFinallyCompat);
+console.log('  - Bullet:', typeof Bullet);
 
 console.log('');
 console.log('Registry modules loaded:');
@@ -207,17 +205,12 @@ console.log('  - Has Normal:', BulletRegistry.has('Normal') ? 'OK' : 'FAIL');
 console.log('  - Has H_S:', BulletRegistry.has('H_S') ? 'OK' : 'FAIL');
 console.log('  - Has ThunderBall:', BulletRegistry.has('ThunderBall') ? 'OK' : 'FAIL');
 console.log('  - Has SS_Third:', BulletRegistry.has('SS_Third') ? 'OK' : 'FAIL');
-console.log('  - BullyCreators compatibility:', typeof BulletRegistry.BullyCreators === 'object' ? 'OK' : 'FAIL');
+console.log('  - BulletCreators:', typeof BulletRegistry.BulletCreators === 'object' ? 'OK' : 'FAIL');
 console.log('  - BulletClassTypes:', Object.keys(BulletRegistry.BulletClassTypes).length, 'types');
 
 // Test getBulletFuncArr
 const bulletFuncs = getBulletFuncArr();
 console.log('  - getBulletFuncArr():', bulletFuncs.length, 'functions');
-
-// Test BullyFinallyCompat
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Test code: dynamic compat proxy access
-const normalBullet = (BullyFinallyCompat as any).Normal();
-console.log('  - BullyFinallyCompat.Normal() works:', normalBullet instanceof Bully ? 'OK' : 'FAIL');
 
 // Sample registered bullets
 console.log('');

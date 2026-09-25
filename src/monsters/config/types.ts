@@ -71,6 +71,10 @@ export interface MonsterParams {
     movementType?: MovementType;
     /** Can teleport when hit */
     teleportingAble?: boolean;
+    /** Teleport distance per trigger */
+    teleportingRange?: number;
+    /** Max teleport triggers */
+    teleportingCount?: number;
     /** Can roll over buildings */
     throwAble?: boolean;
 }
@@ -90,19 +94,19 @@ export interface BombSelfParams {
 /**
  * Bullet change area parameters (affects bullets in range)
  */
-export interface BullyChangeParams {
+export interface BulletChangeParams {
     /** Enable bullet change area */
-    haveBullyChangeArea: boolean;
+    haveBulletChangeArea: boolean;
     /** Area radius */
     r: number;
     /** Effect frequency */
     f: number;
     /** Bullet radius change per tick */
-    bullyDR?: number;
+    bulletDR?: number;
     /** Bullet acceleration number */
-    bullyAN?: number;
+    bulletAN?: number;
     /** Bullet damage decrease per tick */
-    bullyDD?: number;
+    bulletDD?: number;
 }
 
 /**
@@ -250,7 +254,7 @@ export interface MonsterConfig extends MonsterBaseConfig {
     baseClass: 'Monster';
     params?: MonsterParams & {
         bombSelf?: BombSelfParams;
-        bullyChange?: BullyChangeParams;
+        bulletChange?: BulletChangeParams;
         gravityArea?: GravityAreaParams;
         laserDefense?: LaserDefenseParams;
         gain?: GainParams;

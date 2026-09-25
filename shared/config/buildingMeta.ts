@@ -20,6 +20,13 @@ export const BUILDING_META: Record<string, BuildingMetaData> = {
     radius: 10,
     hp: 7500,
     displayName: 'Repair Tower'
+  },
+  MonsterSpawner: {
+    id: 'MonsterSpawner',
+    price: 500,
+    radius: 15,
+    hp: 3000,
+    displayName: 'Monster Spawner'
   }
 };
 

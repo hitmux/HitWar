@@ -19,10 +19,10 @@ export const THREE_TUBE_CANNON_CONFIG: TowerConfig = {
         rAdd: 6,
         rangeR: 230,
         clock: 4,
-        bullySpeed: 3,
-        bullyRotate: Math.PI / 12,
-        attackBullyNum: 3,
-        bulletType: 'Bully_M',
+        bulletSpeed: 3,
+        bulletRotate: Math.PI / 12,
+        attackBulletCount: 3,
+        bulletType: 'Bullet_M',
         attackType: 'shrapnelAttack',
         audioSrcString: '/sound/子弹音效/散弹子弹.mp3'
     }
@@ -42,11 +42,11 @@ export const SHOTGUN_1_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 3,
         hp: 5000,
-        bullySpeed: 3,
-        bullySpeedAddMax: 0.5,
-        bullyRotate: Math.PI / 10,
-        attackBullyNum: 5,
-        bulletType: 'Bully_M',
+        bulletSpeed: 3,
+        bulletSpeedAddMax: 0.5,
+        bulletRotate: Math.PI / 10,
+        attackBulletCount: 5,
+        bulletType: 'Bullet_M',
         attackType: 'shrapnelAttack',
         audioSrcString: '/sound/子弹音效/散弹子弹.mp3'
     }
@@ -66,11 +66,11 @@ export const SHOTGUN_2_CONFIG: TowerConfig = {
         rangeR: 260,
         clock: 2,
         hp: 10000,
-        bullySpeed: 2.8,
-        bullySpeedAddMax: 0.7,
-        bullyRotate: Math.PI / 6,
-        attackBullyNum: 10,
-        bulletType: 'Bully_M',
+        bulletSpeed: 2.8,
+        bulletSpeedAddMax: 0.7,
+        bulletRotate: Math.PI / 6,
+        attackBulletCount: 10,
+        bulletType: 'Bullet_M',
         attackType: 'shrapnelAttack',
         audioSrcString: '/sound/子弹音效/散弹子弹.mp3'
     }
@@ -90,12 +90,12 @@ export const SHOTCANNON_1_CONFIG: TowerConfig = {
         rangeR: 225,
         clock: 15,
         hp: 5000,
-        bullySpeed: 3,
-        bullySlideRate: 1,
-        bullySpeedAddMax: 14,
-        bullyDeviationRotate: 5,
-        attackBullyNum: 40,
-        bulletType: 'Bully_M',
+        bulletSpeed: 3,
+        bulletSlideRate: 1,
+        bulletSpeedAddMax: 14,
+        bulletDeviationRotate: 5,
+        attackBulletCount: 40,
+        bulletType: 'Bullet_M',
         audioSrcString: '/sound/发射音效/喷泄.mp3'
     }
 };
@@ -114,12 +114,12 @@ export const SHOTCANNON_2_CONFIG: TowerConfig = {
         rangeR: 335, // base 100 + 235
         clock: 18,
         hp: 5000,
-        bullySpeed: 3,
-        bullySlideRate: 1.1,
-        bullySpeedAddMax: 16,
-        bullyDeviationRotate: 8,
-        attackBullyNum: 100,
-        bulletType: 'Bully_M',
+        bulletSpeed: 3,
+        bulletSlideRate: 1.1,
+        bulletSpeedAddMax: 16,
+        bulletDeviationRotate: 8,
+        attackBulletCount: 100,
+        bulletType: 'Bullet_M',
         audioSrcString: '/sound/发射音效/喷泄.mp3'
     }
 };

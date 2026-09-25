@@ -32,8 +32,8 @@ export interface MonsterLike {
     bombSelfRange: number;
     haveGArea: boolean;
     gAreaR: number;
-    haveBullyChangeArea: boolean;
-    bullyChangeDetails: { r: number };
+    haveBulletChangeArea: boolean;
+    bulletChangeDetails: { r: number };
     haveGain: boolean;
     gainDetails: { gainRadius: number };
     haveLaserDefence: boolean;
@@ -55,7 +55,7 @@ export interface MonsterMortisLike extends MonsterLike {
 
 export interface MonsterShooterLike extends MonsterLike {
     rangeR: number;
-    bullys: Set<{ render(ctx: CanvasRenderingContext2D): void }>;
+    bullets: Set<{ render(ctx: CanvasRenderingContext2D): void }>;
 }
 
 export interface MonsterTerminatorLike extends MonsterLike {
@@ -180,8 +180,8 @@ export function renderMonsterAbilities(monster: MonsterLike, ctx: CanvasRenderin
         getRenderCircle(monster.pos.x, monster.pos.y, monster.gAreaR).renderView(ctx);
     }
     // Bullet manipulation area
-    if (monster.haveBullyChangeArea) {
-        getRenderCircle(monster.pos.x, monster.pos.y, monster.bullyChangeDetails.r).renderView(ctx);
+    if (monster.haveBulletChangeArea) {
+        getRenderCircle(monster.pos.x, monster.pos.y, monster.bulletChangeDetails.r).renderView(ctx);
     }
     // Ally buff area
     if (monster.haveGain) {
@@ -255,7 +255,7 @@ export function renderMonsterShooter(monster: MonsterShooterLike, ctx: CanvasRen
     // MonsterShooter-specific: attack range circle
     new Circle(monster.pos.x, monster.pos.y, monster.rangeR).renderView(ctx);
     // Render bullets
-    for (const b of monster.bullys) {
+    for (const b of monster.bullets) {
         b.render(ctx);
     }
 }

@@ -31,7 +31,7 @@ export interface TerritoryCompatibleEntity {
 export interface TowerLike extends TerritoryCompatibleEntity {
     pos: Vector;
     r: number;
-    bullys: Set<unknown>;
+    bullets: Set<unknown>;
     isDead: () => boolean;
     goStep: () => void;
     render: (ctx: CanvasRenderingContext2D) => void;
@@ -90,7 +90,7 @@ export interface MonsterLike extends SpatialGridObject {
 }
 
 // 子弹实体接口
-export interface BullyLike extends SpatialGridObject {
+export interface BulletLike extends SpatialGridObject {
     pos: Vector;
     r: number;
     isOutScreen: () => boolean;
@@ -134,8 +134,8 @@ export class EntityManager {
     mines: Set<Mine> = new Set();
     monsters: Set<MonsterLike> = new Set();
     effects: Set<IEffect> = new Set();
-    othersBullys: BullyLike[] = [];
-    allBullys: Set<BullyLike> = new Set();
+    standaloneBullets: BulletLike[] = [];
+    allBullets: Set<BulletLike> = new Set();
 
     // Per-frame render caches
     private _monsterRenderList: MonsterLike[] = [];
@@ -204,17 +204,17 @@ export class EntityManager {
     /**
      * Add bullet to global cache
      */
-    addBully(bully: BullyLike): void {
-        this.allBullys.add(bully);
-        this._spatialSystem.insertBully(bully);
+    addBullet(bullet: BulletLike): void {
+        this.allBullets.add(bullet);
+        this._spatialSystem.insertBullet(bullet);
     }
 
     /**
      * Remove bullet from global cache
      */
-    removeBully(bully: BullyLike): void {
-        this.allBullys.delete(bully);
-        this._spatialSystem.removeBully(bully);
+    removeBullet(bullet: BulletLike): void {
+        this.allBullets.delete(bullet);
+        this._spatialSystem.removeBullet(bullet);
     }
 
     /**
@@ -224,7 +224,7 @@ export class EntityManager {
         if (!entity) return;
         if (this.monsters.has(entity as MonsterLike)) {
             this._spatialSystem.markEntityDirty(entity, true);
-        } else if (this.allBullys.has(entity as BullyLike)) {
+        } else if (this.allBullets.has(entity as BulletLike)) {
             this._spatialSystem.markEntityDirty(entity, false);
         }
     }
@@ -245,16 +245,16 @@ export class EntityManager {
 
     /**
      * Get all friendly bullets as array
-     * @deprecated Use this.allBullys instead to avoid rebuilding array
+     * @deprecated Use this.allBullets instead to avoid rebuilding array
      */
-    getAllBullyToArr(): BullyLike[] {
-        const res: BullyLike[] = [];
+    getAllBulletsToArr(): BulletLike[] {
+        const res: BulletLike[] = [];
         for (const tower of this.batterys) {
-            for (const b of tower.bullys) {
-                res.push(b as BullyLike);
+            for (const b of tower.bullets) {
+                res.push(b as BulletLike);
             }
         }
-        for (const b of this.othersBullys) {
+        for (const b of this.standaloneBullets) {
             res.push(b);
         }
         return res;
@@ -292,15 +292,15 @@ export class EntityManager {
 
         // Clear standalone bullets (in-place filter)
         let writeIdx = 0;
-        for (let i = 0; i < this.othersBullys.length; i++) {
-            const p = this.othersBullys[i];
+        for (let i = 0; i < this.standaloneBullets.length; i++) {
+            const p = this.standaloneBullets[i];
             if (!p.isOutScreen()) {
-                this.othersBullys[writeIdx++] = p;
+                this.standaloneBullets[writeIdx++] = p;
             } else {
-                this.removeBully(p);
+                this.removeBullet(p);
             }
         }
-        this.othersBullys.length = writeIdx;
+        this.standaloneBullets.length = writeIdx;
 
         // Clear towers (in-place filter)
         writeIdx = 0;
@@ -387,7 +387,7 @@ export class EntityManager {
             b.goStepMove();
         }
         // Standalone bullet 移动
-        for (const p of this.othersBullys) {
+        for (const p of this.standaloneBullets) {
             p.move();
         }
         // Monster 移动
@@ -401,7 +401,7 @@ export class EntityManager {
             b.goStepCollide();
         }
         // Standalone bullet 碰撞检测
-        for (const p of this.othersBullys) {
+        for (const p of this.standaloneBullets) {
             p.collide(this._context);
         }
         // Monster 碰撞检测

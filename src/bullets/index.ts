@@ -8,7 +8,7 @@
 export { BulletRegistry } from './bulletRegistry';
 
 // Export base class
-export { Bully } from './bullet';
+export { Bullet } from './bullet';
 
 // Import variants to trigger registration (side effect)
 import './variants/index';
@@ -21,7 +21,6 @@ import { BulletRegistry } from './bulletRegistry';
 
 /**
  * Get the array of all bullet creator functions
- * Equivalent to original BullyFinally static methods
  */
 export function getBulletFuncArr(): ((() => unknown) | null)[] {
     return [
@@ -34,12 +33,12 @@ export function getBulletFuncArr(): ((() => unknown) | null)[] {
         BulletRegistry.getCreator('CannonStone_S'),
         BulletRegistry.getCreator('CannonStone_M'),
         BulletRegistry.getCreator('CannonStone_L'),
-        BulletRegistry.getCreator('Bully_S'),
-        BulletRegistry.getCreator('Bully_M'),
-        BulletRegistry.getCreator('Bully_L'),
-        BulletRegistry.getCreator('Rifle_Bully_S'),
-        BulletRegistry.getCreator('Rifle_Bully_M'),
-        BulletRegistry.getCreator('Rifle_Bully_L'),
+        BulletRegistry.getCreator('Bullet_S'),
+        BulletRegistry.getCreator('Bullet_M'),
+        BulletRegistry.getCreator('Bullet_L'),
+        BulletRegistry.getCreator('Rifle_Bullet_S'),
+        BulletRegistry.getCreator('Rifle_Bullet_M'),
+        BulletRegistry.getCreator('Rifle_Bullet_L'),
         // Machine gun bullets
         BulletRegistry.getCreator('F_S'),
         BulletRegistry.getCreator('F_M'),
@@ -63,7 +62,7 @@ export function getBulletFuncArr(): ((() => unknown) | null)[] {
         BulletRegistry.getCreator('SS_L'),
         BulletRegistry.getCreator('SS_Second'),
         BulletRegistry.getCreator('SS_Third'),
-        BulletRegistry.getCreator('SpikeBully'),
+        BulletRegistry.getCreator('SpikeBullet'),
         BulletRegistry.getCreator('CactusNeedle'),
         // Special bullets
         BulletRegistry.getCreator('S'),
@@ -77,16 +76,3 @@ export function getBulletFuncArr(): ((() => unknown) | null)[] {
         BulletRegistry.getCreator('ThunderBall'),
     ].filter(Boolean) as ((() => unknown) | null)[];
 }
-
-/**
- * Backward compatibility object - acts like BullyFinally
- * Usage: BullyFinally.Normal() → BullyFinallyCompat.Normal()
- */
-export const BullyFinallyCompat = new Proxy({} as Record<string, (() => unknown) | null>, {
-    get(_target, prop) {
-        if (typeof prop === 'string') {
-            return BulletRegistry.getCreator(prop);
-        }
-        return undefined;
-    }
-});

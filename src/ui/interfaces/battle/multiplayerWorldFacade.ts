@@ -185,6 +185,7 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
             isPositionInValidTerritory: (pos: Vector) => localTerritory.isPositionInValidTerritory(pos),
             // Territory mutations are server-authoritative in multiplayer; no-op on client
             markDirty: () => {},
+            recalculate: () => {},
             removeBuildingIncremental: () => {},
             addBuildingIncremental: () => {},
         };
@@ -269,6 +270,14 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
         return this._networkClient;
     }
 
+    getEnemyPlayers(): Array<{ id: string; name: string }> {
+        const state = this._adapter.gameStateView;
+        if (!state) return [];
+        return Array.from(state.players.entries())
+            .filter(([id, player]) => id !== this._adapter.localPlayerId && player.isAlive)
+            .map(([id, player]) => ({ id, name: player.name }));
+    }
+
     // === Building Operations ===
 
     /**
@@ -279,19 +288,10 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
         const meta = getBuildingMeta(building.buildingType);
         if (!meta) return;
 
-        const requestId = this._adapter.prediction.predictBuild(
-            building.buildingType,
-            building.pos.x,
-            building.pos.y,
-            meta.radius,
-            0
-        );
-
         this._networkClient.buildBuilding({
             buildingType: building.buildingType,
             x: building.pos.x,
             y: building.pos.y,
-            requestId
         });
     }
 
@@ -303,5 +303,9 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
      */
     markStaticLayerDirty(): void {
         // No-op: NetworkWorldAdapter handles rendering updates
+    }
+
+    markBuildingQuadTreeDirty(): void {
+        // No-op: multiplayer building positions are server-authoritative
     }
 }

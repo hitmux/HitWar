@@ -11,6 +11,8 @@ import { createStatusBarCache, type StatusBarCache } from '../../entities/status
 import { getInterpolationSystem } from './interpolation';
 import { getVisionRadius, RADAR_SWEEP_SPEED, VisionType } from '../../../shared/config/visionMeta.js';
 import type { TowerLike as FogTowerLike } from '../../systems/fog/fogOfWar';
+import { TOWER_META } from '../../../shared/config/towerMeta.js';
+import { BUILDING_META } from '../../../shared/config/buildingMeta.js';
 
 // ============================================================================
 // Server state view interfaces (mirrors Colyseus schema, avoids cross-project import)
@@ -119,7 +121,7 @@ export class TowerRenderProxy implements FogTowerLike {
     readonly hpColor = DEFAULT_HP_COLOR;
     readonly imgIndex: number = 0;
     readonly selected: boolean = false;
-    readonly bullys: Set<unknown> = new Set(); // Empty for network mode (bullets not synced)
+    readonly bullets: Set<unknown> = new Set(); // Empty for network mode (bullets not synced)
     _upIconOffset: Vector | null = null;
     readonly liveTime: number = 0;
 
@@ -188,6 +190,13 @@ export class TowerRenderProxy implements FogTowerLike {
     get towerType(): string {
         return this._state.towerType;
     }
+
+    get name(): string { return this._state.towerType; }
+    get price(): number { return TOWER_META[this._state.towerType]?.price ?? 0; }
+    get levelUpArr(): string[] { return TOWER_META[this._state.towerType]?.levelUpArr ?? []; }
+    get levelDownGetter(): string | null { return null; }
+    getSellRefund(): number { return Math.floor(this.price / 2); }
+    remove(): void { /* server owns lifecycle */ }
 
     // Territory flag (writable for network territory sync)
     inValidTerritory: boolean = true;
@@ -347,8 +356,8 @@ export class MonsterRenderProxy {
     readonly bombSelfRange: number = 0;
     readonly haveGArea: boolean = false;
     readonly gAreaR: number = 0;
-    readonly haveBullyChangeArea: boolean = false;
-    readonly bullyChangeDetails = { r: 0 };
+    readonly haveBulletChangeArea: boolean = false;
+    readonly bulletChangeDetails = { r: 0 };
     readonly haveGain: boolean = false;
     readonly gainDetails = { gainRadius: 0 };
     readonly haveLaserDefence: boolean = false;
@@ -464,7 +473,6 @@ export class BuildingRenderProxy {
     readonly hpColor = DEFAULT_HP_COLOR;
     readonly otherHpAddAble: boolean = false;
     readonly otherHpAddRadius: number = 0;
-    readonly gameType: string = '';
     // Territory flag (writable for network territory sync)
     inValidTerritory: boolean = true;
 
@@ -508,6 +516,22 @@ export class BuildingRenderProxy {
 
     get buildingType(): string {
         return this._state.buildingType;
+    }
+
+    get gameType(): string { return 'Building'; }
+    get name(): string { return BUILDING_META[this._state.buildingType]?.displayName ?? this._state.buildingType; }
+    get price(): number { return BUILDING_META[this._state.buildingType]?.price ?? 0; }
+    get levelUpArr(): string[] { return []; }
+    get levelDownGetter(): string | null { return null; }
+    getSellRefund(): number { return Math.floor(this.price / 2); }
+    remove(): void { /* server owns lifecycle */ }
+
+    get canSpawnMonsters(): boolean {
+        return this._state.isSpawner;
+    }
+
+    get isMultiplayerMode(): boolean {
+        return true;
     }
 
     isDead(): boolean {

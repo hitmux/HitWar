@@ -11,6 +11,7 @@ import { TowerBoomerang } from '../base/towerBoomerang';
 import { TowerHell } from '../base/towerHell';
 import { TowerRay } from '../base/towerRay';
 import { TowerRegistry, type TowerMeta } from '../towerRegistry';
+import { BulletRegistry } from '@/bullets/bulletRegistry';
 import { MyColor } from '@/entities/myColor';
 import { scaleSpeed, scalePeriod } from '@/core/speedScale';
 import type {
@@ -24,9 +25,6 @@ import type {
     DynamicPriceTowerConfig,
     AttackType
 } from './types';
-
-// Bullet creators reference (resolved from global scope)
-declare const BullyFinally: Record<string, (() => TowerBulletLike) | null> | undefined;
 
 // Price calculator reference (resolved from global scope)
 declare const Functions: {
@@ -112,19 +110,17 @@ function applyTowerParams(tower: Tower, config: AnyTowerConfig): void {
     if (params.hp !== undefined) tower.hpInit(params.hp);
 
     // Bullet properties
-    if (params.bulletType && typeof BullyFinally !== 'undefined') {
-        const bulletCreator = BullyFinally[params.bulletType];
-        if (bulletCreator) {
-            tower.getmMainBullyFunc = bulletCreator;
-        }
+    if (params.bulletType) {
+        const bulletCreator = BulletRegistry.getCreator(params.bulletType) as (() => TowerBulletLike) | undefined;
+        if (bulletCreator) tower.getMainBulletFactory = bulletCreator;
     }
-    if (params.bullySpeed !== undefined) tower.bullySpeed = scaleSpeed(params.bullySpeed);
-    if (params.bullySpeedAddMax !== undefined) tower.bullySpeedAddMax = scaleSpeed(params.bullySpeedAddMax);
-    if (params.bullyDeviationRotate !== undefined) tower.bullyDeviationRotate = params.bullyDeviationRotate;
-    if (params.bullyDeviation !== undefined) tower.bullyDeviation = params.bullyDeviation;
-    if (params.bullyRotate !== undefined) tower.bullyRotate = params.bullyRotate;
-    if (params.attackBullyNum !== undefined) tower.attackBullyNum = params.attackBullyNum;
-    if (params.bullySlideRate !== undefined) tower.bullySlideRate = params.bullySlideRate;
+    if (params.bulletSpeed !== undefined) tower.bulletSpeed = scaleSpeed(params.bulletSpeed);
+    if (params.bulletSpeedAddMax !== undefined) tower.bulletSpeedAddMax = scaleSpeed(params.bulletSpeedAddMax);
+    if (params.bulletDeviationRotate !== undefined) tower.bulletDeviationRotate = params.bulletDeviationRotate;
+    if (params.bulletDeviation !== undefined) tower.bulletDeviation = params.bulletDeviation;
+    if (params.bulletRotate !== undefined) tower.bulletRotate = params.bulletRotate;
+    if (params.attackBulletCount !== undefined) tower.attackBulletCount = params.attackBulletCount;
+    if (params.bulletSlideRate !== undefined) tower.bulletSlideRate = params.bulletSlideRate;
 
     // Attack function
     const attackFunc = getAttackFunc(tower, params.attackType);

@@ -136,6 +136,7 @@ export interface PanelManagerCamera {
 export interface PanelManagerTerritory {
     isPositionInValidTerritory?(pos: Vector): boolean;
     markDirty?(): void;
+    recalculate?(): void;
     removeBuildingIncremental?(building: unknown): void;
     addBuildingIncremental?(building: unknown): void;
 }
@@ -207,6 +208,7 @@ export interface PanelManagerWorldLike {
     // Tower sell (optional, used by multiplayer facade for client prediction)
     sellTower?(towerId: string): void;
 
-    // Static layer
+    // Static/spatial layer
     markStaticLayerDirty(): void;
+    markBuildingQuadTreeDirty?(): void;
 }

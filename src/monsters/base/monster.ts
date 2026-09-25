@@ -108,14 +108,14 @@ interface WorldLike {
     minMonsterRadius: number;
     monsterRadiusRange: number;
     monsters: Set<Monster>;
-    allBullys: Iterable<BulletLike>;
+    allBullets: Iterable<BulletLike>;
     getBaseBuilding(): RootBuildingLike;
     user: UserLike;
     territory?: TerritoryLike;
     fog?: FogLike;
     cheatMode?: CheatModeLike;
     getMonstersInRange(x: number, y: number, range: number): Monster[];
-    getBullysInRange(x: number, y: number, range: number): BulletLike[];
+    getBulletsInRange(x: number, y: number, range: number): BulletLike[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
     getAllBuildingArr(): BuildingLike[];
     addMonster(monster: Monster): void;
@@ -135,12 +135,12 @@ interface GainDetails {
     gainMaxHpAddedNum: number;
 }
 
-interface BullyChangeDetails {
+interface BulletChangeDetails {
     r: number;
     f: number;
-    bullyDR: number;
-    bullyAN: number;
-    bullyDD: number;
+    bulletDR: number;
+    bulletAN: number;
+    bulletDD: number;
 }
 
 type ChangeSpeedFunc = () => void;
@@ -215,8 +215,8 @@ export class Monster extends CircleObject {
     gAreaNum: number;
 
     // Bullet manipulation field
-    haveBullyChangeArea: boolean;
-    bullyChangeDetails: BullyChangeDetails;
+    haveBulletChangeArea: boolean;
+    bulletChangeDetails: BulletChangeDetails;
 
     // Ally buff field
     haveGain: boolean;
@@ -301,13 +301,13 @@ export class Monster extends CircleObject {
         this.gAreaR = 0;
         this.gAreaNum = 0;
 
-        this.haveBullyChangeArea = false;
-        this.bullyChangeDetails = {
+        this.haveBulletChangeArea = false;
+        this.bulletChangeDetails = {
             r: 100,
             f: 5,
-            bullyDR: -0,
-            bullyAN: 0,
-            bullyDD: -0,
+            bulletDR: -0,
+            bulletAN: 0,
+            bulletDD: -0,
         };
 
         this.haveGain = false;
@@ -530,28 +530,28 @@ export class Monster extends CircleObject {
 
     laserDefend(): void {
         const laserRadiusSq = this.laserRadius * this.laserRadius;
-        const inRange = (bully: BulletLike): boolean => {
+        const inRange = (bullet: BulletLike): boolean => {
             // Use manual distance squared calculation to avoid temporary Vector objects
-            const dx = bully.pos.x - this.pos.x;
-            const dy = bully.pos.y - this.pos.y;
+            const dx = bullet.pos.x - this.pos.x;
+            const dy = bullet.pos.y - this.pos.y;
             return dx * dx + dy * dy < laserRadiusSq;
         };
 
-        const defend = (bully: BulletLike): void => {
-            if (inRange(bully)) {
+        const defend = (bullet: BulletLike): void => {
+            if (inRange(bullet)) {
                 let startPos = this.pos.copy();
                 startPos.add(Vector.randCircle());
                 if (typeof EffectLine !== 'undefined' && EffectLine.acquire) {
-                    let e = EffectLine.acquire(startPos, bully.pos.copy());
+                    let e = EffectLine.acquire(startPos, bullet.pos.copy());
                     e.initLineStyle(new MyColor(255, 0, 0, 0.1), 1);
                     this.world.addEffect(e);
                 }
                 if (typeof EffectCircle !== 'undefined' && EffectCircle.acquire) {
-                    let ec = EffectCircle.acquire(bully.pos.copy());
+                    let ec = EffectCircle.acquire(bullet.pos.copy());
                     ec.circle.fillColor.setRGBA(255, 0, 0, 0.1);
                     this.world.addEffect(ec);
                 }
-                bully.remove();
+                bullet.remove();
             }
         };
 
@@ -563,13 +563,13 @@ export class Monster extends CircleObject {
 
         if (this.haveLaserDefence) {
             if (this.liveTime % this.laserFreeze === 0) {
-                let nearbyBullys = this.world.getBullysInRange(this.pos.x, this.pos.y, this.laserRadius);
+                let nearbyBullets = this.world.getBulletsInRange(this.pos.x, this.pos.y, this.laserRadius);
                 let count = 0;
-                for (let bully of nearbyBullys) {
-                    if (bully.laserDestoryAble === false) continue;
+                for (let bullet of nearbyBullets) {
+                    if (bullet.laserDestoryAble === false) continue;
                     if (count >= this.laserdefendPreNum || this.laserDefendNum <= 0) break;
-                    if (inRange(bully)) {
-                        defend(bully);
+                    if (inRange(bullet)) {
+                        defend(bullet);
                         count++;
                         laserNumChange(-1);
                     }
@@ -612,26 +612,26 @@ export class Monster extends CircleObject {
         }
     }
 
-    bullyChange(): void {
-        if (this.haveBullyChangeArea) {
-            if (this.liveTime % this.bullyChangeDetails.f === 0) {
+    bulletChange(): void {
+        if (this.haveBulletChangeArea) {
+            if (this.liveTime % this.bulletChangeDetails.f === 0) {
                 // 使用空间查询优化，避免全局遍历所有子弹
                 // 添加 50 的安全边距以覆盖子弹半径
-                const bullysInRange = this.world.getBullysInRange(
+                const bulletsInRange = this.world.getBulletsInRange(
                     this.pos.x,
                     this.pos.y,
-                    this.bullyChangeDetails.r + 50
+                    this.bulletChangeDetails.r + 50
                 );
-                for (let b of bullysInRange) {
-                    const combinedR = this.bullyChangeDetails.r + b.r;
+                for (let b of bulletsInRange) {
+                    const combinedR = this.bulletChangeDetails.r + b.r;
                     if ((b.pos as Vector).disSq(this.pos) < combinedR * combinedR) {
-                        b.bodyRadiusChange(this.bullyChangeDetails.bullyDR);
+                        b.bodyRadiusChange(this.bulletChangeDetails.bulletDR);
                         let diffVec = (b.pos as Vector).sub(this.pos);
-                        let av = diffVec.to1().mul(this.bullyChangeDetails.bullyAN);
-                        let q = 1 - diffVec.abs() / this.bullyChangeDetails.r;
+                        let av = diffVec.to1().mul(this.bulletChangeDetails.bulletAN);
+                        let q = 1 - diffVec.abs() / this.bulletChangeDetails.r;
                         av = av.mul(q);
                         b.acceleration = av;
-                        b.damageChange(this.bullyChangeDetails.bullyDD);
+                        b.damageChange(this.bulletChangeDetails.bulletDD);
                     }
                 }
             }
@@ -791,7 +791,7 @@ export class Monster extends CircleObject {
         this.laserDefend();
         this.summon();
         this.gainOther();
-        this.bullyChange();
+        this.bulletChange();
         if (this.removeIfDead()) {
             return;
         }

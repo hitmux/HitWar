@@ -9,6 +9,7 @@ import { WorldRenderer } from '../../../game/rendering/worldRenderer';
 import type { World } from '../../../game/world';
 import { Sounds } from '../../../systems/sound/sounds';
 import { gotoPage } from '../../navigation/router';
+import { lobbyInterface } from '../multiplayer/lobbyInterface';
 import { showGameEndModal } from '../../components';
 import { initWorkerRendering, disposeWorkerRendering } from '../../../workers';
 import { PR } from '../../../core/staticInitData';
@@ -61,7 +62,7 @@ export function startMultiplayerBattleMode(): void {
     // Create network world adapter
     const adapter = new NetworkWorldAdapter(
         client,
-        client.playerId,
+        client.gameSessionId,
         viewWidth,
         viewHeight,
         worldWidth,
@@ -88,6 +89,16 @@ export function startMultiplayerBattleMode(): void {
     // Generate unique session ID
     const sessionId = `mp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
+    const onReconnected = () => {
+        const state = client.gameState;
+        if (state) {
+            adapter.rebindGameState(
+                state as Parameters<typeof adapter.rebindGameState>[0],
+                client.gameSessionId
+            );
+        }
+    };
+
     // Cleanup function
     let isCleanedUp = false;
     const cleanup = () => {
@@ -99,6 +110,7 @@ export function startMultiplayerBattleMode(): void {
         // Remove event listeners
         client.events.off(NetworkEvent.GAME_ENDED, onGameEnded);
         client.events.off(NetworkEvent.PLAYER_ELIMINATED, onPlayerEliminated);
+        client.events.off(NetworkEvent.RECONNECTED, onReconnected);
 
         // Dispose Worker rendering pipeline
         disposeWorkerRendering();
@@ -116,11 +128,21 @@ export function startMultiplayerBattleMode(): void {
     };
 
     // Game end handler
+    let returningToLobby = false;
+    const returnToLobby = async () => {
+        if (returningToLobby) return;
+        returningToLobby = true;
+        cleanup();
+        await client.leaveGame();
+        gotoPage('multiplayer-lobby-interface');
+        lobbyInterface();
+    };
+
     const onGameEnded = (data: unknown) => {
         const endData = data as { winnerId?: string; reason?: string };
         console.log('[MultiplayerBattle] Game ended:', endData);
 
-        const isWinner = endData.winnerId === client.playerId;
+        const isWinner = endData.winnerId === client.gameSessionId;
         const message = isWinner ? '恭喜你获得胜利！' : '你输了，再接再厉！';
 
         gameController.gameEnd = true;
@@ -129,21 +151,23 @@ export function startMultiplayerBattleMode(): void {
         showGameEndModal({
             isWinner,
             message,
-            onReturnToLobby: () => gotoPage('multiplayer-lobby-interface')
+            onReturnToLobby: () => { void returnToLobby(); }
         });
     };
+
+    client.events.on(NetworkEvent.RECONNECTED, onReconnected);
 
     // Player eliminated handler
     const onPlayerEliminated = (data: unknown) => {
         const elimData = data as { playerId?: string };
-        if (elimData.playerId === client.playerId) {
+        if (elimData.playerId === client.gameSessionId) {
             console.log('[MultiplayerBattle] Local player eliminated');
             gameController.gameEnd = true;
             cleanup();
             showGameEndModal({
                 isWinner: false,
                 message: '你的基地被摧毁了！',
-                onReturnToLobby: () => gotoPage('multiplayer-lobby-interface')
+                onReturnToLobby: () => { void returnToLobby(); }
             });
         }
     };

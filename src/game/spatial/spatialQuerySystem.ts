@@ -31,14 +31,14 @@ export class SpatialQuerySystem {
 
     // Spatial hash grids for moving objects (monsters, bullets)
     monsterGrid: SpatialHashGrid<SpatialGridObject> | null = null;
-    bullyGrid: SpatialHashGrid<SpatialGridObject> | null = null;
+    bulletGrid: SpatialHashGrid<SpatialGridObject> | null = null;
 
     // Dirty flags for QuadTree optimization
     private _buildingQuadTreeDirty: boolean = true;
 
     // Dirty sets for incremental grid updates
     private _dirtyMonsters: Set<SpatialGridObject> = new Set();
-    private _dirtyBullys: Set<SpatialGridObject> = new Set();
+    private _dirtyBullets: Set<SpatialGridObject> = new Set();
 
     // Full sync configuration
     private _gridFullSyncInterval: number = 240;
@@ -53,7 +53,7 @@ export class SpatialQuerySystem {
 
         // Initialize spatial hash grids
         this.monsterGrid = new SpatialHashGrid(context.width, context.height, 64);
-        this.bullyGrid = new SpatialHashGrid(context.width, context.height, 64);
+        this.bulletGrid = new SpatialHashGrid(context.width, context.height, 64);
     }
 
     /**
@@ -78,7 +78,7 @@ export class SpatialQuerySystem {
         if (isMonster) {
             this._dirtyMonsters.add(entity);
         } else {
-            this._dirtyBullys.add(entity);
+            this._dirtyBullets.add(entity);
         }
     }
 
@@ -89,7 +89,7 @@ export class SpatialQuerySystem {
         if (isMonster) {
             this._dirtyMonsters.delete(entity);
         } else {
-            this._dirtyBullys.delete(entity);
+            this._dirtyBullets.delete(entity);
         }
     }
 
@@ -111,16 +111,16 @@ export class SpatialQuerySystem {
     /**
      * Insert bullet into spatial grid
      */
-    insertBully(bully: SpatialGridObject): void {
-        this.bullyGrid?.insert(bully);
+    insertBullet(bullet: SpatialGridObject): void {
+        this.bulletGrid?.insert(bullet);
     }
 
     /**
      * Remove bullet from spatial grid
      */
-    removeBully(bully: SpatialGridObject): void {
-        this._dirtyBullys.delete(bully);
-        this.bullyGrid?.remove(bully);
+    removeBullet(bullet: SpatialGridObject): void {
+        this._dirtyBullets.delete(bullet);
+        this.bulletGrid?.remove(bullet);
     }
 
     /**
@@ -128,15 +128,15 @@ export class SpatialQuerySystem {
      * @param buildings - Current buildings array
      * @param towers - Current towers array
      * @param monsters - Current monsters set
-     * @param bullys - Current bullets set
+     * @param bullets - Current bullets set
      */
     rebuildQuadTrees(
         buildings: ReadonlyArray<QuadTreeEntity>,
         towers: ReadonlyArray<QuadTreeEntity>,
         monsters: Set<SpatialGridObject>,
-        bullys: Set<SpatialGridObject>
+        bullets: Set<SpatialGridObject>
     ): void {
-        this._syncSpatialGrids(monsters, bullys);
+        this._syncSpatialGrids(monsters, bullets);
 
         // Rebuild building quadtree only when dirty (buildings don't move)
         if (this._buildingQuadTreeDirty) {
@@ -178,9 +178,9 @@ export class SpatialQuerySystem {
     /**
      * Get bullets in range using spatial hash grid
      */
-    getBullysInRange(x: number, y: number, radius: number, fallbackSet?: Set<SpatialGridObject>): SpatialGridObject[] {
-        if (this.bullyGrid) {
-            return this.bullyGrid.queryRange(x, y, radius);
+    getBulletsInRange(x: number, y: number, radius: number, fallbackSet?: Set<SpatialGridObject>): SpatialGridObject[] {
+        if (this.bulletGrid) {
+            return this.bulletGrid.queryRange(x, y, radius);
         }
         return fallbackSet ? Array.from(fallbackSet) : [];
     }
@@ -188,7 +188,7 @@ export class SpatialQuerySystem {
     /**
      * Apply incremental spatial grid updates with periodic full calibration
      */
-    private _syncSpatialGrids(monsters: Set<SpatialGridObject>, bullys: Set<SpatialGridObject>): void {
+    private _syncSpatialGrids(monsters: Set<SpatialGridObject>, bullets: Set<SpatialGridObject>): void {
         const needFullSync = this._gridFullSyncCountdown <= 0;
 
         if (this.monsterGrid) {
@@ -204,14 +204,14 @@ export class SpatialQuerySystem {
             }
         }
 
-        if (this.bullyGrid) {
+        if (this.bulletGrid) {
             if (needFullSync) {
-                this.bullyGrid.updateAll(bullys);
-            } else if (this._dirtyBullys.size) {
-                for (const bully of this._dirtyBullys) {
+                this.bulletGrid.updateAll(bullets);
+            } else if (this._dirtyBullets.size) {
+                for (const bullet of this._dirtyBullets) {
                     // Defensive check: only update if entity still exists
-                    if (bullys.has(bully)) {
-                        this.bullyGrid.update(bully);
+                    if (bullets.has(bullet)) {
+                        this.bulletGrid.update(bullet);
                     }
                 }
             }
@@ -219,7 +219,7 @@ export class SpatialQuerySystem {
 
         // Clear dirty sets after applying updates
         this._dirtyMonsters.clear();
-        this._dirtyBullys.clear();
+        this._dirtyBullets.clear();
 
         if (needFullSync) {
             this._gridFullSyncCountdown = this._gridFullSyncInterval;

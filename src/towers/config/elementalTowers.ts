@@ -19,8 +19,8 @@ export const POWDERCANNON_CONFIG: TowerConfig = {
         rAdd: 5,
         rangeR: 150,
         clock: 1,
-        bullySpeed: 10,
-        bullyDeviationRotate: 3,
+        bulletSpeed: 10,
+        bulletDeviationRotate: 3,
         bulletType: 'Powder',
         audioSrcString: '/sound/子弹音效/烟雾.mp3'
     }
@@ -40,9 +40,9 @@ export const FLAMETHROWER_1_CONFIG: TowerConfig = {
         rangeR: 200,
         clock: 1,
         hp: 5000,
-        bullySpeed: 15,
-        attackBullyNum: 2,
-        bullyDeviationRotate: 4,
+        bulletSpeed: 15,
+        attackBulletCount: 2,
+        bulletDeviationRotate: 4,
         bulletType: 'Fire_L'
     }
 };
@@ -61,9 +61,9 @@ export const FLAMETHROWER_2_CONFIG: TowerConfig = {
         rangeR: 200,
         clock: 1,
         hp: 10000,
-        bullySpeed: 18,
-        attackBullyNum: 2,
-        bullyDeviationRotate: 4,
+        bulletSpeed: 18,
+        attackBulletCount: 2,
+        bulletDeviationRotate: 4,
         bulletType: 'Fire_LL'
     }
 };
@@ -82,8 +82,8 @@ export const FROZENCANNON_1_CONFIG: TowerConfig = {
         rangeR: 150,
         clock: 10,
         hp: 2000,
-        bullySpeed: 4,
-        bullySlideRate: 1,
+        bulletSpeed: 4,
+        bulletSlideRate: 1,
         bulletType: 'Frozen_L',
         audioSrcString: '/sound/子弹音效/冰冻.mp3'
     }
@@ -103,10 +103,10 @@ export const FROZENCANNON_2_CONFIG: TowerConfig = {
         rangeR: 200,
         clock: 3,
         hp: 3000,
-        bullySpeed: 6,
-        bullySlideRate: 1,
-        attackBullyNum: 3,
-        bullyDeviationRotate: 5,
+        bulletSpeed: 6,
+        bulletSlideRate: 1,
+        attackBulletCount: 3,
+        bulletDeviationRotate: 5,
         bulletType: 'Frozen_L',
         audioSrcString: '/sound/子弹音效/冰冻.mp3'
     }
@@ -126,9 +126,9 @@ export const POISON_1_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 10,
         hp: 10000,
-        bullySpeed: 9,
-        attackBullyNum: 10,
-        bullyDeviationRotate: 8,
+        bulletSpeed: 9,
+        attackBulletCount: 10,
+        bulletDeviationRotate: 8,
         bulletType: 'P_L'
     }
 };
@@ -147,9 +147,9 @@ export const POISON_2_CONFIG: TowerConfig = {
         rangeR: 260,
         clock: 13,
         hp: 15000,
-        bullySpeed: 9,
-        attackBullyNum: 10,
-        bullyDeviationRotate: 8,
+        bulletSpeed: 9,
+        attackBulletCount: 10,
+        bulletDeviationRotate: 8,
         bulletType: 'P_M'
     }
 };

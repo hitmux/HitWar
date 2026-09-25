@@ -16,11 +16,11 @@ export const BULLET_WEARER_CONFIG: MonsterConfig = {
     params: {
         speedNumb: 0.35,
         bodyColor: [62, 134, 160, 1],
-        bullyChange: {
-            haveBullyChangeArea: true,
+        bulletChange: {
+            haveBulletChangeArea: true,
             r: 100,
             f: 5,
-            bullyDR: -1
+            bulletDR: -1
         },
         targetSelection: {
             targetSelectionAble: true,
@@ -40,11 +40,11 @@ export const BULLET_REPELLENT_CONFIG: MonsterConfig = {
     params: {
         speedNumb: 0.25,
         bodyColor: [186, 166, 128, 1],
-        bullyChange: {
-            haveBullyChangeArea: true,
+        bulletChange: {
+            haveBulletChangeArea: true,
             r: 150,
             f: 1,
-            bullyAN: 1
+            bulletAN: 1
         },
         targetSelection: {
             targetSelectionAble: true,
@@ -64,11 +64,11 @@ export const DAMAGE_REDUCERS_CONFIG: MonsterConfig = {
     params: {
         speedNumb: 0.35,
         bodyColor: [190, 145, 23, 1],
-        bullyChange: {
-            haveBullyChangeArea: true,
+        bulletChange: {
+            haveBulletChangeArea: true,
             r: 150,
             f: 1,
-            bullyDD: -1
+            bulletDD: -1
         },
         targetSelection: {
             targetSelectionAble: true,

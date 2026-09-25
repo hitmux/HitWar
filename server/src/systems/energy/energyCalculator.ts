@@ -121,6 +121,20 @@ export class EnergyCalculator {
     this.markDirty();
   }
 
+  migratePlayer(oldId: string, newId: string): void {
+    const state = this.playerStates.get(oldId);
+    if (state) {
+      this.playerStates.delete(oldId);
+      this.playerStates.set(newId, state);
+    }
+    for (const mine of this.mines.values()) {
+      if (mine.ownerId === oldId) {
+        mine.ownerId = newId;
+      }
+    }
+    this.markDirty();
+  }
+
   /**
    * Recalculate energy for all players
    */

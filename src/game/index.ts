@@ -13,7 +13,7 @@ export type {
     TowerLike,
     BuildingLike,
     MonsterLike,
-    BullyLike,
+    BulletLike,
     IEffect,
     EntityManagerContext,
     EntityRemovalCallbacks

@@ -36,7 +36,7 @@ interface MonsterLike {
     speed: Vector;
     liveTime: number;
     world: {
-        getBullysInRange(x: number, y: number, radius: number): BulletLike[];
+        getBulletsInRange(x: number, y: number, radius: number): BulletLike[];
     };
 }
 
@@ -123,7 +123,7 @@ export function calcBulletDodge(
         return;
     }
 
-    const bullets = monster.world.getBullysInRange(
+    const bullets = monster.world.getBulletsInRange(
         monster.pos.x,
         monster.pos.y,
         config.detectRadius

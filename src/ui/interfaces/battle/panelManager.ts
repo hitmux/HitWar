@@ -7,7 +7,7 @@ import { Circle } from '../../../core/math/circle';
 import { EffectText } from '../../../effects/effect';
 import { TOWER_IMG_WIDTH, TOWER_IMG_HEIGHT, TOWER_IMG_PRE_WIDTH, TOWER_IMG_PRE_HEIGHT } from '../../../towers/index';
 import { TowerRegistry } from '../../../towers/towerRegistry';
-import { getBuildingFuncArr } from '../../../buildings/index';
+import { BuildingRegistry } from '../../../buildings/index';
 import type { MonsterSpawner } from '../../../buildings/variants/monsterSpawner';
 import { Mine } from '../../../systems/energy/mine';
 import { VisionType } from '../../../systems/fog/visionConfig';
@@ -16,6 +16,9 @@ import { ManualCannonPanel } from './manualCannonPanel';
 import type { TowerManualCannon } from '../../../towers/base/towerManualCannon';
 import type { GameEntity, CanvasWithInputHandler, PanelManagerWorldLike, PanelEntityLike, PanelCircleLike } from './types';
 import type { NetworkClient } from '../../../network/networkClient';
+import type { MultiplayerWorldFacade } from './multiplayerWorldFacade';
+import { getTowerCombatData } from '@shared/config/towerCombatMeta';
+import { getBuildingMeta } from '@shared/config/buildingMeta';
 
 const LEVELUP_POOL_SIZE = 10;
 
@@ -23,6 +26,14 @@ const LEVELUP_POOL_SIZE = 10;
 const MOVE_COST = 200;           // 移动费用
 const MOVE_MAX_DISTANCE = 75;    // 最大移动距离
 const ICON_RATE = 0.5;
+
+/** Stable identity and local display data for the currently selected placement. */
+export interface PlacementSelection {
+    kind: 'tower' | 'building';
+    typeId: string;
+    price: number;
+    radius: number;
+}
 
 /**
  * Calculate image sprite position from index
@@ -67,6 +78,7 @@ export class PanelManager {
 
     // Selection state
     private addedThingFunc: ((world: unknown) => GameEntity) | null = null;
+    private placementSelection: PlacementSelection | null = null;
     private selectedThing: GameEntity | null = null;
     private cachedBuilding: GameEntity | null = null;
     private lastAddedFunc: ((world: unknown) => GameEntity) | null = null;
@@ -171,6 +183,10 @@ export class PanelManager {
      */
     getAddedThingFunc(): ((world: unknown) => GameEntity) | null {
         return this.addedThingFunc;
+    }
+
+    getPlacementSelection(): PlacementSelection | null {
+        return this.placementSelection;
     }
 
     /**
@@ -481,21 +497,33 @@ export class PanelManager {
         if (panelEle.dataset.sessionId !== this.sessionId) {
             panelEle.innerHTML = "";
             panelEle.dataset.sessionId = this.sessionId;
-            const thingsFuncArr: ((world: unknown) => GameEntity)[] = [];
-            const buildingFuncs = getBuildingFuncArr(this.networkClient !== null);
-            thingsFuncArr.push(TowerRegistry.getCreator('BasicCannon') as (world: unknown) => GameEntity);
-            for (const bF of buildingFuncs) {
-                thingsFuncArr.push(bF as (world: unknown) => GameEntity);
+            const things: Array<{ kind: PlacementSelection['kind']; typeId: string; creator: (world: unknown) => GameEntity }> = [];
+            const basicCreator = TowerRegistry.getCreator('BasicCannon') as ((world: unknown) => GameEntity) | undefined;
+            if (basicCreator) things.push({ kind: 'tower', typeId: 'BasicCannon', creator: basicCreator });
+            const buildingIds = ['Collector', 'Treatment', 'MonsterSpawner'];
+            for (const typeId of buildingIds) {
+                const creator = BuildingRegistry.getCreator(typeId) as ((world: unknown) => GameEntity) | undefined;
+                if (creator && (typeId !== 'MonsterSpawner' || this.networkClient !== null)) {
+                    things.push({ kind: 'building', typeId, creator });
+                }
             }
-            for (const bFunc of thingsFuncArr) {
+            for (const thing of things) {
                 const btn = document.createElement('button');
                 btn.classList.add("towerBtn");
-                const b = bFunc(this.world);
+                const b = thing.creator(this.world);
                 btn.innerHTML = b.name + `<br>${b.price}￥`;
                 btn.classList.add(b.gameType);
                 btn.setAttribute("data-price", b.price.toString());
                 btn.addEventListener("click", () => {
-                    this.addedThingFunc = bFunc;
+                    const towerMeta = thing.kind === 'tower' ? getTowerCombatData(thing.typeId) : undefined;
+                    const buildingMeta = thing.kind === 'building' ? getBuildingMeta(thing.typeId) : undefined;
+                    this.placementSelection = {
+                        kind: thing.kind,
+                        typeId: thing.typeId,
+                        price: b.price,
+                        radius: towerMeta?.radius ?? buildingMeta?.radius ?? b.r ?? 15,
+                    };
+                    this.addedThingFunc = thing.creator;
                     // 清除移动模式状态
                     this.moveMode = false;
                     this.moveTarget = null;
@@ -509,11 +537,23 @@ export class PanelManager {
             moveBtn.innerText = "移动工具\n" + MOVE_COST + "￥";
             moveBtn.classList.add("towerBtn", "moveTool");
             moveBtn.setAttribute("data-price", MOVE_COST.toString());
+            if (this.networkClient !== null) {
+                moveBtn.disabled = true;
+                moveBtn.title = "多人模式暂不支持移动工具";
+            }
             moveBtn.addEventListener("click", () => {
+                if (this.networkClient !== null) {
+                    const et = new EffectText("多人模式暂不支持移动工具");
+                    et.pos = new Vector(this.world.width / 2, this.world.height / 2);
+                    this.world.addEffect(et);
+                    this.callbacks.requestPauseRender();
+                    return;
+                }
                 this.moveMode = true;
                 this.moveTarget = null;
                 this.world.user.moveTarget = null;
-                this.addedThingFunc = null;
+                    this.addedThingFunc = null;
+                    this.placementSelection = null;
                 this.world.user.putLoc.building = null;
                 this.cachedBuilding = null;
                 this.lastAddedFunc = null;
@@ -526,6 +566,7 @@ export class PanelManager {
             cancelBtn.id = "cancelSelect";
             cancelBtn.addEventListener("click", () => {
                 this.addedThingFunc = null;
+                this.placementSelection = null;
                 this.moveMode = false;
                 this.moveTarget = null;
                 this.world.user.moveTarget = null;
@@ -810,13 +851,23 @@ export class PanelManager {
                 if (this.addedThingFunc === null) {
                     for (const item of this.world.getAllBuildingArr()) {
                         if (item.getBodyCircle().pointIn(clickPos.x, clickPos.y)) {
+                            const ownerId = (item as PanelEntityLike & { ownerId?: string }).ownerId;
+                            if (this.networkClient && ownerId && ownerId !== this.networkClient.gameSessionId) {
+                                this.hideLevelUpPanel();
+                                return;
+                            }
                             if (item.gameType === "Mine") {
                                 this.showMinePanel(item as Mine, screenPos);
                                 return;
                             }
                             // Check for MonsterSpawner
                             if (item.canSpawnMonsters) {
-                                this.spawnerPanel.show(item as unknown as MonsterSpawner, screenPos);
+                                if (this.networkClient && item.id) {
+                                    const facade = this.world as MultiplayerWorldFacade;
+                                    this.spawnerPanel.showNetwork(item.id, facade.getEnemyPlayers(), screenPos, this.networkClient);
+                                } else {
+                                    this.spawnerPanel.show(item as unknown as MonsterSpawner, screenPos);
+                                }
                                 return;
                             }
                             // Check for ManualCannon tower
@@ -848,11 +899,13 @@ export class PanelManager {
                     this.hideLevelUpPanel();
                 } else {
                     const addedThing = this.addedThingFunc(this.world);
+                    const selection = this.placementSelection;
                     if (addedThing.canSpawnMonsters && this.networkClient === null) {
                         const et = new EffectText("怪物生成塔仅多人模式可用");
                         et.pos = clickPos.copy();
                         this.world.addEffect(et);
                         this.addedThingFunc = null;
+                        this.placementSelection = null;
                         this.world.user.putLoc.building = null;
                         this.cachedBuilding = null;
                         this.lastAddedFunc = null;
@@ -890,10 +943,14 @@ export class PanelManager {
                     this.world.spendMoney(addedThing.price);
                     switch (addedThing.gameType) {
                         case "Tower":
-                            this.world.addTower(addedThing);
+                            this.world.addTower(this.networkClient && selection
+                                ? { towerType: selection.typeId, pos: clickPos }
+                                : addedThing);
                             break;
                         case "Building":
-                            this.world.addBuilding(addedThing);
+                            this.world.addBuilding(this.networkClient && selection
+                                ? { buildingType: selection.typeId, pos: clickPos }
+                                : addedThing);
                             break;
                     }
                 }
@@ -927,6 +984,25 @@ export class PanelManager {
             this.world.user.putLoc.y = worldPos.y;
             this.callbacks.requestPauseRender();
         }, { signal: this.eventSignal });
+    }
+
+    private canMoveTargetTo(target: GameEntity, clickPos: Vector): boolean {
+        const territory = this.world.territory;
+        if (!territory?.markDirty || !territory?.recalculate) {
+            return territory?.isPositionInValidTerritory ? territory.isPositionInValidTerritory(clickPos) : true;
+        }
+
+        const originalPos = target.pos.copy();
+        try {
+            target.pos = clickPos.copy();
+            territory.markDirty();
+            territory.recalculate();
+            return target.inValidTerritory !== false;
+        } finally {
+            target.pos = originalPos;
+            territory.markDirty();
+            territory.recalculate();
+        }
     }
 
     /**
@@ -985,8 +1061,8 @@ export class PanelManager {
             return;
         }
 
-        // 检查目标位置是否在有效领地内
-        if (this.world.territory?.isPositionInValidTerritory && !this.world.territory.isPositionInValidTerritory(clickPos)) {
+        // 检查目标位置是否在有效领地内（基于移动后的真实结果，而不是旧位置的领地状态）
+        if (!this.canMoveTargetTo(this.moveTarget, clickPos)) {
             const et = new EffectText("目标位置不在有效领地内！");
             et.pos = clickPos.copy();
             this.world.addEffect(et);
@@ -1025,28 +1101,33 @@ export class PanelManager {
         }
 
         // 执行移动
-        // 1. 从领地系统移除
-        this.world.territory?.removeBuildingIncremental?.(this.moveTarget);
-
-        // 2. 更新位置
         this.moveTarget.pos = clickPos.copy();
 
-        // 3. 重新添加到领地系统
-        this.world.territory?.addBuildingIncremental?.(this.moveTarget);
+        // 重新计算领地，避免增量更新在移动场景下残留错误状态
+        this.world.territory?.markDirty?.();
+        this.world.territory?.recalculate?.();
 
-        // 4. 标记迷雾需要更新
+        // 更新建筑空间索引，避免碰撞/索敌继续使用旧位置
+        this.world.markBuildingQuadTreeDirty?.();
+
+        // 标记迷雾需要更新
         this.world.fog?.markDirty?.();
 
-        // 5. 标记静态层需要重建（建筑位置已改变）
+        // 标记静态层需要重建（建筑位置已改变）
         this.world.markStaticLayerDirty();
 
-        // 6. 扣除金币
+        // 清理放置预览，避免残留幽灵炮塔预览
+        this.world.user.putLoc.building = null;
+        this.cachedBuilding = null;
+        this.lastAddedFunc = null;
+
+        // 扣除金币
         this.world.spendMoney(MOVE_COST);
 
-        // 7. 取消选中状态
+        // 取消选中状态
         this.moveTarget.selected = false;
 
-        // 8. 显示成功提示
+        // 显示成功提示
         const et = new EffectText("移动成功！");
         et.pos = clickPos.copy();
         this.world.addEffect(et);
@@ -1062,6 +1143,7 @@ export class PanelManager {
         document.oncontextmenu = (e) => {
             if (e.button === 2) {
                 this.addedThingFunc = null;
+                this.placementSelection = null;
                 this.moveMode = false;
                 this.moveTarget = null;
                 this.world.user.moveTarget = null;

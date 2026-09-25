@@ -45,8 +45,8 @@ interface WorldLike {
     fog?: FogOfWarLike;
     user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
-    addBully(bully: unknown): void;
-    removeBully(bully: unknown): void;
+    addBullet(bullet: unknown): void;
+    removeBullet(bullet: unknown): void;
     addEffect(effect: unknown): void;
 }
 

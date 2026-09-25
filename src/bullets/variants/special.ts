@@ -4,14 +4,14 @@
  */
 import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
-import { Bully } from '../bullet';
+import { Bullet } from '../bullet';
 import { BulletRegistry } from '../bulletRegistry';
 
 /**
  * Shotgun bullet
  */
-export function S(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function S(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.r = 2;
     b.damage = 40;
     b.bodyColor = MyColor.arrTo([0, 0, 255, 1]);
@@ -21,8 +21,8 @@ export function S(): Bully {
 /**
  * Knockback cannon - medium
  */
-export function R_M(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 5);
+export function R_M(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 5);
     b.damage = 20;
     b.bodyColor = MyColor.arrTo([204, 120, 50, 1]);
     b.repel = 0.1;
@@ -33,8 +33,8 @@ export function R_M(): Bully {
 /**
  * Smoke/Powder bullet
  */
-export function Powder(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 10);
+export function Powder(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 10);
     b.damage = 0.8;
     b.r = 8;
     // Fire penetration
@@ -56,8 +56,8 @@ export function Powder(): Bully {
 /**
  * Fire particle bullet - medium
  */
-export function Fire_M(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 10);
+export function Fire_M(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 10);
     b.damage = 1;
     b.r = 10;
     // Fire penetration
@@ -80,8 +80,8 @@ export function Fire_M(): Bully {
 /**
  * Fire particle bullet - large
  */
-export function Fire_L(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 10);
+export function Fire_L(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 10);
     b.damage = 0.5;
     b.r = 20;
     // Fire penetration
@@ -104,8 +104,8 @@ export function Fire_L(): Bully {
 /**
  * Fire particle bullet - extra large (blue fire)
  */
-export function Fire_LL(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 10);
+export function Fire_LL(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 10);
     b.damage = 1;
     b.r = 10;
     // Fire penetration
@@ -128,8 +128,8 @@ export function Fire_LL(): Bully {
 /**
  * Poison gas bullet - large
  */
-export function P_L(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 10);
+export function P_L(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 10);
     b.r = 2;
     b.damage = 3;
     b.throughable = true;
@@ -149,8 +149,8 @@ export function P_L(): Bully {
 /**
  * Poison gas bullet - medium
  */
-export function P_M(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 10);
+export function P_M(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 10);
     b.r = 10;
     b.damage = 5;
     b.throughable = true;
@@ -170,8 +170,8 @@ export function P_M(): Bully {
 /**
  * Thunder ball - tracking lightning bullet
  */
-export function ThunderBall(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function ThunderBall(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.damage = 100;
     b.dDamage = 5;
     b.r = 10;

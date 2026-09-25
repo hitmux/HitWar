@@ -10,7 +10,7 @@ export interface IWorld {
   // Minimal interface - full definition in game.ts
   addTower(tower: ITower): void;
   addMonster(monster: IMonster): void;
-  addBully(bully: IBullet): void;
+  addBullet(bullet: IBullet): void;
   addBuilding(building: IBuilding): void;
 }
 
@@ -90,7 +90,7 @@ export interface ITower extends ICircleObject {
   getDamageMultiplier(): number;
   getTowerLevel(): number;
   isUpLevelAble(): boolean;
-  getRunningBully(): IBullet[];
+  getRunningBullet(): IBullet[];
   removeOutRangeBullet(): void;
   getImgStartPosByIndex(index: number): IVector;
 }
@@ -105,7 +105,7 @@ export interface IMonster extends ICircleObject {
   // Methods
   dataInit(): void;
   randInit(): void;
-  bullyChange(delta: number): void;
+  bulletChange(delta: number): void;
   clash(): void;
   bombSelf(): void;
   deadSummon(): void;
@@ -125,9 +125,9 @@ export interface IMonster extends ICircleObject {
   selfSuddenlyMove(): void;
 }
 
-// Bullet interface (Bully class)
+// Bullet interface (Bullet class)
 export interface IBullet extends ICircleObject {
-  gameType: 'Bully';
+  gameType: 'Bullet';
   damage: number;
   target: IMonster | null;
   tower: ITower;

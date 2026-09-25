@@ -29,11 +29,14 @@ export type {
 // Server message payloads
 export type {
   GameEndedPayload,
+  GameStartingPayload,
   WaveStartingPayload,
   MonsterDamagedPayload,
   MonsterKilledPayload,
   BuildingDamagedPayload,
   BuildingDestroyedPayload,
+  TowerDamagedPayload,
+  TowerDestroyedPayload,
   PlayerEliminatedPayload,
   ErrorPayload,
   ActionRejectedPayload,

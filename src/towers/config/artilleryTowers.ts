@@ -22,9 +22,9 @@ export const ARTILLERY_1_CONFIG: TowerConfig = {
         rangeR: 300, // base 100 + 200
         clock: 30, // base 10 + 20
         hp: 5000,
-        bullySpeed: 1,
-        bullySlideRate: 1.2,
-        bullySpeedAddMax: 1,
+        bulletSpeed: 1,
+        bulletSlideRate: 1.2,
+        bulletSpeedAddMax: 1,
         bulletType: 'H_S',
         audioSrcString: '/sound/发射音效/火箭发射.ogg'
     }
@@ -44,12 +44,12 @@ export const ARTILLERY_2_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 35, // base 10 + 25
         hp: 8800,
-        bullySpeed: 1,
-        bullySlideRate: 1.2,
-        bullySpeedAddMax: 1,
-        bullyDeviationRotate: 0.2,
-        bullyRotate: Math.PI / 12,
-        attackBullyNum: 2,
+        bulletSpeed: 1,
+        bulletSlideRate: 1.2,
+        bulletSpeedAddMax: 1,
+        bulletDeviationRotate: 0.2,
+        bulletRotate: Math.PI / 12,
+        attackBulletCount: 2,
         bulletType: 'H_L',
         attackType: 'shrapnelAttack',
         audioSrcString: '/sound/发射音效/火箭发射.ogg'
@@ -70,11 +70,11 @@ export const ARTILLERY_3_CONFIG: TowerConfig = {
         rangeR: 300,
         clock: 50, // base 10 + 40
         hp: 30000,
-        bullySpeed: 1,
-        bullySlideRate: 1.1,
-        bullyDeviationRotate: 0.8,
-        bullyRotate: Math.PI / 12,
-        attackBullyNum: 2,
+        bulletSpeed: 1,
+        bulletSlideRate: 1.1,
+        bulletDeviationRotate: 0.8,
+        bulletRotate: Math.PI / 12,
+        attackBulletCount: 2,
         bulletType: 'H_LL',
         attackType: 'shrapnelAttack',
         audioSrcString: '/sound/发射音效/火箭发射.ogg'
@@ -97,9 +97,9 @@ export const MISSILEGUN_1_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 20, // base 10 + 10
         hp: 10000,
-        bullySpeed: 7,
-        bullySlideRate: 6,
-        attackBullyNum: 1,
+        bulletSpeed: 7,
+        bulletSlideRate: 6,
+        attackBulletCount: 1,
         bulletType: 'H_Target_S',
         audioSrcString: '/sound/发射音效/火箭发射.ogg'
     }
@@ -119,10 +119,10 @@ export const MISSILEGUN_2_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 20, // base 10 + 10
         hp: 10000,
-        bullySpeed: 8,
-        bullySlideRate: 6,
-        bullyRotate: Math.PI / 6,
-        attackBullyNum: 3,
+        bulletSpeed: 8,
+        bulletSlideRate: 6,
+        bulletRotate: Math.PI / 6,
+        attackBulletCount: 3,
         bulletType: 'H_Target_S',
         attackType: 'shrapnelAttack',
         audioSrcString: '/sound/发射音效/火箭发射.ogg'
@@ -143,10 +143,10 @@ export const MISSILEGUN_3_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 20, // base 10 + 10
         hp: 10000,
-        bullySpeed: 10,
-        bullySlideRate: 6,
-        bullyRotate: Math.PI / 6,
-        attackBullyNum: 5,
+        bulletSpeed: 10,
+        bulletSlideRate: 6,
+        bulletRotate: Math.PI / 6,
+        attackBulletCount: 5,
         bulletType: 'H_Target_S',
         attackType: 'shrapnelAttack',
         audioSrcString: '/sound/发射音效/火箭发射.ogg'

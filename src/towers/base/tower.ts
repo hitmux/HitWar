@@ -7,6 +7,7 @@ import { Circle } from '../../core/math/circle';
 import { MyColor } from '../../entities/myColor';
 import { CircleObject } from '../../entities/base/circleObject';
 import { TowerRegistry } from '../towerRegistry';
+import { BulletRegistry } from '@/bullets/bulletRegistry';
 import { TOWER_IMG_PRE_WIDTH, TOWER_IMG_PRE_HEIGHT, getTowersImg } from '../towerConstants';
 import { renderTower } from '../rendering/towerRenderer';
 import { VisionType, VISION_CONFIG } from '@/systems/fog/visionConfig';
@@ -29,8 +30,6 @@ import type {
     EnergyLike,
 } from '@/types/worldLike';
 
-// Declare globals for non-migrated modules
-declare const BullyFinally: { Normal: () => TowerBulletLike } | undefined;
 declare const SoundManager: { play(src: string): void } | undefined;
 declare const UP_LEVEL_ICON: HTMLImageElement | undefined;
 
@@ -78,8 +77,8 @@ interface WorldLike {
     user: UserLike;
     energy: EnergyLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
-    addBully(bully: TowerBulletLike): void;
-    removeBully(bully: TowerBulletLike): void;
+    addBullet(bullet: TowerBulletLike): void;
+    removeBullet(bullet: TowerBulletLike): void;
     addEffect?(effect: unknown): void;
     getMoney(): number;
     spendMoney(amount: number): boolean;
@@ -94,15 +93,15 @@ export class Tower extends CircleObject {
     rangeR: number;
     dirction: Vector;
     clock: number;
-    bullys: Set<TowerBulletLike>;
-    getmMainBullyFunc: (() => TowerBulletLike) | null;
-    bullySpeed: number;
-    bullySpeedAddMax: number;
-    bullyDeviationRotate: number;
-    bullyDeviation: number;
-    bullyRotate: number;
-    attackBullyNum: number;
-    bullySlideRate: number;
+    bullets: Set<TowerBulletLike>;
+    getMainBulletFactory: (() => TowerBulletLike) | null;
+    bulletSpeed: number;
+    bulletSpeedAddMax: number;
+    bulletDeviationRotate: number;
+    bulletDeviation: number;
+    bulletRotate: number;
+    attackBulletCount: number;
+    bulletSlideRate: number;
     attackFunc: AttackFunc;
     price: number;
     levelUpArr: string[];           // Tower names for upgrade options
@@ -149,17 +148,17 @@ export class Tower extends CircleObject {
         this.dirction = new Vector(1, 2).to1();
         this.clock = scalePeriod(5);
 
-        this.bullys = new Set();
+        this.bullets = new Set();
 
-        this.getmMainBullyFunc = typeof BullyFinally !== 'undefined' ? BullyFinally.Normal : null;
+        this.getMainBulletFactory = (BulletRegistry.getCreator('Normal') as (() => TowerBulletLike) | undefined) ?? null;
 
-        this.bullySpeed = scaleSpeed(8);
-        this.bullySpeedAddMax = 0;
-        this.bullyDeviationRotate = 0;
-        this.bullyDeviation = 0;
-        this.bullyRotate = 0;
-        this.attackBullyNum = 1;
-        this.bullySlideRate = 1;
+        this.bulletSpeed = scaleSpeed(8);
+        this.bulletSpeedAddMax = 0;
+        this.bulletDeviationRotate = 0;
+        this.bulletDeviation = 0;
+        this.bulletRotate = 0;
+        this.attackBulletCount = 1;
+        this.bulletSlideRate = 1;
         this.attackFunc = this.normalAttack;
 
         this.hpInit(1000);
@@ -207,7 +206,7 @@ export class Tower extends CircleObject {
         super.move();
 
         // 子弹移动和目标获取
-        for (let b of this.bullys) {
+        for (let b of this.bullets) {
             b.move();
             b.rChange();
             b.getTarget();
@@ -228,7 +227,7 @@ export class Tower extends CircleObject {
      */
     goStepCollide(): void {
         this.removeOutRangeBullet();
-        for (let b of this.bullys) {
+        for (let b of this.bullets) {
             b.collide(this.world);
             // 处理分裂子弹
             b.split();
@@ -242,10 +241,10 @@ export class Tower extends CircleObject {
     remove(): void {
         this.hpSet(0);
         // Clear all bullets launched by this tower
-        for (const bullet of this.bullys) {
+        for (const bullet of this.bullets) {
             bullet.remove();
         }
-        this.bullys.clear();
+        this.bullets.clear();
         
         const towerIndex = this.world.batterys.indexOf(this);
         if (towerIndex > -1) {
@@ -259,15 +258,15 @@ export class Tower extends CircleObject {
     }
 
     removeOutRangeBullet(): void {
-        if (this.bullys.size === 0) {
+        if (this.bullets.size === 0) {
             return;
         }
-        for (let b of this.bullys) {
+        for (let b of this.bullets) {
             if (b.outTowerViewRange()) {
                 b.boom();
                 b.split();
-                this.bullys.delete(b);
-                this.world.removeBully(b);
+                this.bullets.delete(b);
+                this.world.removeBullet(b);
             }
         }
     }
@@ -283,7 +282,7 @@ export class Tower extends CircleObject {
         }
 
         this.dirction = target.pos.sub(this.pos).to1();
-        for (let i = 0; i < this.attackBullyNum; i++) {
+        for (let i = 0; i < this.attackBulletCount; i++) {
             this.fire();
         }
         if (typeof SoundManager !== 'undefined') {
@@ -312,11 +311,11 @@ export class Tower extends CircleObject {
                 // Use static temp vectors to avoid GC pressure
                 Vector.subTo(m.pos, this.pos, Tower._towerTempVec);
                 Tower._towerTempVec.normalizeInPlace();
-                for (let i = 0; i < this.attackBullyNum; i++) {
+                for (let i = 0; i < this.attackBulletCount; i++) {
                     Vector.rotatePointTo(Tower._towerZeroVec, Tower._towerTempVec,
-                        2 * this.bullyRotate * (i / this.attackBullyNum), Tower._towerTempVec2);
+                        2 * this.bulletRotate * (i / this.attackBulletCount), Tower._towerTempVec2);
                     Vector.rotatePointTo(Tower._towerZeroVec, Tower._towerTempVec2,
-                        -this.bullyRotate, Tower._towerTempVec2);
+                        -this.bulletRotate, Tower._towerTempVec2);
                     this.dirction.copyFrom(Tower._towerTempVec2);
                     this.fire();
                 }
@@ -328,33 +327,33 @@ export class Tower extends CircleObject {
         }
     }
 
-    getRunningBully(): TowerBulletLike | undefined {
-        if (!this.getmMainBullyFunc) {
+    getRunningBullet(): TowerBulletLike | undefined {
+        if (!this.getMainBulletFactory) {
             return undefined;
         }
-        let res = this.getmMainBullyFunc();
+        let res = this.getMainBulletFactory();
         if (res === undefined) {
-            console.log("??????? getmMainBullyFunc returned undefined");
+            console.log("??????? getMainBulletFactory returned undefined");
             return undefined;
         }
         res.originalPos = new Vector(this.pos.x, this.pos.y);
         res.father = this;
         res.world = this.world;
-        res.pos = new Vector(this.pos.x, this.pos.y).deviation(this.bullyDeviation);
-        let bDir = this.dirction.mul(Math.random() * this.bullySpeedAddMax + this.bullySpeed);
-        bDir = bDir.deviation(this.bullyDeviationRotate);
+        res.pos = new Vector(this.pos.x, this.pos.y).deviation(this.bulletDeviation);
+        let bDir = this.dirction.mul(Math.random() * this.bulletSpeedAddMax + this.bulletSpeed);
+        bDir = bDir.deviation(this.bulletDeviationRotate);
         res.speed = bDir;
-        res.slideRate = this.bullySlideRate;
+        res.slideRate = this.bulletSlideRate;
         res.damage = res.damage * this.getDamageMultiplier();
         res.ownerId = this.ownerId;
         return res;
     }
 
     fire(): void {
-        let b = this.getRunningBully();
+        let b = this.getRunningBullet();
         if (b) {
-            this.bullys.add(b);
-            this.world.addBully(b);
+            this.bullets.add(b);
+            this.world.addBullet(b);
         }
     }
 
@@ -405,7 +404,7 @@ export class Tower extends CircleObject {
         if (!this.isDead() && this.selected) {
             this.getViewCircle().renderView(ctx);
         }
-        for (let b of this.bullys) {
+        for (let b of this.bullets) {
             b.render(ctx);
         }
         if (this.isUpLevelAble()) {

@@ -4,14 +4,14 @@
  */
 import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
-import { Bully } from '../bullet';
+import { Bullet } from '../bullet';
 import { BulletRegistry } from '../bulletRegistry';
 
 /**
  * Freeze bomb - small
  */
-export function Frozen_S(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 1);
+export function Frozen_S(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 1);
     b.damage = 0.1;
 
     b.haveBomb = true;
@@ -29,8 +29,8 @@ export function Frozen_S(): Bully {
 /**
  * Freeze bomb - medium
  */
-export function Frozen_M(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 1);
+export function Frozen_M(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 1);
     b.damage = 0.1;
     b.r = 2;
 
@@ -49,8 +49,8 @@ export function Frozen_M(): Bully {
 /**
  * Freeze bomb - large
  */
-export function Frozen_L(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 1);
+export function Frozen_L(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 1);
     b.damage = 0.1;
     b.r = 5;
 

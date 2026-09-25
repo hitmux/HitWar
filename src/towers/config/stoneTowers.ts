@@ -20,9 +20,9 @@ export const STONECANNON_CONFIG: TowerConfig = {
         rangeR: 120,
         clock: 20,
         hp: 3000,
-        bullySpeed: 3,
-        bullySpeedAddMax: 7,
-        bullySlideRate: 1.5,
+        bulletSpeed: 3,
+        bulletSpeedAddMax: 7,
+        bulletSlideRate: 1.5,
         bulletType: 'CannonStone_S',
         audioSrcString: '/sound/子弹音效/石头蛋子.mp3'
     }
@@ -42,9 +42,9 @@ export const STONECANNON_FAR_1_CONFIG: TowerConfig = {
         rangeR: 260,
         clock: 20,
         hp: 3000,
-        bullySpeed: 7,
-        bullySpeedAddMax: 2,
-        bullySlideRate: 2,
+        bulletSpeed: 7,
+        bulletSpeedAddMax: 2,
+        bulletSlideRate: 2,
         bulletType: 'CannonStone_S',
         audioSrcString: '/sound/子弹音效/石头蛋子.mp3'
     }
@@ -63,9 +63,9 @@ export const STONECANNON_FAR_2_CONFIG: TowerConfig = {
         rAdd: 5,
         rangeR: 270,
         clock: 20,
-        bullySpeed: 7,
-        bullySpeedAddMax: 3,
-        bullySlideRate: 2.2,
+        bulletSpeed: 7,
+        bulletSpeedAddMax: 3,
+        bulletSlideRate: 2.2,
         bulletType: 'CannonStone_M',
         audioSrcString: '/sound/子弹音效/石头蛋子.mp3'
     }
@@ -84,9 +84,9 @@ export const STONECANNON_FAR_3_CONFIG: TowerConfig = {
         rAdd: 6,
         rangeR: 300,
         clock: 20,
-        bullySpeed: 7,
-        bullySpeedAddMax: 4,
-        bullySlideRate: 2.2,
+        bulletSpeed: 7,
+        bulletSpeedAddMax: 4,
+        bulletSlideRate: 2.2,
         bulletType: 'CannonStone_M',
         audioSrcString: '/sound/子弹音效/石头蛋子.mp3'
     }
@@ -106,9 +106,9 @@ export const STONECANNON_POWER_1_CONFIG: TowerConfig = {
         rangeR: 180,
         clock: 50,
         hp: 9000,
-        bullySpeed: 8,
-        bullySpeedAddMax: 1,
-        bullySlideRate: 1.5,
+        bulletSpeed: 8,
+        bulletSpeedAddMax: 1,
+        bulletSlideRate: 1.5,
         bulletType: 'CannonStone_M',
         audioSrcString: '/sound/子弹音效/石头蛋子.mp3'
     }
@@ -128,8 +128,8 @@ export const STONECANNON_POWER_2_CONFIG: TowerConfig = {
         rangeR: 200,
         clock: 50,
         hp: 30000,
-        bullySpeed: 8,
-        bullySlideRate: 2.5,
+        bulletSpeed: 8,
+        bulletSlideRate: 2.5,
         bulletType: 'CannonStone_L',
         audioSrcString: '/sound/子弹音效/石头蛋子.mp3'
     }
@@ -149,7 +149,7 @@ export const STONECANNON_POWER_3_CONFIG: TowerConfig = {
         rangeR: 230,
         clock: 65,
         hp: 100000,
-        bullySpeed: 10,
+        bulletSpeed: 10,
         bulletType: 'CannonStone_L',
         audioSrcString: '/sound/子弹音效/石头蛋子.mp3'
     }

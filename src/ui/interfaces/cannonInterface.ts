@@ -10,7 +10,7 @@ import { createEntityCard, getAssetUrl } from '../components/entityCard';
 interface TowerLike {
     name: string;
     rangeR: number;
-    bullySpeed: number;
+    bulletSpeed: number;
     clock: number;
     price: number;
     comment: string;
@@ -53,7 +53,7 @@ export function cannonInterface(): void {
                 buildings: [],
                 monsters: new Set(),
                 effects: new Set(),
-                allBullys: new Set(),
+                allBullets: new Set(),
                 time: 0,
                 energy: { getTotalProduction: () => 100, getTotalConsumption: () => 0 },
                 territory: { contains: () => true },
@@ -61,8 +61,8 @@ export function cannonInterface(): void {
                 addBuilding: () => {},
                 addMonster: () => {},
                 addEffect: () => {},
-                addBully: () => {},
-                removeBully: () => {}
+                addBullet: () => {},
+                removeBullet: () => {}
             };
 
             const dfs = (tf: TowerCreator) => {
@@ -104,7 +104,7 @@ export function cannonInterface(): void {
                     },
                     dataItems: [
                         { label: "射程", value: towerObj.rangeR + "px" },
-                        { label: "子弹速度", value: towerObj.bullySpeed },
+                        { label: "子弹速度", value: towerObj.bulletSpeed },
                         { label: "攻击间歇时间", value: towerObj.clock },
                         { label: "价格", value: towerObj.price },
                         { label: "详细信息", value: towerObj.comment }

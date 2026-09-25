@@ -20,6 +20,7 @@ export {
   type CannonSetAutoTargetPayload,
   type ChatMessagePayload,
   type GameEndedPayload,
+  type GameStartingPayload,
   type WaveStartingPayload,
   type MonsterDamagedPayload,
   type MonsterKilledPayload,
@@ -31,6 +32,8 @@ export {
   type BulletFiredPayload,
   type BulletHitPayload,
   type BulletExplosionPayload,
+  type MineDestroyedPayload,
+  type TerritorySyncPayload,
   type RoomInfo,
   type MatchFoundPayload,
 } from './messages';

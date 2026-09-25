@@ -4,6 +4,25 @@
  */
 import { Schema, type } from '@colyseus/schema';
 import { VectorSchema } from './VectorSchema.js';
+import type { MonsterRuntimeConfig } from '../systems/monster/runtimeTypes.js';
+
+export interface MonsterRuntimeState {
+  config: MonsterRuntimeConfig;
+  liveTime: number;
+  currentRawSpeed: number;
+  destinationX: number;
+  destinationY: number;
+  currentCollisionDamage: number;
+  keepAliveOnCollision: boolean;
+  laserCharges: number;
+  teleportCharges: number;
+  currentTargetBuildingId: string;
+  currentDashTargetId: string;
+  dashEndpointX: number | null;
+  dashEndpointY: number | null;
+  slowMultiplier: number;
+  holdPositionTicks: number;
+}
 
 export class MonsterState extends Schema {
   @type('string') id: string = '';
@@ -32,6 +51,10 @@ export class MonsterState extends Schema {
   // AI properties
   @type('string') movementType: string = 'normal'; // normal, swing, sudden, exciting
   @type('boolean') dodgeAble: boolean = false;
+
+  // Server-only runtime state
+  runtime: MonsterRuntimeState | null = null;
+  lastDamageOwnerId: string = '';
 
   constructor() {
     super();

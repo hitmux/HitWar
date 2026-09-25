@@ -164,7 +164,7 @@ export const THUNDERBALL_1_CONFIG: TowerConfig = {
         rangeR: 280,
         clock: 30,
         hp: 15000,
-        bullySpeed: 10,
+        bulletSpeed: 10,
         bulletType: 'ThunderBall'
     }
 };
@@ -183,7 +183,7 @@ export const THUNDERBALL_2_CONFIG: TowerConfig = {
         rangeR: 290,
         clock: 18,
         hp: 16000,
-        bullySpeed: 15,
+        bulletSpeed: 15,
         bulletType: 'ThunderBall'
     }
 };
@@ -202,7 +202,7 @@ export const THUNDERBALL_3_CONFIG: TowerConfig = {
         rangeR: 300,
         clock: 16,
         hp: 20000,
-        bullySpeed: 20,
+        bulletSpeed: 20,
         bulletType: 'ThunderBall'
     }
 };

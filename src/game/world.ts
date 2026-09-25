@@ -75,12 +75,12 @@ import type {
     TowerLike,
     BuildingLike,
     MonsterLike,
-    BullyLike,
+    BulletLike,
     IEffect
 } from './entities';
 
 // Re-export for backward compatibility
-export type { TowerLike, BuildingLike, MonsterLike, BullyLike, IEffect };
+export type { TowerLike, BuildingLike, MonsterLike, BulletLike, IEffect };
 
 export class World {
     // Cached font string to avoid repeated string creation (backward compat)
@@ -147,13 +147,13 @@ export class World {
     get monsters(): Set<MonsterLike> { return this._entityManager.monsters; }
     set monsters(value: Set<MonsterLike>) { this._entityManager.monsters = value; }
     get effects(): Set<IEffect> { return this._entityManager.effects; }
-    get othersBullys(): BullyLike[] { return this._entityManager.othersBullys; }
-    get allBullys(): Set<BullyLike> { return this._entityManager.allBullys; }
+    get standaloneBullets(): BulletLike[] { return this._entityManager.standaloneBullets; }
+    get allBullets(): Set<BulletLike> { return this._entityManager.allBullets; }
 
     // Spatial indices (proxied to SpatialQuerySystem)
     get buildingQuadTree(): QuadTree | null { return this._spatialSystem.buildingQuadTree; }
     get monsterGrid(): SpatialHashGrid<SpatialGridObject> | null { return this._spatialSystem.monsterGrid; }
-    get bullyGrid(): SpatialHashGrid<SpatialGridObject> | null { return this._spatialSystem.bullyGrid; }
+    get bulletGrid(): SpatialHashGrid<SpatialGridObject> | null { return this._spatialSystem.bulletGrid; }
 
     // Wave properties (proxied to WaveManager)
     get monsterFlow(): MonsterFlow { return this._waveManager.monsterFlow; }
@@ -395,10 +395,10 @@ export class World {
             get mines() { return world.mines; },
             get monsters() { return world.monsters; },
             get effects() { return world.effects; },
-            get allBullys() { return world.allBullys; },
+            get allBullets() { return world.allBullets; },
             get obstacles() { return world.obstacles; },
             get monsterGrid() { return world.monsterGrid; },
-            get bullyGrid() { return world.bullyGrid; },
+            get bulletGrid() { return world.bulletGrid; },
             get user() { return world.user; },
             get territory() { return world.territory; },
             get fog() { return world.fog; },
@@ -430,11 +430,11 @@ export class World {
 
     /**
      * Get all friendly bullets as array
-     * @deprecated Use this.allBullys instead to avoid rebuilding array
+     * @deprecated Use this.allBullets instead to avoid rebuilding array
      * @delegate EntityManager
      */
-    getAllBullyToArr(): BullyLike[] {
-        return this._entityManager.getAllBullyToArr();
+    getAllBulletsToArr(): BulletLike[] {
+        return this._entityManager.getAllBulletsToArr();
     }
 
     /**
@@ -698,16 +698,16 @@ export class World {
      * Add bullet to global cache
      * @delegate EntityManager
      */
-    addBully(bully: BullyLike): void {
-        this._entityManager.addBully(bully);
+    addBullet(bullet: BulletLike): void {
+        this._entityManager.addBullet(bullet);
     }
 
     /**
      * Remove bullet from global cache
      * @delegate EntityManager
      */
-    removeBully(bully: BullyLike): void {
-        this._entityManager.removeBully(bully);
+    removeBullet(bullet: BulletLike): void {
+        this._entityManager.removeBullet(bullet);
     }
 
     /**
@@ -1005,7 +1005,7 @@ export class World {
             this.buildings,
             this.batterys,
             this.monsters,
-            this.allBullys
+            this.allBullets
         );
     }
 
@@ -1029,8 +1029,8 @@ export class World {
      * Get bullets in range using spatial hash grid
      * @delegate SpatialQuerySystem
      */
-    getBullysInRange(x: number, y: number, radius: number): unknown[] {
-        return this._spatialSystem.getBullysInRange(x, y, radius, this.allBullys);
+    getBulletsInRange(x: number, y: number, radius: number): unknown[] {
+        return this._spatialSystem.getBulletsInRange(x, y, radius, this.allBullets);
     }
 
     goTick(): void {
