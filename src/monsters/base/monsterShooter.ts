@@ -6,6 +6,7 @@ import { Vector } from '../../core/math/vector';
 import { Circle } from '../../core/math/circle';
 import { Monster } from './monster';
 import { MonsterRegistry } from '../monsterRegistry';
+import { BulletRegistry } from '@/bullets/bulletRegistry';
 import { renderMonsterShooter } from '../rendering/monsterRenderer';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
 import { isEnemy } from '../../game/player/ownership';
@@ -16,9 +17,6 @@ import type {
     UserLike,
     RootBuildingLike,
 } from '@/types/worldLike';
-
-// Declare globals for non-migrated modules
-declare const BullyFinally: { S: () => BulletLike } | undefined;
 
 // Extended CircleLike with impact method
 interface CircleLike extends BaseCircleLike {
@@ -57,11 +55,11 @@ interface WorldLike {
     width: number;
     height: number;
     monsters: Set<Monster>;
-    allBullys: Iterable<unknown>;
+    allBullets: Iterable<unknown>;
     getBaseBuilding(): RootBuildingLike & { pos: Vector };
     user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): Monster[];
-    getBullysInRange(x: number, y: number, range: number): unknown[];
+    getBulletsInRange(x: number, y: number, range: number): unknown[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
     getAllBuildingArr(): BuildingLike[];
     addMonster(monster: Monster): void;
@@ -71,15 +69,15 @@ interface WorldLike {
 export class MonsterShooter extends Monster {
     rangeR: number;
     dirction: Vector;
-    getmMainBullyFunc: (() => BulletLike) | null;
-    bullySpeed: number;
+    getMainBulletFactory: (() => BulletLike) | null;
+    bulletSpeed: number;
     clock: number;
-    attackBullyNum: number;
-    bullyDeviationRotate: number;
-    bullySpeedAddMax: number;
-    bullyDeviation: number;
-    bullySlideRate: number;
-    bullys: Set<BulletLike>;
+    attackBulletCount: number;
+    bulletDeviationRotate: number;
+    bulletSpeedAddMax: number;
+    bulletDeviation: number;
+    bulletSlideRate: number;
+    bullets: Set<BulletLike>;
     target: BuildingLike | null;
 
     constructor(pos: Vector, world: any) {
@@ -90,15 +88,15 @@ export class MonsterShooter extends Monster {
         this.rangeR = 100;
         this.dirction = new Vector(1, 2).to1();
 
-        this.getmMainBullyFunc = typeof BullyFinally !== 'undefined' ? BullyFinally.S : null;
-        this.bullySpeed = scaleSpeed(8);
+        this.getMainBulletFactory = (BulletRegistry.getCreator('S') as (() => BulletLike) | undefined) ?? null;
+        this.bulletSpeed = scaleSpeed(8);
         this.clock = scalePeriod(30);
-        this.attackBullyNum = 1;
-        this.bullyDeviationRotate = 0;
-        this.bullySpeedAddMax = 0;
-        this.bullyDeviation = 0;
-        this.bullySlideRate = 1;
-        this.bullys = new Set();
+        this.attackBulletCount = 1;
+        this.bulletDeviationRotate = 0;
+        this.bulletSpeedAddMax = 0;
+        this.bulletDeviation = 0;
+        this.bulletSlideRate = 1;
+        this.bullets = new Set();
         this.target = null;
     }
 
@@ -108,8 +106,8 @@ export class MonsterShooter extends Monster {
         super.goStep();
         this.attackAction();
 
-        for (const bully of this.bullys) {
-            bully.goStep();
+        for (const bullet of this.bullets) {
+            bullet.goStep();
         }
     }
 
@@ -128,7 +126,7 @@ export class MonsterShooter extends Monster {
         }
 
         // Bullet movement (following Tower.goStepMove pattern)
-        for (const b of this.bullys) {
+        for (const b of this.bullets) {
             b.move();
             b.rChange();
             b.getTarget();
@@ -150,10 +148,10 @@ export class MonsterShooter extends Monster {
         this.attackAction();
 
         // Remove out-of-range bullets first
-        this.removeOutRangeBullys();
+        this.removeOutRangeBullets();
 
         // Bullet collision (following Tower.goStepCollide pattern)
-        for (const b of this.bullys) {
+        for (const b of this.bullets) {
             b.collide(this.world);
             b.split();
         }
@@ -162,11 +160,11 @@ export class MonsterShooter extends Monster {
     /**
      * Remove bullets that are out of range
      */
-    private removeOutRangeBullys(): void {
-        for (const b of this.bullys) {
+    private removeOutRangeBullets(): void {
+        for (const b of this.bullets) {
             if (b.outTowerViewRange()) {
                 b.remove();
-                this.bullys.delete(b);
+                this.bullets.delete(b);
             }
         }
     }
@@ -221,37 +219,37 @@ export class MonsterShooter extends Monster {
         }
         if (this.haveTarget() && this.target) {
             this.dirction = (this.target.pos as Vector).sub(this.pos).to1();
-            for (let i = 0; i < this.attackBullyNum; i++) {
+            for (let i = 0; i < this.attackBulletCount; i++) {
                 this.fire();
             }
         }
     }
 
     fire(): void {
-        let b = this.getRunningBully();
+        let b = this.getRunningBullet();
         if (b) {
-            this.bullys.add(b);
+            this.bullets.add(b);
         }
     }
 
-    getRunningBully(): BulletLike | null {
-        if (!this.getmMainBullyFunc) return null;
+    getRunningBullet(): BulletLike | null {
+        if (!this.getMainBulletFactory) return null;
 
-        let res = this.getmMainBullyFunc();
+        let res = this.getMainBulletFactory();
         if (res === undefined) {
-            console.log("??????? possible missing return in finalBully");
+            console.log("??????? possible missing return in finalBullet");
             return null;
         }
         res.targetTower = true;
         res.father = this;
         res.originalPos = new Vector(this.pos.x, this.pos.y);
         res.world = this.world;
-        res.pos = new Vector(this.pos.x, this.pos.y).deviation(this.bullyDeviation);
+        res.pos = new Vector(this.pos.x, this.pos.y).deviation(this.bulletDeviation);
         res.ownerId = this.ownerId;
-        let bDir = this.dirction.mul(Math.random() * this.bullySpeedAddMax + this.bullySpeed);
-        bDir = bDir.deviation(this.bullyDeviationRotate);
+        let bDir = this.dirction.mul(Math.random() * this.bulletSpeedAddMax + this.bulletSpeed);
+        bDir = bDir.deviation(this.bulletDeviationRotate);
         res.speed = bDir;
-        res.slideRate = this.bullySlideRate;
+        res.slideRate = this.bulletSlideRate;
         return res;
     }
 
@@ -264,10 +262,10 @@ export class MonsterShooter extends Monster {
     }
 
     remove(): void {
-        for (const b of this.bullys) {
+        for (const b of this.bullets) {
             b.remove();
         }
-        this.bullys.clear();
+        this.bullets.clear();
         super.remove();
     }
 }

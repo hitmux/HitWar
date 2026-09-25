@@ -70,19 +70,19 @@ export interface TowerParams {
     /** Bullet type name (from BulletRegistry) */
     bulletType?: string;
     /** Bullet speed */
-    bullySpeed?: number;
+    bulletSpeed?: number;
     /** Max bullet speed addition */
-    bullySpeedAddMax?: number;
+    bulletSpeedAddMax?: number;
     /** Bullet rotation deviation */
-    bullyDeviationRotate?: number;
+    bulletDeviationRotate?: number;
     /** Bullet position deviation */
-    bullyDeviation?: number;
+    bulletDeviation?: number;
     /** Bullet rotation angle */
-    bullyRotate?: number;
+    bulletRotate?: number;
     /** Number of bullets per attack */
-    attackBullyNum?: number;
+    attackBulletCount?: number;
     /** Bullet slide rate */
-    bullySlideRate?: number;
+    bulletSlideRate?: number;
     /** Attack function type */
     attackType?: AttackType;
     /** Audio source path */

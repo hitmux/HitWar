@@ -70,6 +70,8 @@ export interface BulletCreationData {
   penetrationCount: number;
   freezeMultiplier: number;
   burnRate: number;
+  slideRate?: number;
+  targetsTowers?: boolean;
 }
 
 /**

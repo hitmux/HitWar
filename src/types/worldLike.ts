@@ -208,8 +208,8 @@ export interface WorldLike {
     monsters?: Set<MonsterLike>;
     buildings?: BuildingLike[] | Set<BuildingLike>;
     mines?: Set<unknown>;
-    allBullys?: Iterable<BulletLike>;
-    othersBullys?: BulletLike[];
+    allBullets?: Iterable<BulletLike>;
+    standaloneBullets?: BulletLike[];
 
     // Core building
     rootBuilding: RootBuildingLike;
@@ -227,13 +227,13 @@ export interface WorldLike {
 
     // Query methods
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
-    getBullysInRange?(x: number, y: number, range: number): BulletLike[];
+    getBulletsInRange?(x: number, y: number, range: number): BulletLike[];
     getBuildingsInRange?(x: number, y: number, range: number): BuildingLike[];
     getAllBuildingArr?(): BuildingLike[];
 
     // Entity management methods
-    addBully?(bully: unknown): void;
-    removeBully?(bully: unknown): void;
+    addBullet?(bullet: unknown): void;
+    removeBullet?(bullet: unknown): void;
     addMonster?(monster: unknown): void;
     removeMonster?(monster: unknown): void;
     addEffect?(effect: unknown): void;
@@ -273,8 +273,8 @@ export interface WorldLikeForTower {
     user: UserLike;
     energy?: EnergyLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
-    addBully?(bully: unknown): void;
-    removeBully?(bully: unknown): void;
+    addBullet?(bullet: unknown): void;
+    removeBullet?(bullet: unknown): void;
     addEffect?(effect: unknown): void;
 }
 
@@ -287,14 +287,14 @@ export interface WorldLikeForMonster {
     minMonsterRadius?: number;
     monsterRadiusRange?: number;
     monsters: Set<MonsterLike>;
-    allBullys: Iterable<BulletLike>;
+    allBullets: Iterable<BulletLike>;
     rootBuilding: RootBuildingLike;
     user: UserLike;
     territory?: TerritoryLike;
     fog?: FogOfWarLike;
     cheatMode?: CheatModeLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
-    getBullysInRange(x: number, y: number, range: number): BulletLike[];
+    getBulletsInRange(x: number, y: number, range: number): BulletLike[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
     getAllBuildingArr(): BuildingLike[];
     addMonster(monster: unknown): void;
@@ -308,10 +308,10 @@ export interface WorldLikeForBullet {
     width: number;
     height: number;
     monsters: Iterable<MonsterLike>;
-    othersBullys?: BulletLike[];
+    standaloneBullets?: BulletLike[];
     fog?: FogOfWarLike;
-    removeBully(bully: unknown): void;
-    addBully(bully: unknown): void;
+    removeBullet(bullet: unknown): void;
+    addBullet(bullet: unknown): void;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
     getBuildingsInRange(x: number, y: number, range: number): BuildingLike[];
     getAllBuildingArr(): BuildingLike[];

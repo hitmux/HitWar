@@ -4,14 +4,14 @@
  */
 import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
-import { Bully } from '../bullet';
+import { Bullet } from '../bullet';
 import { BulletRegistry } from '../bulletRegistry';
 
 /**
  * Machine gun bullet - small
  */
-export function F_S(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function F_S(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.r = 0.8;
     b.damage = 10;
     b.bodyColor = new MyColor(20, 20, 20, 1);
@@ -23,8 +23,8 @@ export function F_S(): Bully {
 /**
  * Machine gun bullet - medium
  */
-export function F_M(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function F_M(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.r = 0.9;
     b.damage = 30;
     b.bodyColor = MyColor.arrTo([10, 10, 10, 1]);
@@ -36,8 +36,8 @@ export function F_M(): Bully {
 /**
  * Machine gun bullet - large
  */
-export function F_L(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function F_L(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.r = 1;
     b.damage = 30;
     b.bodyColor = MyColor.arrTo([0, 0, 0, 1]);

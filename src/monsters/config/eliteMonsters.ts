@@ -59,6 +59,8 @@ export const ENDERMAN_CONFIG: MonsterConfig = {
     params: {
         speedNumb: 1,
         teleportingAble: true,
+        teleportingRange: 100,
+        teleportingCount: 3,
         dodge: {
             dodgeAble: true,
             detectRadius: 150,

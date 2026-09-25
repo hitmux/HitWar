@@ -54,8 +54,8 @@ interface WorldLike {
     fog?: FogOfWarLike;
     user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
-    addBully(bully: unknown): void;
-    removeBully(bully: unknown): void;
+    addBullet(bullet: unknown): void;
+    removeBullet(bullet: unknown): void;
     addEffect(effect: unknown): void;
 }
 
@@ -73,7 +73,7 @@ export class TowerRay extends Tower {
     rayDeviation: number;
     rayMaxRange: number;
     rayClock: number;
-    rayBullys: Set<LineObject>;
+    rayBullets: Set<LineObject>;
     rayThrowAble: boolean;
     rayRepel: number;
     rayColor: ReadonlyColor;
@@ -111,7 +111,7 @@ export class TowerRay extends Tower {
         this.rayDeviation = 0;
         this.rayMaxRange = 1000;
         this.rayClock = 1;
-        this.rayBullys = new Set();
+        this.rayBullets = new Set();
         this.rayThrowAble = true;
         this.rayRepel = 0;
         this.rayColor = MyColor.GRAY();
@@ -206,11 +206,11 @@ export class TowerRay extends Tower {
                     for (let i = 0; i < this.rayNum; i++) {
                         let bDir = this.dirction.copy().deviation(this.rayDeviationRotate).to1();
                         let line = new Line(this.pos.copy(), this.pos.plus(bDir.mul(this.rayLen)));
-                        let rayBully = new LineObject(line);
-                        rayBully.speed = bDir.mul(this.rayMoveSpeed);
-                        rayBully.strokeColor.setRGBA(this.rayColor.r, this.rayColor.g, this.rayColor.b, this.rayColor.a);
-                        rayBully.strokeWidth = this.rayWidth;
-                        this.rayBullys.add(rayBully);
+                        let rayBullet = new LineObject(line);
+                        rayBullet.speed = bDir.mul(this.rayMoveSpeed);
+                        rayBullet.strokeColor.setRGBA(this.rayColor.r, this.rayColor.g, this.rayColor.b, this.rayColor.a);
+                        rayBullet.strokeWidth = this.rayWidth;
+                        this.rayBullets.add(rayBullet);
                     }
                 }
                 return;
@@ -238,11 +238,11 @@ export class TowerRay extends Tower {
                         let x1 = bDir.rotate90().mul(this.rayLen / 2);
                         let x2 = x1.copy().rotate90().rotate90();
                         let line = new Line(this.pos.plus(x1), this.pos.plus(x2));
-                        let rayBully = new LineObject(line);
-                        rayBully.speed = bDir.mul(this.rayMoveSpeed);
-                        rayBully.strokeColor.setRGBA(this.rayColor.r, this.rayColor.g, this.rayColor.b, this.rayColor.a);
-                        rayBully.strokeWidth = this.rayWidth;
-                        this.rayBullys.add(rayBully);
+                        let rayBullet = new LineObject(line);
+                        rayBullet.speed = bDir.mul(this.rayMoveSpeed);
+                        rayBullet.strokeColor.setRGBA(this.rayColor.r, this.rayColor.g, this.rayColor.b, this.rayColor.a);
+                        rayBullet.strokeWidth = this.rayWidth;
+                        this.rayBullets.add(rayBullet);
                     }
                 }
                 return;
@@ -263,7 +263,7 @@ export class TowerRay extends Tower {
         super.goStepMove();
         
         // 射线子弹移动
-        for (let br of this.rayBullys) {
+        for (let br of this.rayBullets) {
             br.lineGoStep();
         }
     }
@@ -282,7 +282,7 @@ export class TowerRay extends Tower {
 
         // 移除超出范围的子弹
         this.removeOutRangeBullet();
-        for (let b of this.bullys) {
+        for (let b of this.bullets) {
             b.collide(this.world);
             b.split();
         }
@@ -300,7 +300,7 @@ export class TowerRay extends Tower {
         const actualDamage = doCollision ? this.damage * 2 : 0;
         const maxRangeSq = this.rayMaxRange * this.rayMaxRange;
 
-        for (let br of this.rayBullys) {
+        for (let br of this.rayBullets) {
             if (br.PosEnd.disSq(this.pos) > maxRangeSq) {
                 toDelete.push(br);
                 continue;
@@ -331,7 +331,7 @@ export class TowerRay extends Tower {
             }
         }
         for (let br of toDelete) {
-            this.rayBullys.delete(br);
+            this.rayBullets.delete(br);
         }
     }
 
@@ -344,7 +344,7 @@ export class TowerRay extends Tower {
      */
     renderBody(ctx: CanvasRenderingContext2D): void {
         super.renderBody(ctx);
-        for (let b of this.rayBullys) {
+        for (let b of this.rayBullets) {
             b.render(ctx);
         }
     }

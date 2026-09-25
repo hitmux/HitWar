@@ -8,13 +8,13 @@
 import { TowerRegistry } from '../towers/towerRegistry';
 import { MonsterRegistry } from '../monsters/monsterRegistry';
 import { BuildingRegistry } from '../buildings/buildingRegistry';
-import { BulletRegistry, BullyFinallyCompat } from '../bullets/index';
+import { BulletRegistry } from '../bullets/index';
 
 // Import base classes for global export
 import { Tower, TowerLaser, TowerHell, TowerHammer, TowerBoomerang, TowerRay } from '../towers/base/index';
 import { Monster, MonsterShooter, MonsterMortis, MonsterTerminator } from '../monsters/base/index';
 import { Building } from '../buildings/building';
-import { Bully } from '../bullets/bullet';
+import { Bullet } from '../bullets/bullet';
 
 // Import core classes
 import { Vector } from '../core/math/vector';
@@ -53,7 +53,7 @@ declare global {
         MonsterCreators: typeof MonsterRegistry.MonsterCreators;
         MonsterClassTypes: typeof MonsterRegistry.MonsterClassTypes;
         BuildingCreators: typeof BuildingRegistry.BuildingCreators;
-        BullyCreators: typeof BulletRegistry.BullyCreators;
+        BulletCreators: typeof BulletRegistry.BulletCreators;
 
         Tower: typeof Tower;
         TowerLaser: typeof TowerLaser;
@@ -68,7 +68,7 @@ declare global {
         MonsterTerminator: typeof MonsterTerminator;
 
         Building: typeof Building;
-        Bully: typeof Bully;
+        Bullet: typeof Bullet;
 
         Vector: typeof Vector;
         Circle: typeof Circle;
@@ -82,8 +82,6 @@ declare global {
         MonsterRegistry: typeof MonsterRegistry;
         BuildingRegistry: typeof BuildingRegistry;
         BulletRegistry: typeof BulletRegistry;
-
-        BullyFinally: typeof BullyFinallyCompat;
 
         TOWERS_IMG: HTMLImageElement;
         MONSTER_IMG: HTMLImageElement;
@@ -114,7 +112,7 @@ export function initGlobalExports(): void {
     window.MonsterCreators = MonsterRegistry.MonsterCreators;
     window.MonsterClassTypes = MonsterRegistry.MonsterClassTypes;
     window.BuildingCreators = BuildingRegistry.BuildingCreators;
-    window.BullyCreators = BulletRegistry.BullyCreators;
+    window.BulletCreators = BulletRegistry.BulletCreators;
 
     // Export base classes (needed for save system instanceof checks)
     window.Tower = Tower;
@@ -130,7 +128,7 @@ export function initGlobalExports(): void {
     window.MonsterTerminator = MonsterTerminator;
 
     window.Building = Building;
-    window.Bully = Bully;
+    window.Bullet = Bullet;
 
     // Export core classes
     window.Vector = Vector;
@@ -146,9 +144,6 @@ export function initGlobalExports(): void {
     window.MonsterRegistry = MonsterRegistry;
     window.BuildingRegistry = BuildingRegistry;
     window.BulletRegistry = BulletRegistry;
-
-    // Export BullyFinally for bullet creation (used by towers and monsters)
-    window.BullyFinally = BullyFinallyCompat;
 
     // Export image assets (used by render methods)
     window.TOWERS_IMG = TOWER_IMG;

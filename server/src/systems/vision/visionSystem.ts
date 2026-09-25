@@ -42,6 +42,15 @@ export class VisionSystem {
         this._maps.delete(playerId);
     }
 
+    migratePlayer(oldId: string, newId: string): void {
+        const map = this._maps.get(oldId);
+        if (map) {
+            this._maps.delete(oldId);
+            this._maps.set(newId, map);
+            this._dirty = true;
+        }
+    }
+
     /**
      * Mark vision sources as dirty (e.g. tower built/sold/destroyed).
      * Rebuilds vision circles on next recalculate().

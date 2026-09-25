@@ -9,6 +9,7 @@ import { MonsterShooter } from '../base/monsterShooter';
 import { MonsterMortis } from '../base/monsterMortis';
 import { MonsterTerminator } from '../base/monsterTerminator';
 import { MonsterRegistry } from '../monsterRegistry';
+import { BulletRegistry } from '@/bullets/bulletRegistry';
 import { MyColor } from '../../entities/myColor';
 import type {
     AnyMonsterConfig,
@@ -19,9 +20,6 @@ import type {
     MovementType
 } from './types';
 import { scaleSpeed, scalePeriod } from '../../core/speedScale';
-
-// Declare globals for bullet types
-declare const BullyFinally: Record<string, (() => unknown) | null> | undefined;
 
 interface WorldLike {
     [key: string]: unknown;
@@ -68,10 +66,7 @@ function getMovementFunc(monster: Monster, movementType: MovementType): (() => v
  * Get bullet getter function from name
  */
 function getBulletFunc(bulletType: string): (() => unknown) | null {
-    if (typeof BullyFinally !== 'undefined' && BullyFinally[bulletType]) {
-        return BullyFinally[bulletType] as () => unknown;
-    }
-    return null;
+    return (BulletRegistry.getCreator(bulletType) as (() => unknown) | undefined) ?? null;
 }
 
 /**
@@ -102,6 +97,8 @@ function applyMonsterParams(monster: Monster, config: AnyMonsterConfig): void {
     if (params.accelerationV !== undefined) monster.accelerationV = scaleSpeed(params.accelerationV);
     if (params.maxSpeedN !== undefined) monster.maxSpeedN = scaleSpeed(params.maxSpeedN);
     if (params.teleportingAble !== undefined) monster.teleportingAble = params.teleportingAble;
+    if (params.teleportingRange !== undefined) monster.teleportingRange = params.teleportingRange;
+    if (params.teleportingCount !== undefined) monster.teleportingCount = params.teleportingCount;
     if (params.throwAble !== undefined) monster.throwAble = params.throwAble;
 
     // Movement type
@@ -127,19 +124,19 @@ function applyExtendedParams(monster: Monster, config: MonsterConfig): void {
         monster.bombSelfDamage = params.bombSelf.bombSelfDamage;
     }
 
-    // Bully change area (apply period scaling to f)
-    if (params.bullyChange) {
-        monster.haveBullyChangeArea = params.bullyChange.haveBullyChangeArea;
-        monster.bullyChangeDetails.r = params.bullyChange.r;
-        monster.bullyChangeDetails.f = scalePeriod(params.bullyChange.f);
-        if (params.bullyChange.bullyDR !== undefined) {
-            monster.bullyChangeDetails.bullyDR = params.bullyChange.bullyDR;
+    // Bullet change area (apply period scaling to f)
+    if (params.bulletChange) {
+        monster.haveBulletChangeArea = params.bulletChange.haveBulletChangeArea;
+        monster.bulletChangeDetails.r = params.bulletChange.r;
+        monster.bulletChangeDetails.f = scalePeriod(params.bulletChange.f);
+        if (params.bulletChange.bulletDR !== undefined) {
+            monster.bulletChangeDetails.bulletDR = params.bulletChange.bulletDR;
         }
-        if (params.bullyChange.bullyAN !== undefined) {
-            monster.bullyChangeDetails.bullyAN = params.bullyChange.bullyAN;
+        if (params.bulletChange.bulletAN !== undefined) {
+            monster.bulletChangeDetails.bulletAN = params.bulletChange.bulletAN;
         }
-        if (params.bullyChange.bullyDD !== undefined) {
-            monster.bullyChangeDetails.bullyDD = params.bullyChange.bullyDD;
+        if (params.bulletChange.bulletDD !== undefined) {
+            monster.bulletChangeDetails.bulletDD = params.bulletChange.bulletDD;
         }
     }
 
@@ -236,7 +233,7 @@ function applyShooterParams(monster: MonsterShooter, config: ShooterMonsterConfi
     if (params.rangeR !== undefined) monster.rangeR = params.rangeR;
     if (params.clock !== undefined) monster.clock = scalePeriod(params.clock);
     if (params.bulletType) {
-        monster.getmMainBullyFunc = getBulletFunc(params.bulletType) as typeof monster.getmMainBullyFunc;
+        monster.getMainBulletFactory = getBulletFunc(params.bulletType) as typeof monster.getMainBulletFactory;
     }
 }
 

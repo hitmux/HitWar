@@ -36,7 +36,7 @@ export const TRADITIONALCANNON_SMALL_CONFIG: TowerConfig = {
         rAdd: 2,
         rangeR: 200,
         clock: 3,
-        bulletType: 'Bully_S',
+        bulletType: 'Bullet_S',
         audioSrcString: '/sound/子弹音效/军事子弹.mp3'
     }
 };
@@ -54,7 +54,7 @@ export const TRADITIONALCANNON_MIDDLE_CONFIG: TowerConfig = {
         rAdd: 3,
         rangeR: 200,
         clock: 3,
-        bulletType: 'Bully_M',
+        bulletType: 'Bullet_M',
         audioSrcString: '/sound/子弹音效/军事子弹.mp3'
     }
 };
@@ -72,7 +72,7 @@ export const TRADITIONALCANNON_LARGE_CONFIG: TowerConfig = {
         rAdd: 4,
         rangeR: 200,
         clock: 3,
-        bulletType: 'Bully_L',
+        bulletType: 'Bullet_L',
         audioSrcString: '/sound/子弹音效/军事子弹.mp3'
     }
 };
@@ -90,9 +90,9 @@ export const TRADITIONALCANNON_MULTITUBE_CONFIG: TowerConfig = {
         rAdd: 4,
         rangeR: 200,
         clock: 4,
-        bulletType: 'Bully_M',
-        bullyRotate: Math.PI / 36,
-        attackBullyNum: 2,
+        bulletType: 'Bullet_M',
+        bulletRotate: Math.PI / 36,
+        attackBulletCount: 2,
         attackType: 'shrapnelAttack',
         audioSrcString: '/sound/子弹音效/军事子弹.mp3'
     }

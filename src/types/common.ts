@@ -13,7 +13,7 @@ export type GameType =
   | 'CircleObject'
   | 'Tower'
   | 'Monster'
-  | 'Bully'
+  | 'Bullet'
   | 'Building'
   | 'Effect';
 

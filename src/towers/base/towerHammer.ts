@@ -49,8 +49,8 @@ interface WorldLike {
     fog?: FogOfWarLike;
     user: UserLike;
     getMonstersInRange(x: number, y: number, range: number): MonsterLike[];
-    addBully(bully: unknown): void;
-    removeBully(bully: unknown): void;
+    addBullet(bullet: unknown): void;
+    removeBullet(bullet: unknown): void;
 }
 
 // 碰撞冷却帧数（约0.5秒 @ 60fps，考虑速度缩放）

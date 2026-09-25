@@ -93,7 +93,7 @@ interface MonsterBulletData {
     originalY: number;
     slideRate: number;
     r?: number;
-    isSliptedBully?: boolean;
+    isSplitBullet?: boolean;
 }
 
 interface MonsterData {
@@ -112,7 +112,7 @@ interface MonsterData {
     laserDefendNum?: number;
     summonCount?: number;
     liveTime?: number;
-    bullys?: MonsterBulletData[];  // MonsterShooter bullets
+    bullets?: MonsterBulletData[];  // MonsterShooter bullets
 }
 
 type MineData = MineSaveData;
@@ -179,9 +179,9 @@ type SerializableMonster = MonsterLike & {
     summonAble?: boolean;
     summonCount?: number;
     liveTime?: number;
-    bullys?: Set<MonsterBulletLike>;
+    bullets?: Set<MonsterBulletLike>;
     // MonsterShooter specific
-    getRunningBully?: () => MonsterBulletLike | null;
+    getRunningBullet?: () => MonsterBulletLike | null;
 };
 
 // Properties available on monster bullets for serialization
@@ -191,7 +191,7 @@ interface MonsterBulletLike {
     originalPos: Vector;
     slideRate: number;
     r: number;
-    isSliptedBully?: boolean;
+    isSplitBullet?: boolean;
 }
 
 // World-like interface for type safety
@@ -477,8 +477,8 @@ export class SaveManager {
                 monsterData.liveTime = m.liveTime;
 
                 // Serialize bullets
-                if (m.bullys && m.bullys.size > 0) {
-                    monsterData.bullys = Array.from(m.bullys).map((b: MonsterBulletLike) => ({
+                if (m.bullets && m.bullets.size > 0) {
+                    monsterData.bullets = Array.from(m.bullets).map((b: MonsterBulletLike) => ({
                         x: b.pos.x,
                         y: b.pos.y,
                         speedX: b.speed.x,
@@ -487,7 +487,7 @@ export class SaveManager {
                         originalY: b.originalPos.y,
                         slideRate: b.slideRate,
                         r: b.r,
-                        isSliptedBully: b.isSliptedBully || false,
+                        isSplitBullet: b.isSplitBullet || false,
                     }));
                 }
             }
@@ -692,9 +692,9 @@ export class SaveManager {
                 }
 
                 // Restore MonsterShooter bullets
-                if (monsterData.bullys && MonsterShooter && monster instanceof MonsterShooter) {
-                    for (const bulletData of monsterData.bullys) {
-                        const bullet = monster.getRunningBully?.();
+                if (monsterData.bullets && MonsterShooter && monster instanceof MonsterShooter) {
+                    for (const bulletData of monsterData.bullets) {
+                        const bullet = monster.getRunningBullet?.();
                         if (bullet) {
                             bullet.pos = new Vector(bulletData.x, bulletData.y);
                             bullet.speed = new Vector(bulletData.speedX, bulletData.speedY);
@@ -703,10 +703,10 @@ export class SaveManager {
                             if (bulletData.r !== undefined) {
                                 bullet.r = bulletData.r;
                             }
-                            if (bulletData.isSliptedBully !== undefined) {
-                                bullet.isSliptedBully = bulletData.isSliptedBully;
+                            if (bulletData.isSplitBullet !== undefined) {
+                                bullet.isSplitBullet = bulletData.isSplitBullet;
                             }
-                            monster.bullys?.add(bullet);
+                            monster.bullets?.add(bullet);
                         }
                     }
                 }

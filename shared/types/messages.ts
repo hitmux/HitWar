@@ -70,6 +70,8 @@ export const ServerMessage = {
   MONSTER_KILLED: 'monster_killed',
   BUILDING_DAMAGED: 'building_damaged',
   BUILDING_DESTROYED: 'building_destroyed',
+  TOWER_DAMAGED: 'tower_damaged',
+  TOWER_DESTROYED: 'tower_destroyed',
 
   // Mine events
   MINE_DESTROYED: 'mine_destroyed',
@@ -195,6 +197,10 @@ export interface WaveStartingPayload {
   monsterCount: number;
 }
 
+export interface GameStartingPayload {
+  countdownSeconds: number;
+}
+
 export interface MonsterDamagedPayload {
   monsterId: string;
   damage: number;
@@ -219,9 +225,20 @@ export interface BuildingDestroyedPayload {
   wasBase: boolean;
 }
 
+export interface TowerDamagedPayload {
+  towerId: string;
+  damage: number;
+  sourceId: string;
+}
+
+export interface TowerDestroyedPayload {
+  towerId: string;
+  sourceId: string;
+}
+
 export interface PlayerEliminatedPayload {
   playerId: string;
-  eliminatedBy: string;
+  reason: string;
 }
 
 export interface ErrorPayload {
@@ -233,13 +250,17 @@ export interface ActionRejectedPayload {
   action: string;
   reason: string;
   errorCode?: string;
+  requestId?: string;
 }
 
 // Bullet event payloads
 export interface BulletFiredPayload {
   bulletId: string;
   bulletType: string;
-  towerId: string;
+  sourceId: string;
+  sourceType: 'tower' | 'monster';
+  /** @deprecated use sourceId/sourceType instead */
+  towerId?: string;
   ownerId: string;
   x: number;
   y: number;
@@ -250,12 +271,7 @@ export interface BulletFiredPayload {
 }
 
 export interface BulletHitPayload {
-  bulletId: string;
-  targetId: string;
-  targetType: 'monster' | 'building';
-  x: number;
-  y: number;
-  damage: number;
+  removedBullets: string[];
 }
 
 export interface BulletExplosionPayload {

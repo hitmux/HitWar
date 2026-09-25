@@ -41,7 +41,7 @@ export const ARROWBOW_2_CONFIG: TowerConfig = {
         hp: 2000,
         rangeR: 250,
         clock: 12,
-        bullySpeed: 10,
+        bulletSpeed: 10,
         bulletType: 'Arrow_L',
         audioSrcString: '/sound/发射音效/弓箭发射.mp3'
     }
@@ -61,7 +61,7 @@ export const ARROWBOW_3_CONFIG: TowerConfig = {
         hp: 5000,
         rangeR: 300,
         clock: 10,
-        bullySpeed: 12,
+        bulletSpeed: 12,
         bulletType: 'Arrow_L',
         audioSrcString: '/sound/发射音效/弓箭发射.mp3'
     }
@@ -81,7 +81,7 @@ export const ARROWBOW_4_CONFIG: TowerConfig = {
         hp: 8000,
         rangeR: 320,
         clock: 8,
-        bullySpeed: 13,
+        bulletSpeed: 13,
         bulletType: 'Arrow_LL',
         audioSrcString: '/sound/发射音效/弓箭发射.mp3'
     }
@@ -103,10 +103,10 @@ export const CROSSBOW_1_CONFIG: TowerConfig = {
         hp: 6000,
         rangeR: 160,
         clock: 11,
-        bullySpeed: 10,
-        bullySpeedAddMax: 3,
-        bullyDeviation: 3,
-        attackBullyNum: 2,
+        bulletSpeed: 10,
+        bulletSpeedAddMax: 3,
+        bulletDeviation: 3,
+        attackBulletCount: 2,
         bulletType: 'Arrow',
         audioSrcString: '/sound/发射音效/弓箭发射.mp3'
     }
@@ -126,10 +126,10 @@ export const CROSSBOW_2_CONFIG: TowerConfig = {
         hp: 10000,
         rangeR: 200,
         clock: 9,
-        bullySpeed: 13,
-        bullySpeedAddMax: 5,
-        bullyDeviation: 5,
-        attackBullyNum: 3,
+        bulletSpeed: 13,
+        bulletSpeedAddMax: 5,
+        bulletDeviation: 5,
+        attackBulletCount: 3,
         bulletType: 'Arrow',
         audioSrcString: '/sound/发射音效/弓箭发射.mp3'
     }
@@ -149,10 +149,10 @@ export const CROSSBOW_3_CONFIG: TowerConfig = {
         hp: 20000,
         rangeR: 250,
         clock: 5,
-        bullySpeed: 15,
-        bullySpeedAddMax: 5,
-        bullyDeviation: 10,
-        attackBullyNum: 4,
+        bulletSpeed: 15,
+        bulletSpeedAddMax: 5,
+        bulletDeviation: 10,
+        attackBulletCount: 4,
         bulletType: 'Arrow_L',
         audioSrcString: '/sound/发射音效/弓箭发射.mp3'
     }

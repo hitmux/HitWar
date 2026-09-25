@@ -28,7 +28,7 @@ import { LocalEffectsManager, getLocalEffectsManager } from './localEffects';
 import { ClientPrediction, getClientPrediction } from './clientPrediction';
 import type { NetworkClient } from '../networkClient';
 import { NetworkEvent } from '../networkClient';
-import { ServerMessage, type BulletFiredPayload, type TerritorySyncPayload } from '../messages';
+import type { BulletFiredPayload, TerritorySyncPayload } from '../messages';
 import { MineRenderProxy } from './mineRenderProxy';
 import { NetworkFogProxy } from './networkFog';
 
@@ -71,6 +71,7 @@ interface GameStateView {
 
 interface PlayerStateView {
     id: string;
+    name: string;
     money: number;
     isAlive: boolean;
     basePosition: { x: number; y: number };
@@ -213,28 +214,29 @@ export class NetworkWorldAdapter {
         const unsubs = this._eventUnsubscribers;
 
         // Bullet fired events → local bullet effects
-        unsubs.push(events.on(ServerMessage.BULLET_FIRED, (...args: unknown[]) => {
+        unsubs.push(events.on(NetworkEvent.BULLET_FIRED, (...args: unknown[]) => {
             const data = args[0] as BulletFiredPayload;
-            const tower = this._towerProxies.get(data.towerId);
-            if (tower) {
-                // Calculate pseudo-target from velocity for BulletRenderProxy
-                const speed = Math.sqrt(data.vx * data.vx + data.vy * data.vy);
-                // Server bullet flies maxRange * slideRate (slideRate=2)
-                const maxDist = data.maxRange * 2;
-                const targetX = data.x + (speed > 0 ? (data.vx / speed) * maxDist : 0);
-                const targetY = data.y + (speed > 0 ? (data.vy / speed) * maxDist : 0);
+            const speed = Math.sqrt(data.vx * data.vx + data.vy * data.vy);
+            const maxDist = data.maxRange * 2;
+            const targetX = data.x + (speed > 0 ? (data.vx / speed) * maxDist : 0);
+            const targetY = data.y + (speed > 0 ? (data.vy / speed) * maxDist : 0);
+            const sourceType = data.sourceType ?? 'tower';
+            const tower = sourceType === 'tower'
+                ? this._towerProxies.get(data.sourceId ?? data.towerId ?? '')
+                : null;
+            const effectX = tower?.pos.x ?? data.x;
+            const effectY = tower?.pos.y ?? data.y;
 
-                this._localEffects.onTowerAttack(
-                    data.x, data.y,
-                    targetX, targetY,
-                    data.radius,
-                    speed
-                );
-            }
+            this._localEffects.onTowerAttack(
+                effectX, effectY,
+                targetX, targetY,
+                data.radius,
+                speed
+            );
         }));
 
         // Monster damaged → hit effect
-        unsubs.push(events.on(ServerMessage.MONSTER_DAMAGED, (...args: unknown[]) => {
+        unsubs.push(events.on(NetworkEvent.MONSTER_DAMAGED, (...args: unknown[]) => {
             const data = args[0] as { monsterId: string; damage: number };
             const monster = this._monsterProxies.get(data.monsterId);
             if (monster) {
@@ -243,7 +245,7 @@ export class NetworkWorldAdapter {
         }));
 
         // Monster killed → death effect
-        unsubs.push(events.on(ServerMessage.MONSTER_KILLED, (...args: unknown[]) => {
+        unsubs.push(events.on(NetworkEvent.MONSTER_KILLED, (...args: unknown[]) => {
             const data = args[0] as { monsterId: string };
             const monster = this._monsterProxies.get(data.monsterId);
             if (monster) {
@@ -252,7 +254,7 @@ export class NetworkWorldAdapter {
         }));
 
         // Building damaged → damage effect
-        unsubs.push(events.on(ServerMessage.BUILDING_DAMAGED, (...args: unknown[]) => {
+        unsubs.push(events.on(NetworkEvent.BUILDING_DAMAGED, (...args: unknown[]) => {
             const data = args[0] as { buildingId: string; damage: number };
             const building = this._buildingProxies.get(data.buildingId);
             if (building) {
@@ -261,11 +263,29 @@ export class NetworkWorldAdapter {
         }));
 
         // Building destroyed → destruction effect
-        unsubs.push(events.on(ServerMessage.BUILDING_DESTROYED, (...args: unknown[]) => {
+        unsubs.push(events.on(NetworkEvent.BUILDING_DESTROYED, (...args: unknown[]) => {
             const data = args[0] as { buildingId: string };
             const building = this._buildingProxies.get(data.buildingId);
             if (building) {
                 this._localEffects.onBuildingDestroyed(building.pos.x, building.pos.y);
+            }
+        }));
+
+        // Tower damaged → damage effect
+        unsubs.push(events.on(NetworkEvent.TOWER_DAMAGED, (...args: unknown[]) => {
+            const data = args[0] as { towerId: string; damage: number };
+            const tower = this._towerProxies.get(data.towerId);
+            if (tower) {
+                this._localEffects.onBuildingDamaged(tower.pos.x, tower.pos.y, data.damage);
+            }
+        }));
+
+        // Tower destroyed → destruction effect
+        unsubs.push(events.on(NetworkEvent.TOWER_DESTROYED, (...args: unknown[]) => {
+            const data = args[0] as { towerId: string };
+            const tower = this._towerProxies.get(data.towerId);
+            if (tower) {
+                this._localEffects.onBuildingDestroyed(tower.pos.x, tower.pos.y);
             }
         }));
 
@@ -296,7 +316,7 @@ export class NetworkWorldAdapter {
         }));
 
         // Territory sync from server
-        unsubs.push(events.on(ServerMessage.TERRITORY_SYNC, (...args: unknown[]) => {
+        unsubs.push(events.on(NetworkEvent.TERRITORY_SYNC, (...args: unknown[]) => {
             const data = args[0] as TerritorySyncPayload;
             this._applyTerritorySync(data);
         }));
@@ -674,12 +694,12 @@ export class NetworkWorldAdapter {
             mines: this._mineSet as unknown as WorldRendererContext['mines'],
             monsters: this._monsterSet as unknown as WorldRendererContext['monsters'],
             effects: this._effectSet,
-            allBullys: this._bulletSet as unknown as WorldRendererContext['allBullys'],
+            allBullets: this._bulletSet as unknown as WorldRendererContext['allBullets'],
             obstacles: [], // Network mode: obstacles managed by server
 
             // Spatial grids (null = fallback to array traversal)
             monsterGrid: null,
-            bullyGrid: null,
+            bulletGrid: null,
 
             // User state
             user: this._userState,
@@ -715,6 +735,15 @@ export class NetworkWorldAdapter {
      */
     get localPlayerId(): string {
         return this._localPlayerId;
+    }
+
+    get gameStateView(): GameStateView | null {
+        return this._gameState;
+    }
+
+    rebindGameState(gameState: GameStateView, localPlayerId: string): void {
+        this._localPlayerId = localPlayerId;
+        this.bindGameState(gameState);
     }
 
     /** Get the local player's territory for validation */

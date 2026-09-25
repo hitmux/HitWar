@@ -21,8 +21,8 @@ export const RIFLE_1_CONFIG: TowerConfig = {
         rAdd: 3,
         rangeR: 200,
         clock: 4,
-        bullySpeed: 8, // base 5 + 3
-        bulletType: 'Rifle_Bully_L',
+        bulletSpeed: 8, // base 5 + 3
+        bulletType: 'Rifle_Bullet_L',
         audioSrcString: '/sound/子弹音效/步枪子弹.mp3'
     }
 };
@@ -40,8 +40,8 @@ export const RIFLE_2_CONFIG: TowerConfig = {
         rAdd: 3,
         rangeR: 230,
         clock: 3,
-        bullySpeed: 9, // base 5 + 4
-        bulletType: 'Rifle_Bully_M',
+        bulletSpeed: 9, // base 5 + 4
+        bulletType: 'Rifle_Bullet_M',
         audioSrcString: '/sound/子弹音效/步枪子弹.mp3'
     }
 };
@@ -59,8 +59,8 @@ export const RIFLE_3_CONFIG: TowerConfig = {
         rAdd: 4,
         rangeR: 260,
         clock: 3,
-        bullySpeed: 10, // base 5 + 5
-        bulletType: 'Rifle_Bully_L',
+        bulletSpeed: 10, // base 5 + 5
+        bulletType: 'Rifle_Bullet_L',
         audioSrcString: '/sound/子弹音效/步枪子弹.mp3'
     }
 };
@@ -81,9 +81,9 @@ export const MACHINEGUN_1_CONFIG: TowerConfig = {
         rangeR: 220,
         clock: 2,
         hp: 2000,
-        bullySpeed: 7, // base 5 + 2
-        bullySpeedAddMax: 5,
-        bullyDeviation: 20,
+        bulletSpeed: 7, // base 5 + 2
+        bulletSpeedAddMax: 5,
+        bulletDeviation: 20,
         bulletType: 'F_S',
         audioSrcString: '/sound/子弹音效/机枪子弹.mp3'
     }
@@ -103,11 +103,11 @@ export const MACHINEGUN_2_CONFIG: TowerConfig = {
         rangeR: 190,
         clock: 1,
         hp: 5000,
-        bullySpeed: 2,
-        bullySlideRate: 1.1,
-        bullySpeedAddMax: 10,
-        bullyDeviation: 20,
-        attackBullyNum: 3,
+        bulletSpeed: 2,
+        bulletSlideRate: 1.1,
+        bulletSpeedAddMax: 10,
+        bulletDeviation: 20,
+        attackBulletCount: 3,
         bulletType: 'F_M',
         audioSrcString: '/sound/子弹音效/机枪子弹.mp3'
     }
@@ -127,11 +127,11 @@ export const MACHINEGUN_3_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 1,
         hp: 10000,
-        bullySpeed: 8.2,
-        bullySlideRate: 1,
-        bullySpeedAddMax: 3,
-        bullyDeviation: 30,
-        attackBullyNum: 3,
+        bulletSpeed: 8.2,
+        bulletSlideRate: 1,
+        bulletSpeedAddMax: 3,
+        bulletDeviation: 30,
+        attackBulletCount: 3,
         bulletType: 'F_L',
         audioSrcString: '/sound/子弹音效/机枪子弹.mp3'
     }
@@ -153,8 +153,8 @@ export const ARMORPIERCING_1_CONFIG: TowerConfig = {
         rangeR: 200,
         clock: 4,
         hp: 1500,
-        bullySpeed: 8, // base 5 + 3
-        bullySlideRate: 3,
+        bulletSpeed: 8, // base 5 + 3
+        bulletSlideRate: 3,
         bulletType: 'T_M',
         audioSrcString: '/sound/子弹音效/穿甲弹.mp3'
     }
@@ -174,9 +174,9 @@ export const ARMORPIERCING_2_CONFIG: TowerConfig = {
         rangeR: 220,
         clock: 2,
         hp: 5000,
-        bullySpeed: 8, // base 5 + 3
-        bullySlideRate: 5,
-        bullySpeedAddMax: 3,
+        bulletSpeed: 8, // base 5 + 3
+        bulletSlideRate: 5,
+        bulletSpeedAddMax: 3,
         bulletType: 'T_L',
         audioSrcString: '/sound/子弹音效/穿甲弹.mp3'
     }
@@ -196,9 +196,9 @@ export const ARMORPIERCING_3_CONFIG: TowerConfig = {
         rangeR: 230,
         clock: 10,
         hp: 10000,
-        bullySpeed: 4,
-        bullySlideRate: 5,
-        bullySpeedAddMax: 4,
+        bulletSpeed: 4,
+        bulletSlideRate: 5,
+        bulletSpeedAddMax: 4,
         bulletType: 'T_LL',
         audioSrcString: '/sound/子弹音效/穿甲弹.mp3'
     }

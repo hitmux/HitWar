@@ -72,10 +72,15 @@ export const NetworkEvent = {
 
   // Combat events
   BULLET_FIRED: 'bullet_fired',
+  BULLET_HIT: 'bullet_hit',
   MONSTER_DAMAGED: 'monster_damaged',
   MONSTER_KILLED: 'monster_killed',
   BUILDING_DAMAGED: 'building_damaged',
   BUILDING_DESTROYED: 'building_destroyed',
+  TOWER_DAMAGED: 'tower_damaged',
+  TOWER_DESTROYED: 'tower_destroyed',
+  MINE_DESTROYED: 'mine_destroyed',
+  TERRITORY_SYNC: 'territory_sync',
 
   // Player events
   PLAYER_JOINED: 'player_joined',
@@ -98,7 +103,8 @@ export class NetworkClient {
 
   private _connectionState: ConnectionState = ConnectionState.DISCONNECTED;
   private _playerName: string = '';
-  private _playerId: string = '';
+  private _lobbySessionId: string = '';
+  private _gameSessionId: string = '';
 
   private reconnectAttempts: number = 0;
 
@@ -119,7 +125,17 @@ export class NetworkClient {
   }
 
   get playerId(): string {
-    return this._playerId;
+    // Keep the legacy accessor usable while callers migrate to the
+    // domain-specific identity accessors.
+    return this._gameSessionId || this._lobbySessionId;
+  }
+
+  get lobbySessionId(): string {
+    return this._lobbySessionId;
+  }
+
+  get gameSessionId(): string {
+    return this._gameSessionId;
   }
 
   get isConnected(): boolean {
@@ -151,7 +167,7 @@ export class NetworkClient {
         playerName,
       });
 
-      this._playerId = this.lobbyRoom.sessionId;
+      this._lobbySessionId = this.lobbyRoom.sessionId;
 
       // Register lobby message handlers
       this.setupLobbyHandlers(this.lobbyRoom);
@@ -177,11 +193,13 @@ export class NetworkClient {
       await this.gameRoom.leave(true);
       this.gameRoom = null;
     }
+    this._gameSessionId = '';
 
     if (this.lobbyRoom) {
       await this.lobbyRoom.leave(true);
       this.lobbyRoom = null;
     }
+    this._lobbySessionId = '';
 
     this.setConnectionState(ConnectionState.DISCONNECTED);
     this.events.emit(NetworkEvent.DISCONNECTED);
@@ -387,6 +405,7 @@ export class NetworkClient {
       getReconnectionManager().clearSession();
       await this.gameRoom.leave(true);
       this.gameRoom = null;
+      this._gameSessionId = '';
 
       if (this.lobbyRoom) {
         this.setConnectionState(ConnectionState.CONNECTED_LOBBY);
@@ -403,8 +422,10 @@ export class NetworkClient {
   async reconnectToGame(token: string): Promise<boolean> {
     try {
       this.gameRoom = await this.colyseusClient.reconnect(token);
+      this._gameSessionId = this.gameRoom.sessionId;
       this.setupGameHandlers(this.gameRoom);
       this.setConnectionState(ConnectionState.IN_GAME);
+      this.events.emit(NetworkEvent.RECONNECTED);
 
       // Save updated token (may change after reconnection)
       getReconnectionManager().saveSession(this.gameRoom.reconnectionToken);
@@ -466,6 +487,7 @@ export class NetworkClient {
       this.gameRoom = await this.colyseusClient.consumeSeatReservation(
         data.reservation as Colyseus.SeatReservation
       );
+      this._gameSessionId = this.gameRoom.sessionId;
 
       // Setup game handlers
       this.setupGameHandlers(this.gameRoom);
@@ -527,6 +549,10 @@ export class NetworkClient {
       this.events.emit(NetworkEvent.BULLET_FIRED, data);
     });
 
+    room.onMessage(ServerMessage.BULLET_HIT, (data) => {
+      this.events.emit(NetworkEvent.BULLET_HIT, data);
+    });
+
     room.onMessage(ServerMessage.MONSTER_DAMAGED, (data) => {
       this.events.emit(NetworkEvent.MONSTER_DAMAGED, data);
     });
@@ -541,6 +567,22 @@ export class NetworkClient {
 
     room.onMessage(ServerMessage.BUILDING_DESTROYED, (data) => {
       this.events.emit(NetworkEvent.BUILDING_DESTROYED, data);
+    });
+
+    room.onMessage(ServerMessage.TOWER_DAMAGED, (data) => {
+      this.events.emit(NetworkEvent.TOWER_DAMAGED, data);
+    });
+
+    room.onMessage(ServerMessage.TOWER_DESTROYED, (data) => {
+      this.events.emit(NetworkEvent.TOWER_DESTROYED, data);
+    });
+
+    room.onMessage(ServerMessage.MINE_DESTROYED, (data) => {
+      this.events.emit(NetworkEvent.MINE_DESTROYED, data);
+    });
+
+    room.onMessage(ServerMessage.TERRITORY_SYNC, (data) => {
+      this.events.emit(NetworkEvent.TERRITORY_SYNC, data);
     });
 
     // Player events
@@ -585,6 +627,7 @@ export class NetworkClient {
         this.handleGameDisconnect();
       } else {
         // Normal leave
+        this._gameSessionId = '';
         if (this.lobbyRoom) {
           this.setConnectionState(ConnectionState.CONNECTED_LOBBY);
         } else {

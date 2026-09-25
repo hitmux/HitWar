@@ -4,14 +4,14 @@
  */
 import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
-import { Bully } from '../bullet';
+import { Bullet } from '../bullet';
 import { BulletRegistry } from '../bulletRegistry';
 
 /**
  * Fire cannon - small
  */
-export function H_S(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function H_S(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.r = 4;
     b.damage = 100;
 
@@ -31,8 +31,8 @@ export function H_S(): Bully {
 /**
  * Fire cannon - large
  */
-export function H_L(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function H_L(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.r = 6;
     b.damage = 200;
 
@@ -52,8 +52,8 @@ export function H_L(): Bully {
 /**
  * Fire cannon - extra large
  */
-export function H_LL(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 10);
+export function H_LL(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 10);
     b.damage = 500;
 
     b.haveBomb = true;
@@ -72,8 +72,8 @@ export function H_LL(): Bully {
 /**
  * Tracking missile - small
  */
-export function H_Target_S(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 2.5);
+export function H_Target_S(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 2.5);
     b.r = 6;
     b.damage = 100;
 
@@ -97,8 +97,8 @@ export function H_Target_S(): Bully {
  * Manual Cannon Shell - Explosive shell for ManualCannon tower
  * Can hit buildings (unique property)
  */
-export function ManualCannon_Shell(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 3);
+export function ManualCannon_Shell(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 3);
     b.r = 5;
     b.damage = 50; // Direct hit damage
 

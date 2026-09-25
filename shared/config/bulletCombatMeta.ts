@@ -72,12 +72,12 @@ export const BULLET_COMBAT_META: Record<string, BulletCombatData> = {
   CannonStone_S:  bullet('CannonStone_S', 500, 4),
   CannonStone_M:  bullet('CannonStone_M', 800, 6),
   CannonStone_L:  bullet('CannonStone_L', 1000, 8),
-  Bully_S:        bullet('Bully_S', 40, 1.5),
-  Bully_M:        bullet('Bully_M', 50, 1.7),
-  Bully_L:        bullet('Bully_L', 75, 2),
-  Rifle_Bully_S:  bullet('Rifle_Bully_S', 70, 1),
-  Rifle_Bully_M:  bullet('Rifle_Bully_M', 100, 1.1),
-  Rifle_Bully_L:  bullet('Rifle_Bully_L', 150, 1.2),
+  Bullet_S:        bullet('Bullet_S', 40, 1.5),
+  Bullet_M:        bullet('Bullet_M', 50, 1.7),
+  Bullet_L:        bullet('Bullet_L', 75, 2),
+  Rifle_Bullet_S:  bullet('Rifle_Bullet_S', 70, 1),
+  Rifle_Bullet_M:  bullet('Rifle_Bullet_M', 100, 1.1),
+  Rifle_Bullet_L:  bullet('Rifle_Bullet_L', 150, 1.2),
 
   // ==================== machinegun.ts ====================
   F_S: bullet('F_S', 10, 0.8),
@@ -146,7 +146,7 @@ export const BULLET_COMBAT_META: Record<string, BulletCombatData> = {
   SS_Third: bullet('SS_Third', 120, 20, {
     isExplosive: true, explosionDamage: 300, explosionRadius: 100,
   }),
-  SpikeBully: bullet('SpikeBully', 5, 10, {
+  SpikeBullet: bullet('SpikeBullet', 5, 10, {
     isExplosive: true, explosionDamage: 5, explosionRadius: 40,
   }),
   CactusNeedle: bullet('CactusNeedle', 5, 1),

@@ -59,7 +59,7 @@ export function waitingRoomInterface(): void {
       const color = PLAYER_COLORS[i] || '#888';
 
       if (player) {
-        const isMe = player.id === client.playerId;
+        const isMe = player.id === client.gameSessionId;
         const readyStatus = player.isReady ? '✓ 已准备' : '等待中...';
         const readyClass = player.isReady ? 'ready' : 'waiting';
         const hostBadge = player.isHost ? '<span class="host-badge">房主</span>' : '';
@@ -121,6 +121,7 @@ export function waitingRoomInterface(): void {
       const s = state as {
         roomName?: string;
         mapSize?: string;
+        phase?: string;
         players?: Map<string, unknown> | Record<string, unknown>;
       };
       const roomName = s.roomName || '游戏房间';
@@ -153,6 +154,12 @@ export function waitingRoomInterface(): void {
           }
         });
         renderPlayerList();
+      }
+
+      if (s.phase === 'waiting') {
+        countdownDisplay.style.display = 'none';
+        countdownDisplay.textContent = '';
+        waitingHint.style.display = 'block';
       }
     }
   };
@@ -198,8 +205,8 @@ export function waitingRoomInterface(): void {
   };
 
   const onGameStarting = (...args: unknown[]) => {
-    const data = args[0] as { countdown: number };
-    showCountdown(data.countdown);
+    const data = args[0] as { countdownSeconds?: number; countdown?: number };
+    showCountdown(data.countdownSeconds ?? data.countdown ?? 0);
   };
 
   const onGameStarted = () => {

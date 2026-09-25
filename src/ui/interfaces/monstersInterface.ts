@@ -39,7 +39,7 @@ export function monstersInterface(): void {
         buildings: [],
         monsters: new Set(),
         effects: new Set(),
-        allBullys: new Set(),
+        allBullets: new Set(),
         time: 0,
         rootBuilding: { pos: { x: 50, y: 50 } },
         addMonster: () => {},

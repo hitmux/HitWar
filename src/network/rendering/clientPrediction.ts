@@ -63,7 +63,7 @@ export class GhostTowerProxy {
     readonly hpColor = { r: 0, g: 255, b: 0, a: 0.8 };
     readonly imgIndex: number = 0;
     readonly selected: boolean = false;
-    readonly bullys: Set<unknown> = new Set();
+    readonly bullets: Set<unknown> = new Set();
     _upIconOffset: Vector | null = null;
     readonly liveTime: number = 0;
 

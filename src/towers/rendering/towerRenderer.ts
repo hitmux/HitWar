@@ -44,7 +44,7 @@ export interface CircleObjectLike {
 export interface TowerLike extends CircleObjectLike {
     imgIndex: number;
     selected: boolean;
-    bullys: Set<Renderable>;
+    bullets: Set<Renderable>;
     _upIconOffset: Vector | null;
 
     getImgStartPosByIndex(n: number): Vector;
@@ -66,7 +66,7 @@ export interface TowerHammerLike extends TowerLike {
 }
 
 export interface TowerRayLike extends TowerLike {
-    rayBullys: Set<Renderable>;
+    rayBullets: Set<Renderable>;
 }
 
 export interface TowerBoomerangLike extends TowerLike {
@@ -110,7 +110,7 @@ export function renderTowerBody(tower: TowerLike, ctx: CanvasRenderingContext2D)
     }
 
     // Render bullets
-    for (const b of tower.bullys) {
+    for (const b of tower.bullets) {
         b.render(ctx);
     }
 
@@ -216,7 +216,7 @@ export function renderTowerHammerExtra(tower: TowerHammerLike, ctx: CanvasRender
  * Render TowerRay extra (ray bullets)
  */
 export function renderTowerRayExtra(tower: TowerRayLike, ctx: CanvasRenderingContext2D): void {
-    for (const b of tower.rayBullys) {
+    for (const b of tower.rayBullets) {
         b.render(ctx);
     }
 }

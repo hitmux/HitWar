@@ -9,11 +9,13 @@ import {
   TowerState,
   MonsterState,
   BuildingState,
+  MineState,
   VectorSchema,
   GamePhase,
   GameEndReason,
   PLAYER_COLORS,
 } from '../schema/index.js';
+import type { MonsterRuntimeState } from '../schema/MonsterState.js';
 import { SERVER_CONFIG, PVP_CONFIG, type MapSize } from '../config.js';
 import {
   ClientMessage,
@@ -66,6 +68,30 @@ import {
   getVisionUpgradePrice,
   VisionType,
 } from '../../../shared/config/visionMeta.js';
+import { scaleSpeed } from '../../../shared/constants/speedScale.js';
+import { normalize, sub } from '../shared/math/vector.js';
+import { getRequiredMonsterRuntimeConfig } from '../systems/monster/runtimeConfig.js';
+import { calcDodgeOffset, calcMovementTypeOffset, selectTargetPosition } from '../systems/monster/monsterAi.js';
+import {
+  computeBombSelfHits,
+  computeBulletChangeEffects,
+  computeGainEffects,
+  computeGravityAreaEffects,
+  computeLaserDefenseStep,
+  computeSummonSpawnPlans,
+  getMonsterAbilitySet,
+  recoverLaserDefenseCharges,
+} from '../systems/monster/monsterAbilities.js';
+import {
+  computeTerminatorAppliedDamage,
+  createMortisDashPlan,
+  createShooterShotPlan,
+  hasMortisReachedDashEndpoint,
+  isTerminatorMonster,
+  resolveMortisRuntimeConfig,
+  selectMortisDashTarget,
+  selectShooterTarget,
+} from '../systems/monster/specialBehaviors.js';
 
 /**
  * Room options when creating/joining
@@ -86,11 +112,28 @@ interface ClientMetadata {
   reconnectToken?: string;
 }
 
+type TargetableStructureState = BuildingState | TowerState;
+
+interface MonsterStructureTarget {
+  id: string;
+  ownerId: string;
+  position: VectorSchema;
+  hp: number;
+  maxHp: number;
+  radius: number;
+  damage?: number;
+  clock?: number;
+  isBase?: boolean;
+  kind: 'building' | 'tower';
+  source: TargetableStructureState;
+}
+
 export class GameRoom extends Room {
   // State type declaration
   declare state: GameState;
   // Game loop
   private gameLoopInterval: Delayed | null = null;
+  private countdownInterval: Delayed | null = null;
   private readonly tickRate = SERVER_CONFIG.tickRate;
   private readonly tickInterval = 1000 / this.tickRate;
 
@@ -113,7 +156,6 @@ export class GameRoom extends Room {
   private neutralMonsterCount: number = 0;
   private territorySyncCounter: number = 0;
   private readonly TERRITORY_SYNC_INTERVAL = 120; // Every 2 seconds at 60 ticks/sec
-
   /**
    * Room creation
    */
@@ -214,7 +256,8 @@ export class GameRoom extends Room {
     // Helper: wrap handler with per-client rate limiting
     const rateLimited = <T>(
       msgType: string,
-      handler: (client: Client, payload: T) => void
+      handler: (client: Client, payload: T) => void,
+      allowedPhases: readonly string[] = [GamePhase.PLAYING]
     ) => {
       this.onMessage(msgType, (client: Client, payload: T) => {
         if (!this.rateLimiter.consume(client.sessionId, msgType)) {
@@ -224,6 +267,10 @@ export class GameRoom extends Room {
           this.sendActionRejected(client, msgType, reason, 'RATE_LIMITED');
           return;
         }
+        if (!allowedPhases.includes(this.state.phase)) {
+          this.sendActionRejected(client, msgType, `Action unavailable during ${this.state.phase}`, 'INVALID_PHASE');
+          return;
+        }
         handler(client, payload);
       });
     };
@@ -231,11 +278,11 @@ export class GameRoom extends Room {
     // Player ready
     rateLimited(ClientMessage.PLAYER_READY, (client) => {
       this.handlePlayerReady(client);
-    });
+    }, [GamePhase.WAITING]);
 
     rateLimited(ClientMessage.PLAYER_NOT_READY, (client) => {
       this.handlePlayerNotReady(client);
-    });
+    }, [GamePhase.WAITING, GamePhase.STARTING]);
 
     // Building actions
     rateLimited<BuildTowerPayload>(ClientMessage.BUILD_TOWER, (client, payload) => {
@@ -381,8 +428,17 @@ export class GameRoom extends Room {
     );
 
     // If game hasn't started, remove player
-    if (this.state.phase === GamePhase.WAITING) {
+    if (this.state.phase === GamePhase.WAITING || this.state.phase === GamePhase.STARTING) {
+      if (this.state.phase === GamePhase.STARTING) {
+        this.cancelCountdown();
+      }
       this.removePlayer(client.sessionId);
+      this.rateLimiter.removeClient(client.sessionId);
+      return;
+    }
+
+    // If game has ended, just clean up
+    if (this.state.phase === GamePhase.ENDED) {
       this.rateLimiter.removeClient(client.sessionId);
       return;
     }
@@ -439,9 +495,24 @@ export class GameRoom extends Room {
     playerState.isConnected = true;
     playerState.sessionId = client.sessionId;
 
-    // Migrate rate limiter state if sessionId changed (e.g. new connection)
+    // Re-key player in state map and migrate subsystems if sessionId changed
     if (oldSessionId !== client.sessionId) {
+      this.state.players.delete(oldSessionId);
+      this.state.players.set(client.sessionId, playerState);
+      this.state.towers.forEach((entity) => {
+        if (entity.ownerId === oldSessionId) entity.ownerId = client.sessionId;
+      });
+      this.state.buildings.forEach((entity) => {
+        if (entity.ownerId === oldSessionId) entity.ownerId = client.sessionId;
+      });
+      this.state.mines.forEach((entity) => {
+        if (entity.ownerId === oldSessionId) entity.ownerId = client.sessionId;
+      });
+      this.state.monsters.forEach((entity) => {
+        if (entity.ownerId === oldSessionId) entity.ownerId = client.sessionId;
+      });
       this.rateLimiter.migrateClient(oldSessionId, client.sessionId);
+      this.visionSystem.migratePlayer(oldSessionId, client.sessionId);
     }
 
     // Use old sessionId to clean up disconnectedClients map
@@ -525,7 +596,9 @@ export class GameRoom extends Room {
    */
   onDispose(): void {
     console.log(`[GameRoom] Room disposed: ${this.roomId}`);
+    this.cancelCountdown();
     this.stopGameLoop();
+    this.updateRoomPlayingMetadata(false);
     this.rateLimiter.clear();
   }
 
@@ -552,6 +625,28 @@ export class GameRoom extends Room {
       this.gameLoopInterval.clear();
       this.gameLoopInterval = null;
     }
+  }
+
+  private cancelCountdown(): void {
+    if (this.countdownInterval) {
+      this.countdownInterval.clear();
+      this.countdownInterval = null;
+    }
+
+    if (this.state.phase === GamePhase.STARTING) {
+      this.state.phase = GamePhase.WAITING;
+    }
+
+    this.state.countdownTicks = 0;
+  }
+
+  private updateRoomPlayingMetadata(isPlaying: boolean): void {
+    void this.setMetadata({
+      ...(this.metadata ?? {}),
+      isPlaying,
+    }).catch((error) => {
+      console.error('[GameRoom] Failed to update room metadata:', error);
+    });
   }
 
   /**
@@ -683,11 +778,12 @@ export class GameRoom extends Room {
       sendToVisible(this, this.visionSystem, ServerMessage.BULLET_FIRED, event, event.x, event.y);
     }
 
-    // Phase 3: Monster melee (buildings + mines)
+    // Phase 3: Monster melee (buildings + towers + mines)
     const meleeResults = this.combatSystem.processMonsterMelee(
       this.state.monsters,
       this.state.buildings,
-      this.state.mines
+      this.state.mines,
+      this.state.towers
     );
     this.applyMeleeResults(meleeResults);
 
@@ -699,32 +795,65 @@ export class GameRoom extends Room {
    * Update all monsters
    */
   private updateMonsters(): void {
-    this.state.monsters.forEach((monster: MonsterState) => {
-      // Save previous position for sweep collision
+    const monstersSnapshot = Array.from(this.state.monsters.values());
+    const buildingsSnapshot = Array.from(this.state.buildings.values());
+    const towersSnapshot = Array.from(this.state.towers.values());
+    const minesSnapshot = Array.from(this.state.mines.values());
+    const structureTargets = this.buildStructureTargets(buildingsSnapshot, towersSnapshot);
+
+    for (const monster of monstersSnapshot) {
+      if (!this.state.monsters.has(monster.id)) {
+        continue;
+      }
+
+      const runtime =
+        monster.runtime ??
+        this.initializeMonsterRuntime(monster, this.getTargetBasePosition(monster.targetPlayerId));
+
+      runtime.liveTime += 1;
+      runtime.currentCollisionDamage =
+        runtime.config.baseClass === 'MonsterMortis'
+          ? runtime.config.abilities.mortis.bumpDamage
+          : runtime.config.stats.colishDamage;
+      runtime.keepAliveOnCollision =
+        runtime.config.throwAble || runtime.config.baseClass === 'MonsterTerminator';
+
       monster.prevX = monster.position.x;
       monster.prevY = monster.position.y;
 
-      // Update position based on velocity
-      monster.position.x += monster.velocity.x;
-      monster.position.y += monster.velocity.y;
-
-      // Update status effects
       if (monster.isFrozen && this.state.currentTick >= monster.freezeEndTime) {
         monster.isFrozen = false;
       }
       if (monster.isSlowed && this.state.currentTick >= monster.slowEndTime) {
         monster.isSlowed = false;
+        runtime.slowMultiplier = 1;
       }
 
-      // Burn DoT
-      if (monster.burnRate > 0) {
-        const burnDamage = monster.maxHp * monster.burnRate;
-        monster.hp -= burnDamage;
-        if (monster.hp <= 0) {
-          this.killMonster(monster, '', monster.burnSourceOwnerId);
-        }
+      this.updateMonsterTarget(monster, structureTargets);
+      this.processMonsterAbilities(
+        monster,
+        monstersSnapshot,
+        buildingsSnapshot,
+        towersSnapshot,
+        minesSnapshot
+      );
+
+      if (!this.state.monsters.has(monster.id)) {
+        continue;
       }
-    });
+
+      if (this.applyMonsterBurn(monster)) {
+        continue;
+      }
+
+      this.processMonsterAttack(monster, structureTargets);
+
+      if (!this.state.monsters.has(monster.id)) {
+        continue;
+      }
+
+      this.moveMonster(monster, structureTargets);
+    }
   }
 
   /**
@@ -758,6 +887,630 @@ export class GameRoom extends Room {
     });
   }
 
+  private getTargetBasePosition(targetPlayerId: string): { x: number; y: number } {
+    const targetPlayer = this.state.getPlayer(targetPlayerId);
+    if (targetPlayer) {
+      return {
+        x: targetPlayer.basePosition.x,
+        y: targetPlayer.basePosition.y,
+      };
+    }
+
+    return {
+      x: this.state.mapConfig.width / 2,
+      y: this.state.mapConfig.height / 2,
+    };
+  }
+
+  private initializeMonsterRuntime(
+    monster: MonsterState,
+    targetBasePosition: { x: number; y: number }
+  ): MonsterRuntimeState {
+    const config = getRequiredMonsterRuntimeConfig(monster.monsterType);
+    const runtime: MonsterRuntimeState = {
+      config,
+      liveTime: 0,
+      currentRawSpeed: config.stats.rawSpeed,
+      destinationX: targetBasePosition.x,
+      destinationY: targetBasePosition.y,
+      currentCollisionDamage: config.stats.colishDamage,
+      keepAliveOnCollision: config.throwAble || config.baseClass === 'MonsterTerminator',
+      laserCharges: config.abilities.laserDefense.initialCharge,
+      teleportCharges: config.teleportingCount,
+      currentTargetBuildingId: '',
+      currentDashTargetId: '',
+      dashEndpointX: null,
+      dashEndpointY: null,
+      slowMultiplier: 1,
+      holdPositionTicks: 0,
+    };
+
+    monster.runtime = runtime;
+    monster.movementType = config.movementType;
+    monster.dodgeAble = config.abilities.dodge.enabled;
+    monster.speed = config.stats.speed;
+    monster.radius = config.stats.radius;
+    monster.lastDamageOwnerId = '';
+
+    return runtime;
+  }
+
+  private setMonsterDestination(monster: MonsterState, x: number, y: number): void {
+    if (!monster.runtime) {
+      return;
+    }
+    monster.runtime.destinationX = x;
+    monster.runtime.destinationY = y;
+  }
+
+  private applyMonsterVelocityTowardDestination(monster: MonsterState): void {
+    const runtime = monster.runtime;
+    if (!runtime) {
+      return;
+    }
+
+    const destination = { x: runtime.destinationX, y: runtime.destinationY };
+    const direction = normalize(sub(destination, monster.position));
+    const movementOffset = calcMovementTypeOffset({
+      position: monster.position,
+      destination,
+      liveTime: runtime.liveTime,
+      movementType: runtime.config.movementType,
+    });
+    const dodgeOffset = calcDodgeOffset(
+      {
+        ownerId: monster.ownerId,
+        position: monster.position,
+        velocity: monster.velocity,
+        liveTime: runtime.liveTime,
+      },
+      this.combatSystem.getActiveBullets().map((bullet) => ({
+        position: bullet.position,
+        velocity: bullet.velocity,
+        radius: bullet.radius,
+      })),
+      {
+        detectRadius: runtime.config.abilities.dodge.detectRadius,
+        dodgeStrength: runtime.config.abilities.dodge.dodgeStrength,
+        reactionTime: runtime.config.abilities.dodge.reactionTicks,
+      }
+    );
+
+    if (runtime.config.stats.acceleration > 0 && runtime.currentRawSpeed < runtime.config.stats.rawMaxSpeed) {
+      runtime.currentRawSpeed = Math.min(
+        runtime.currentRawSpeed + runtime.config.stats.rawAcceleration,
+        runtime.config.stats.rawMaxSpeed
+      );
+    }
+
+    const effectiveSpeed =
+      scaleSpeed(runtime.currentRawSpeed) *
+      (monster.isSlowed ? runtime.slowMultiplier : 1);
+
+    monster.speed = effectiveSpeed;
+    monster.setVelocity(
+      direction.x * effectiveSpeed + movementOffset.x + dodgeOffset.x,
+      direction.y * effectiveSpeed + movementOffset.y + dodgeOffset.y
+    );
+  }
+
+  private createMonsterState(
+    monsterType: string,
+    ownerId: string,
+    targetPlayerId: string,
+    position: { x: number; y: number },
+    hpOverride?: number
+  ): MonsterState {
+    const config = getRequiredMonsterRuntimeConfig(monsterType);
+    const monster = new MonsterState();
+    monster.id = this.state.generateEntityId('monster');
+    monster.ownerId = ownerId;
+    monster.targetPlayerId = targetPlayerId;
+    monster.monsterType = monsterType;
+    monster.setPosition(position.x, position.y);
+    monster.hp = hpOverride ?? config.stats.baseHp;
+    monster.maxHp = monster.hp;
+    monster.radius = config.stats.radius;
+    monster.speed = config.stats.speed;
+    const runtime = this.initializeMonsterRuntime(monster, this.getTargetBasePosition(targetPlayerId));
+    runtime.currentCollisionDamage =
+      config.baseClass === 'MonsterMortis'
+        ? config.abilities.mortis.bumpDamage
+        : config.stats.colishDamage;
+    this.applyMonsterVelocityTowardDestination(monster);
+    return monster;
+  }
+
+  private registerMonsterState(monster: MonsterState, countTowardWave: boolean = false): void {
+    this.state.monsters.set(monster.id, monster);
+    if (monster.ownerId === '') {
+      this.neutralMonsterCount++;
+    }
+    if (countTowardWave && this.state.wave.isWaveActive) {
+      this.state.wave.monstersRemaining++;
+    }
+  }
+
+  private clampMonsterPosition(monster: MonsterState): void {
+    monster.position.x = Math.max(0, Math.min(this.state.mapConfig.width, monster.position.x));
+    monster.position.y = Math.max(0, Math.min(this.state.mapConfig.height, monster.position.y));
+  }
+
+  private clampStructurePosition(structure: TargetableStructureState): void {
+    structure.position.x = Math.max(0, Math.min(this.state.mapConfig.width, structure.position.x));
+    structure.position.y = Math.max(0, Math.min(this.state.mapConfig.height, structure.position.y));
+  }
+
+  private buildStructureTargets(
+    buildingsSnapshot: BuildingState[],
+    towersSnapshot: TowerState[]
+  ): MonsterStructureTarget[] {
+    const buildingTargets: MonsterStructureTarget[] = buildingsSnapshot.map((building) => ({
+      id: building.id,
+      ownerId: building.ownerId,
+      position: building.position,
+      hp: building.hp,
+      maxHp: building.maxHp,
+      radius: building.radius,
+      isBase: building.isBase,
+      kind: 'building',
+      source: building,
+    }));
+
+    const towerTargets: MonsterStructureTarget[] = towersSnapshot.map((tower) => {
+      const combatMeta = getTowerCombatData(tower.towerType);
+      return {
+        id: tower.id,
+        ownerId: tower.ownerId,
+        position: tower.position,
+        hp: tower.hp,
+        maxHp: tower.maxHp,
+        radius: tower.radius,
+        damage:
+          combatMeta
+            ? combatMeta.bulletDamage * Math.max(1, tower.attackBulletCount)
+            : undefined,
+        clock: tower.attackClock > 0 ? tower.attackClock : undefined,
+        kind: 'tower',
+        source: tower,
+      };
+    });
+
+    return buildingTargets.concat(towerTargets);
+  }
+
+  private syncBasePosition(building: BuildingState): void {
+    if (!building.isBase || !building.ownerId) {
+      return;
+    }
+
+    const player = this.state.getPlayer(building.ownerId);
+    if (player) {
+      player.basePosition.x = building.position.x;
+      player.basePosition.y = building.position.y;
+    }
+  }
+
+  private updateMonsterTarget(
+    monster: MonsterState,
+    structureTargets: MonsterStructureTarget[]
+  ): void {
+    const runtime = monster.runtime;
+    if (!runtime || !runtime.config.abilities.targetSelection.enabled) {
+      return;
+    }
+
+    const newTarget = selectTargetPosition(
+      {
+        ownerId: monster.ownerId,
+        position: monster.position,
+        velocity: monster.velocity,
+        liveTime: runtime.liveTime,
+      },
+      structureTargets.map((target) => ({
+        ownerId: target.ownerId,
+        position: target.position,
+        hp: target.hp,
+        maxHp: target.maxHp,
+        damage: target.damage,
+        clock: target.clock,
+      })),
+      {
+        strategy: runtime.config.abilities.targetSelection.strategy,
+        scanRadius: runtime.config.abilities.targetSelection.scanRadius,
+        updateInterval: runtime.config.abilities.targetSelection.updateIntervalTicks,
+        weights: runtime.config.abilities.targetSelection.weights,
+      }
+    );
+
+    if (newTarget) {
+      this.setMonsterDestination(monster, newTarget.x, newTarget.y);
+    }
+  }
+
+  private processMonsterAbilities(
+    monster: MonsterState,
+    monstersSnapshot: MonsterState[],
+    buildingsSnapshot: BuildingState[],
+    towersSnapshot: TowerState[],
+    minesSnapshot: MineState[]
+  ): void {
+    const runtime = monster.runtime;
+    if (!runtime) {
+      return;
+    }
+
+    const abilitySet = getMonsterAbilitySet(monster.monsterType);
+    if (!abilitySet) {
+      return;
+    }
+
+    if (
+      runtime.config.abilities.laserDefense.enabled &&
+      runtime.liveTime % runtime.config.abilities.laserDefense.consumeIntervalTicks === 0
+    ) {
+      const laserStep = computeLaserDefenseStep(
+        {
+          id: monster.id,
+          position: monster.position,
+          radius: monster.radius,
+        },
+        abilitySet.laserDefense,
+        this.combatSystem.getActiveBullets(),
+        runtime.laserCharges
+      );
+      runtime.laserCharges = laserStep.remainingCharges;
+      for (const bulletId of laserStep.destroyedBulletIds) {
+        this.combatSystem.removeBullet(bulletId);
+      }
+    }
+
+    if (
+      runtime.config.abilities.laserDefense.enabled &&
+      runtime.liveTime % runtime.config.abilities.laserDefense.recoverIntervalTicks === 0
+    ) {
+      runtime.laserCharges = recoverLaserDefenseCharges(runtime.laserCharges, abilitySet.laserDefense);
+    }
+
+    if (
+      runtime.config.abilities.gain.enabled &&
+      runtime.liveTime % runtime.config.abilities.gain.intervalTicks === 0
+    ) {
+      const gainEffects = computeGainEffects(
+        {
+          id: monster.id,
+          ownerId: monster.ownerId,
+          position: monster.position,
+          radius: monster.radius,
+        },
+        abilitySet.gain,
+        monstersSnapshot,
+        { maxEligibleSpeed: 7.5 }
+      );
+
+      for (const effect of gainEffects) {
+        effect.monster.hp = Math.min(effect.monster.maxHp + effect.maxHpDelta, effect.monster.hp + effect.hpDelta);
+        effect.monster.maxHp += effect.maxHpDelta;
+        effect.monster.radius += effect.radiusDelta;
+        if (effect.monster.runtime) {
+          effect.monster.runtime.currentRawSpeed += effect.speedDelta;
+          effect.monster.runtime.currentCollisionDamage += effect.collisionDamageDelta;
+        }
+      }
+    }
+
+    if (runtime.config.abilities.gravityArea.enabled) {
+      const gravityStructures = [
+        ...buildingsSnapshot,
+        ...towersSnapshot,
+      ] as TargetableStructureState[];
+      const gravityResult = computeGravityAreaEffects(
+        {
+          id: monster.id,
+          ownerId: monster.ownerId,
+          position: monster.position,
+          radius: monster.radius,
+        },
+        abilitySet.gravityArea,
+        gravityStructures,
+        minesSnapshot
+      );
+
+      let movedStructure = false;
+      for (const displacement of gravityResult.buildingDisplacements) {
+        displacement.structure.position.x += displacement.displacement.x;
+        displacement.structure.position.y += displacement.displacement.y;
+        this.clampStructurePosition(displacement.structure as TargetableStructureState);
+        if ('isBase' in displacement.structure) {
+          this.syncBasePosition(displacement.structure as BuildingState);
+        }
+        movedStructure = true;
+      }
+      for (const mineDamage of gravityResult.mineDamages) {
+        this.mineManager.damageMine(mineDamage.mineId, mineDamage.damage, monster.id);
+      }
+      if (movedStructure) {
+        this.territoryCalc.markDirty();
+        this.energyCalc.markDirty();
+        this.visionSystem.markDirty();
+      }
+    }
+
+    if (
+      runtime.config.abilities.bulletChange.enabled &&
+      runtime.liveTime % runtime.config.abilities.bulletChange.intervalTicks === 0
+    ) {
+      const bulletEffects = computeBulletChangeEffects(
+        {
+          id: monster.id,
+          ownerId: monster.ownerId,
+          position: monster.position,
+          radius: monster.radius,
+        },
+        abilitySet.bulletChange,
+        this.combatSystem.getActiveBullets()
+      );
+      for (const effect of bulletEffects) {
+        effect.bullet.radius = Math.max(0.2, effect.bullet.radius + effect.radiusDelta);
+        effect.bullet.damage += effect.damageDelta;
+        effect.bullet.velocity.x += effect.acceleration.x;
+        effect.bullet.velocity.y += effect.acceleration.y;
+      }
+    }
+
+    if (
+      runtime.config.abilities.summon.enabled &&
+      runtime.config.abilities.summon.summonWhileAlive &&
+      runtime.liveTime % runtime.config.abilities.summon.intervalTicks === 0
+    ) {
+      this.spawnMonsterSummons(monster, false);
+    }
+  }
+
+  private applyMonsterBurn(monster: MonsterState): boolean {
+    if (monster.burnRate <= 0) {
+      return false;
+    }
+
+    const burnDamage = monster.maxHp * monster.burnRate;
+    this.damageMonster(monster, burnDamage, '', monster.burnSourceOwnerId);
+    return !this.state.monsters.has(monster.id);
+  }
+
+  private processMonsterAttack(
+    monster: MonsterState,
+    structureTargets: MonsterStructureTarget[]
+  ): void {
+    const runtime = monster.runtime;
+    if (!runtime) {
+      return;
+    }
+
+    if (runtime.config.baseClass !== 'MonsterShooter') {
+      return;
+    }
+
+    const target = selectShooterTarget(
+      monster,
+      structureTargets as never[],
+      runtime.currentTargetBuildingId || undefined
+    ) as MonsterStructureTarget | null;
+    runtime.currentTargetBuildingId = target?.id ?? '';
+
+    if (
+      !target ||
+      runtime.liveTime % runtime.config.abilities.shooter.attackIntervalTicks !== 0
+    ) {
+      return;
+    }
+
+    const shotPlan = createShooterShotPlan(monster, target);
+    if (!shotPlan) {
+      return;
+    }
+
+    const event = this.combatSystem.spawnExternalBullet(
+      {
+        bulletType: shotPlan.bulletType,
+        x: shotPlan.x,
+        y: shotPlan.y,
+        vx: shotPlan.vx,
+        vy: shotPlan.vy,
+        damage: shotPlan.damage,
+        radius: shotPlan.radius,
+        maxRange: shotPlan.maxRange,
+        targetId: shotPlan.targetId,
+        isExplosive: shotPlan.isExplosive,
+        explosionRadius: shotPlan.explosionRadius,
+        explosionDamage: shotPlan.explosionDamage,
+        isPenetrating: shotPlan.isPenetrating,
+        penetrationCount: shotPlan.penetrationCount,
+        freezeMultiplier: shotPlan.freezeMultiplier,
+        burnRate: shotPlan.burnRate,
+        slideRate: shotPlan.slideRate,
+        targetsTowers: shotPlan.targetsBuildings,
+      },
+      monster.id,
+      monster.ownerId,
+      'monster'
+    );
+    sendToVisible(this, this.visionSystem, ServerMessage.BULLET_FIRED, event, event.x, event.y);
+  }
+
+  private moveMonster(
+    monster: MonsterState,
+    structureTargets: MonsterStructureTarget[]
+  ): void {
+    const runtime = monster.runtime;
+    if (!runtime) {
+      return;
+    }
+
+    if (runtime.holdPositionTicks > 0) {
+      runtime.holdPositionTicks -= 1;
+      monster.setVelocity(0, 0);
+      return;
+    }
+
+    if (runtime.config.baseClass === 'MonsterShooter' && runtime.currentTargetBuildingId) {
+      monster.setVelocity(0, 0);
+      return;
+    }
+
+    if (runtime.config.baseClass === 'MonsterMortis') {
+      const mortisConfig = resolveMortisRuntimeConfig(monster);
+      const target = selectMortisDashTarget(
+        monster,
+        structureTargets as never[],
+        runtime.currentDashTargetId || undefined
+      ) as MonsterStructureTarget | null;
+
+      if (!mortisConfig || !target) {
+        runtime.currentDashTargetId = '';
+        runtime.dashEndpointX = null;
+        runtime.dashEndpointY = null;
+      } else {
+        const needsNewDashEndpoint =
+          runtime.currentDashTargetId !== target.id ||
+          runtime.dashEndpointX === null ||
+          runtime.dashEndpointY === null;
+
+        if (needsNewDashEndpoint) {
+          const dashPlan = createMortisDashPlan(monster, target);
+          if (dashPlan) {
+            runtime.currentDashTargetId = dashPlan.targetId;
+            runtime.dashEndpointX = dashPlan.endPoint.x;
+            runtime.dashEndpointY = dashPlan.endPoint.y;
+            runtime.currentCollisionDamage = dashPlan.bumpDamage;
+          }
+        }
+
+        if (runtime.dashEndpointX !== null && runtime.dashEndpointY !== null) {
+          const dashEndPoint = {
+            x: runtime.dashEndpointX,
+            y: runtime.dashEndpointY,
+          };
+
+          if (hasMortisReachedDashEndpoint(monster, dashEndPoint)) {
+            runtime.currentDashTargetId = '';
+            runtime.dashEndpointX = null;
+            runtime.dashEndpointY = null;
+            monster.setVelocity(0, 0);
+            return;
+          }
+
+          const dashDirection = normalize(sub(dashEndPoint, monster.position));
+          if (dashDirection.x === 0 && dashDirection.y === 0) {
+            runtime.currentDashTargetId = '';
+            runtime.dashEndpointX = null;
+            runtime.dashEndpointY = null;
+            monster.setVelocity(0, 0);
+            return;
+          }
+
+          monster.setVelocity(
+            dashDirection.x * mortisConfig.bumpSpeed,
+            dashDirection.y * mortisConfig.bumpSpeed
+          );
+          monster.position.x += monster.velocity.x;
+          monster.position.y += monster.velocity.y;
+          this.clampMonsterPosition(monster);
+          return;
+        }
+      }
+    }
+
+    this.applyMonsterVelocityTowardDestination(monster);
+    monster.position.x += monster.velocity.x;
+    monster.position.y += monster.velocity.y;
+    this.clampMonsterPosition(monster);
+  }
+
+  private spawnMonsterSummons(monster: MonsterState, onDeath: boolean): void {
+    const runtime = monster.runtime;
+    const abilitySet = getMonsterAbilitySet(monster.monsterType);
+    if (!runtime || !abilitySet?.summon) {
+      return;
+    }
+
+    if (onDeath && !runtime.config.abilities.summon.summonOnDeath) {
+      return;
+    }
+    if (!onDeath && !runtime.config.abilities.summon.summonWhileAlive) {
+      return;
+    }
+
+    const summonPlans = computeSummonSpawnPlans(
+      {
+        id: monster.id,
+        position: monster.position,
+        radius: monster.radius,
+      },
+      {
+        ...abilitySet.summon,
+        summonCount: runtime.config.abilities.summon.count,
+        summonDistance: runtime.config.abilities.summon.distance,
+      }
+    );
+
+    for (const plan of summonPlans) {
+      const summoned = this.createMonsterState(
+        plan.monsterType,
+        monster.ownerId,
+        monster.targetPlayerId,
+        plan.position
+      );
+      this.registerMonsterState(summoned, monster.ownerId === '');
+    }
+  }
+
+  private applyBombSelf(monster: MonsterState, sourceId: string): void {
+    const abilitySet = getMonsterAbilitySet(monster.monsterType);
+    if (!abilitySet?.bombSelf?.bombSelfAble) {
+      return;
+    }
+
+    const hits = computeBombSelfHits(
+      {
+        id: monster.id,
+        ownerId: monster.ownerId,
+        position: monster.position,
+        radius: monster.radius,
+      },
+      abilitySet.bombSelf,
+      [
+        ...this.state.buildings.values(),
+        ...this.state.towers.values(),
+      ] as TargetableStructureState[]
+    );
+
+    for (const hit of hits) {
+      if (this.state.buildings.has(hit.buildingId)) {
+        this.damageBuilding(hit.building as BuildingState, hit.damage, sourceId);
+      } else if (this.state.towers.has(hit.buildingId)) {
+        this.damageTower(hit.building as TowerState, hit.damage, sourceId);
+      }
+    }
+
+    for (const mine of this.state.mines.values()) {
+      if (mine.ownerId === monster.ownerId) {
+        continue;
+      }
+      const dx = mine.position.x - monster.position.x;
+      const dy = mine.position.y - monster.position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > abilitySet.bombSelf.bombSelfRange + mine.radius) {
+        continue;
+      }
+      const damage = Math.abs(
+        (1 - distance / abilitySet.bombSelf.bombSelfRange) * abilitySet.bombSelf.bombSelfDamage
+      );
+      if (damage > 0) {
+        this.mineManager.damageMine(mine.id, damage, sourceId);
+      }
+    }
+  }
+
   /**
    * Update wave state
    */
@@ -771,7 +1524,8 @@ export class GameRoom extends Room {
       // Check if wave is complete
       if (this.neutralMonsterCount === 0) {
         this.state.wave.isWaveActive = false;
-        this.state.wave.nextWaveTime = 200 * this.tickRate; // Next wave in 200 ticks
+        this.state.wave.monstersRemaining = 0;
+        this.state.wave.nextWaveTime = 200 * this.tickRate; // Next wave in 200 seconds
 
         this.broadcast(ServerMessage.WAVE_COMPLETED, {
           waveNumber: this.state.wave.currentWave,
@@ -802,34 +1556,16 @@ export class GameRoom extends Room {
       if (!targetPlayer) continue;
 
       const monsterType = this.getMonsterTypeForWave(waveNumber);
-      const meta = SPAWNABLE_MONSTER_META[monsterType];
-
-      const monster = new MonsterState();
-      monster.id = this.state.generateEntityId('monster');
-      monster.ownerId = ''; // Neutral
-      monster.targetPlayerId = targetPlayer.id;
-      monster.monsterType = monsterType;
-
-      // Use metadata for base stats, scale HP with wave
-      monster.hp = (meta?.baseHp ?? 100) + waveNumber * 20;
-      monster.maxHp = monster.hp;
-      monster.radius = meta?.radius ?? 10;
-      monster.speed = meta?.speed ?? 2;
-
-      // Spawn from map edge, heading toward target player's base
       const spawnPos = this.getEdgeSpawnPosition(targetPlayer);
-      monster.setPosition(spawnPos.x, spawnPos.y);
-
-      // Set velocity toward target base
-      const dx = targetPlayer.basePosition.x - spawnPos.x;
-      const dy = targetPlayer.basePosition.y - spawnPos.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 0) {
-        monster.setVelocity((dx / dist) * monster.speed, (dy / dist) * monster.speed);
-      }
-
-      this.state.monsters.set(monster.id, monster);
-      this.neutralMonsterCount++;
+      const baseHp = getRequiredMonsterRuntimeConfig(monsterType).stats.baseHp;
+      const monster = this.createMonsterState(
+        monsterType,
+        '',
+        targetPlayer.id,
+        spawnPos,
+        baseHp + waveNumber * 20
+      );
+      this.registerMonsterState(monster);
     }
 
     this.state.wave.monstersRemaining = monsterCount;
@@ -881,22 +1617,59 @@ export class GameRoom extends Room {
       if (hit.targetType === 'monster') {
         const monster = this.state.monsters.get(hit.targetId);
         if (monster) {
-          this.damageMonster(monster, hit.damage, hit.towerId);
+          this.tryTeleportMonster(monster);
+          this.damageMonster(monster, hit.damage, hit.towerId, hit.ownerId);
           this.applyStatusEffects(monster, hit);
 
           // Process explosion targets
           for (const expTarget of hit.explosionTargets) {
+            if (expTarget.targetType && expTarget.targetType !== 'monster') {
+              continue;
+            }
             const expMonster = this.state.monsters.get(expTarget.id);
             if (expMonster) {
-              this.damageMonster(expMonster, expTarget.damage, hit.towerId);
+              this.damageMonster(expMonster, expTarget.damage, hit.towerId, hit.ownerId);
               this.applyStatusEffects(expMonster, hit);
             }
           }
         }
-      } else if (hit.targetType === 'building') {
-        const building = this.state.buildings.get(hit.targetId);
-        if (building) {
-          this.damageBuilding(building, hit.damage, hit.towerId);
+      } else if (hit.targetType === 'building' || hit.targetType === 'tower') {
+        const pendingBuildingDamage = new Map<string, number>();
+        const pendingTowerDamage = new Map<string, number>();
+
+        if (hit.targetType === 'tower') {
+          pendingTowerDamage.set(hit.targetId, hit.damage);
+        } else {
+          pendingBuildingDamage.set(hit.targetId, hit.damage);
+        }
+
+        for (const expTarget of hit.explosionTargets) {
+          if (expTarget.targetType === 'tower') {
+            pendingTowerDamage.set(
+              expTarget.id,
+              (pendingTowerDamage.get(expTarget.id) ?? 0) + expTarget.damage
+            );
+            continue;
+          }
+
+          pendingBuildingDamage.set(
+            expTarget.id,
+            (pendingBuildingDamage.get(expTarget.id) ?? 0) + expTarget.damage
+          );
+        }
+
+        for (const [buildingId, damage] of pendingBuildingDamage) {
+          const building = this.state.buildings.get(buildingId);
+          if (building && damage > 0) {
+            this.damageBuilding(building, damage, hit.towerId);
+          }
+        }
+
+        for (const [towerId, damage] of pendingTowerDamage) {
+          const tower = this.state.towers.get(towerId);
+          if (tower && damage > 0) {
+            this.damageTower(tower, damage, hit.towerId);
+          }
         }
       }
     }
@@ -914,6 +1687,7 @@ export class GameRoom extends Room {
    */
   private applyMeleeResults(results: MeleeResult[]): void {
     for (const result of results) {
+      const monster = this.state.monsters.get(result.monsterId);
       if (result.mineId) {
         // Mine hit
         const destroyed = this.mineManager.damageMine(
@@ -930,14 +1704,27 @@ export class GameRoom extends Room {
             destroyedBy: result.monsterId,
           }, mx, my);
         }
+      } else if (result.targetType === 'tower' && result.towerId) {
+        const tower = this.state.towers.get(result.towerId);
+        if (tower) {
+          this.damageTower(tower, result.damage, result.monsterId);
+        }
       } else {
-        // Building hit
         const building = this.state.buildings.get(result.buildingId);
         if (building) {
           this.damageBuilding(building, result.damage, result.monsterId);
         }
       }
-      this.removeMonster(result.monsterId);
+      if (monster) {
+        if (result.keepAlive) {
+          this.applyBombSelf(monster, monster.id);
+          if (monster.runtime?.config.baseClass === 'MonsterTerminator') {
+            monster.runtime.holdPositionTicks = 1;
+          }
+        } else {
+          this.killMonster(monster, monster.id);
+        }
+      }
     }
   }
 
@@ -1127,9 +1914,9 @@ export class GameRoom extends Room {
     if (hit.freezeMultiplier < 1) {
       monster.isSlowed = true;
       monster.slowEndTime = this.state.currentTick + 180; // ~3 seconds at 60fps
-      // Apply speed reduction
-      monster.velocity.x *= hit.freezeMultiplier;
-      monster.velocity.y *= hit.freezeMultiplier;
+      if (monster.runtime) {
+        monster.runtime.slowMultiplier = Math.min(monster.runtime.slowMultiplier, hit.freezeMultiplier);
+      }
     }
 
     // Burn effect
@@ -1141,24 +1928,61 @@ export class GameRoom extends Room {
       // Fire clears ice
       if (monster.isSlowed) {
         monster.isSlowed = false;
+        if (monster.runtime) {
+          monster.runtime.slowMultiplier = 1;
+        }
       }
     }
+  }
+
+  private tryTeleportMonster(monster: MonsterState): void {
+    const runtime = monster.runtime;
+    if (!runtime?.config.teleportingAble) {
+      return;
+    }
+
+    if (runtime.teleportCharges <= 0) {
+      return;
+    }
+
+    const angle = Math.random() * Math.PI * 2;
+    const distance = Math.sqrt(Math.random()) * runtime.config.teleportingRange;
+    monster.position.x += Math.cos(angle) * distance;
+    monster.position.y += Math.sin(angle) * distance;
+    this.clampMonsterPosition(monster);
+    monster.prevX = monster.position.x;
+    monster.prevY = monster.position.y;
+
+    runtime.teleportCharges = Math.max(0, runtime.teleportCharges - 1);
   }
 
   /**
    * Damage a monster
    */
-  private damageMonster(monster: MonsterState, damage: number, sourceId: string): void {
-    monster.hp -= damage;
+  private damageMonster(
+    monster: MonsterState,
+    damage: number,
+    sourceId: string,
+    sourceOwnerId?: string
+  ): void {
+    const appliedDamage = isTerminatorMonster(monster)
+      ? computeTerminatorAppliedDamage(damage, monster)
+      : damage;
+
+    if (sourceOwnerId) {
+      monster.lastDamageOwnerId = sourceOwnerId;
+    }
+
+    monster.hp -= appliedDamage;
 
     sendToVisible(this, this.visionSystem, ServerMessage.MONSTER_DAMAGED, {
       monsterId: monster.id,
-      damage,
+      damage: appliedDamage,
       sourceId,
     }, monster.position.x, monster.position.y);
 
     if (monster.hp <= 0) {
-      this.killMonster(monster, sourceId);
+      this.killMonster(monster, sourceId, sourceOwnerId);
     }
   }
 
@@ -1166,12 +1990,19 @@ export class GameRoom extends Room {
    * Kill a monster
    */
   private killMonster(monster: MonsterState, killerId: string, killerOwnerId?: string): void {
+    if (!this.state.monsters.has(monster.id)) {
+      return;
+    }
+
     // Award money to killer - killerId can be a tower ID or bullet owner ID
     // killerOwnerId can be passed directly (e.g. burn kills) to skip tower lookup
     if (!killerOwnerId) {
       const killerTower = this.state.towers.get(killerId);
-      killerOwnerId = killerTower?.ownerId || '';
+      killerOwnerId = killerTower?.ownerId || monster.lastDamageOwnerId || '';
     }
+
+    this.applyBombSelf(monster, killerId || monster.id);
+    this.spawnMonsterSummons(monster, true);
 
     if (killerOwnerId) {
       const player = this.state.getPlayer(killerOwnerId);
@@ -1196,7 +2027,10 @@ export class GameRoom extends Room {
    */
   private getMonsterReward(monsterType: string): number {
     const meta = SPAWNABLE_MONSTER_META[monsterType];
-    return meta?.reward ?? 10;
+    if (meta) {
+      return meta.reward;
+    }
+    return getRequiredMonsterRuntimeConfig(monsterType).stats.reward;
   }
 
   /**
@@ -1206,11 +2040,40 @@ export class GameRoom extends Room {
     const monster = this.state.monsters.get(monsterId);
     if (monster && monster.ownerId === '') {
       this.neutralMonsterCount--;
+      if (this.state.wave.isWaveActive) {
+        this.state.wave.monstersRemaining--;
+      }
     }
     this.state.monsters.delete(monsterId);
-    if (this.state.wave.isWaveActive) {
-      this.state.wave.monstersRemaining--;
+  }
+
+  private damageTower(tower: TowerState, damage: number, sourceId: string): void {
+    tower.hp -= damage;
+
+    sendToEntityOwnerAndVisible(this, this.visionSystem, ServerMessage.TOWER_DAMAGED, {
+      towerId: tower.id,
+      damage,
+      sourceId,
+    }, tower.ownerId, tower.position.x, tower.position.y);
+
+    if (tower.hp <= 0) {
+      this.destroyTower(tower, sourceId);
     }
+  }
+
+  private destroyTower(tower: TowerState, sourceId: string): void {
+    sendToEntityOwnerAndVisible(this, this.visionSystem, ServerMessage.TOWER_DESTROYED, {
+      towerId: tower.id,
+      sourceId,
+    }, tower.ownerId, tower.position.x, tower.position.y);
+
+    this.combatSystem.onTowerRemoved(tower.id);
+    this.state.towers.delete(tower.id);
+    this.territoryCalc.markDirty();
+    this.energyCalc.markDirty();
+    this.visionSystem.markDirty();
+
+    console.log(`[GameRoom] Tower destroyed: ${tower.id} by ${sourceId}`);
   }
 
   /**
@@ -1275,7 +2138,9 @@ export class GameRoom extends Room {
     this.state.winnerId = winnerId;
     this.state.endReason = reason;
 
+    this.cancelCountdown();
     this.stopGameLoop();
+    this.updateRoomPlayingMetadata(false);
 
     // Collect stats
     const stats = Array.from(this.state.players.values()).map((p: PlayerState) => ({
@@ -1329,6 +2194,10 @@ export class GameRoom extends Room {
     if (!player) return;
 
     player.isReady = false;
+
+    if (this.state.phase === GamePhase.STARTING) {
+      this.cancelCountdown();
+    }
   }
 
   /**
@@ -1345,11 +2214,12 @@ export class GameRoom extends Room {
     });
 
     // Countdown timer
-    const countdownInterval = this.clock.setInterval(() => {
+    this.countdownInterval = this.clock.setInterval(() => {
       this.state.countdownTicks -= this.tickRate;
 
       if (this.state.countdownTicks <= 0) {
-        countdownInterval.clear();
+        this.countdownInterval?.clear();
+        this.countdownInterval = null;
         this.startGame();
       }
     }, 1000);
@@ -1362,7 +2232,13 @@ export class GameRoom extends Room {
     this.state.phase = GamePhase.PLAYING;
     this.state.startTime = Date.now();
     this.state.currentTick = 0;
+    this.state.countdownTicks = 0;
     this.state.wave.nextWaveTime = 5 * this.tickRate; // First wave in 5 seconds
+
+    void this.lock().catch((error) => {
+      console.error('[GameRoom] Failed to lock room:', error);
+    });
+    this.updateRoomPlayingMetadata(true);
 
     // Generate mines from base positions
     const basePositions = this.state.getAlivePlayers().map((p: PlayerState) => ({
@@ -1496,6 +2372,7 @@ export class GameRoom extends Room {
       building.maxHp = meta.hp;
       building.radius = meta.radius;
     }
+    building.isSpawner = payload.buildingType === 'MonsterSpawner';
 
     this.state.buildings.set(building.id, building);
 
@@ -1672,33 +2549,14 @@ export class GameRoom extends Room {
     // Deduct money
     player.money -= cost;
 
-    // Create monster
-    const monster = new MonsterState();
-    monster.id = this.state.generateEntityId('monster');
-    monster.ownerId = client.sessionId;
-    monster.targetPlayerId = payload.targetPlayerId;
-    monster.monsterType = payload.monsterType;
-
-    // Use real stats from metadata
-    const meta = SPAWNABLE_MONSTER_META[payload.monsterType];
-    monster.hp = meta?.baseHp ?? 100;
-    monster.maxHp = monster.hp;
-    monster.radius = meta?.radius ?? 10;
-    monster.speed = meta?.speed ?? 2;
-
-    // Spawn at target's territory edge
     const spawnPos = this.getEdgeSpawnPosition(targetPlayer);
-    monster.setPosition(spawnPos.x, spawnPos.y);
-
-    // Set velocity toward target base
-    const dx = targetPlayer.basePosition.x - spawnPos.x;
-    const dy = targetPlayer.basePosition.y - spawnPos.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 0) {
-      monster.setVelocity((dx / dist) * monster.speed, (dy / dist) * monster.speed);
-    }
-
-    this.state.monsters.set(monster.id, monster);
+    const monster = this.createMonsterState(
+      payload.monsterType,
+      client.sessionId,
+      payload.targetPlayerId,
+      spawnPos
+    );
+    this.registerMonsterState(monster);
     player.monstersSpawned++;
 
     // Set cooldown using validated config

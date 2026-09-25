@@ -31,6 +31,10 @@ interface BuildingSpatialEntity extends SpatialEntity {
   state: BuildingState;
 }
 
+interface TowerSpatialEntity extends SpatialEntity {
+  state: TowerState;
+}
+
 /**
  * Result of a single combat tick
  */
@@ -49,10 +53,12 @@ export class CombatSystem {
   private damageCalc: DamageCalculator;
   private monsterGrid: SpatialHashGrid<MonsterSpatialEntity>;
   private buildingGrid: SpatialHashGrid<BuildingSpatialEntity>;
+  private towerGrid: SpatialHashGrid<TowerSpatialEntity>;
 
-  // Track monster/building spatial wrappers
+  // Track monster/building/tower spatial wrappers
   private monsterEntities: Map<string, MonsterSpatialEntity> = new Map();
   private buildingEntities: Map<string, BuildingSpatialEntity> = new Map();
+  private towerEntities: Map<string, TowerSpatialEntity> = new Map();
 
   constructor(
     mapWidth: number,
@@ -66,6 +72,7 @@ export class CombatSystem {
     // Cell size 128 for good balance of precision and performance
     this.monsterGrid = new SpatialHashGrid<MonsterSpatialEntity>(mapWidth, mapHeight, 128);
     this.buildingGrid = new SpatialHashGrid<BuildingSpatialEntity>(mapWidth, mapHeight, 128);
+    this.towerGrid = new SpatialHashGrid<TowerSpatialEntity>(mapWidth, mapHeight, 128);
   }
 
   /**
@@ -110,6 +117,7 @@ export class CombatSystem {
     // Step 1: Update spatial grids
     this.updateMonsterGrid(monsters);
     this.updateBuildingGrid(buildings);
+    this.updateTowerGrid(towers);
 
     // Step 2: Tower attacks -> create bullets
     const attacks = this.towerAttack.processAttacks(
@@ -127,10 +135,14 @@ export class CombatSystem {
     }
 
     // Step 3: Move bullets
-    this.bulletMgr.updatePositions(monsters);
+    this.bulletMgr.updatePositions(monsters, buildings, towers);
 
     // Step 4: Bullet collisions
-    const bulletsHit = this.bulletMgr.processCollisions(this.monsterGrid, this.buildingGrid);
+    const bulletsHit = this.bulletMgr.processCollisions(
+      this.monsterGrid,
+      this.buildingGrid,
+      this.towerGrid
+    );
 
     // Step 5: Cleanup dead bullets
     const bulletsRemoved = this.bulletMgr.cleanup();
@@ -144,9 +156,28 @@ export class CombatSystem {
   processMonsterMelee(
     monsters: MapSchema<MonsterState>,
     buildings: MapSchema<BuildingState>,
-    mines?: MapSchema<MineState>
+    mines?: MapSchema<MineState>,
+    towers?: MapSchema<TowerState>
   ): MeleeResult[] {
-    return processMonsterMelee(monsters, buildings, mines);
+    return processMonsterMelee(monsters, buildings, mines, towers);
+  }
+
+  spawnExternalBullet(
+    data: BulletCreationData,
+    sourceId: string,
+    ownerId: string,
+    sourceType: 'tower' | 'monster' = 'monster'
+  ): BulletFiredEvent {
+    const bullet = this.bulletMgr.createBullet(data, sourceId, ownerId, sourceType);
+    return this.bulletMgr.getBulletFiredEvent(bullet);
+  }
+
+  getActiveBullets(): BulletState[] {
+    return this.bulletMgr.getActiveBullets();
+  }
+
+  removeBullet(bulletId: string): boolean {
+    return this.bulletMgr.removeBullet(bulletId);
   }
 
   /**
@@ -259,9 +290,9 @@ export class CombatSystem {
       return dx * dx + dy * dy <= markerRadius * markerRadius;
     };
 
-    // Priority 1: Enemy buildings in marked area
-    let closestBuildingDistSq = Infinity;
-    let closestBuildingPos: { x: number; y: number } | null = null;
+    // Priority 1: Enemy structures in marked area
+    let closestStructureDistSq = Infinity;
+    let closestStructurePos: { x: number; y: number } | null = null;
 
     for (const [, entity] of this.buildingEntities) {
       const building = entity.state;
@@ -271,13 +302,27 @@ export class CombatSystem {
       if (!inMarkedArea(bx, by) || !inAttackRange(bx, by)) continue;
 
       const distSq = (bx - tower.position.x) ** 2 + (by - tower.position.y) ** 2;
-      if (distSq < closestBuildingDistSq) {
-        closestBuildingDistSq = distSq;
-        closestBuildingPos = { x: bx, y: by };
+      if (distSq < closestStructureDistSq) {
+        closestStructureDistSq = distSq;
+        closestStructurePos = { x: bx, y: by };
       }
     }
 
-    if (closestBuildingPos) return closestBuildingPos;
+    for (const [, entity] of this.towerEntities) {
+      const targetTower = entity.state;
+      if (targetTower.ownerId === tower.ownerId) continue;
+      const tx = targetTower.position.x;
+      const ty = targetTower.position.y;
+      if (!inMarkedArea(tx, ty) || !inAttackRange(tx, ty)) continue;
+
+      const distSq = (tx - tower.position.x) ** 2 + (ty - tower.position.y) ** 2;
+      if (distSq < closestStructureDistSq) {
+        closestStructureDistSq = distSq;
+        closestStructurePos = { x: tx, y: ty };
+      }
+    }
+
+    if (closestStructurePos) return closestStructurePos;
 
     // Priority 2: Enemy monsters in marked area
     const nearbyMonsters = this.monsterGrid.queryRange(markerX, markerY, markerRadius);
@@ -328,8 +373,10 @@ export class CombatSystem {
     this.bulletMgr.clear();
     this.monsterGrid.clear();
     this.buildingGrid.clear();
+    this.towerGrid.clear();
     this.monsterEntities.clear();
     this.buildingEntities.clear();
+    this.towerEntities.clear();
   }
 
   // ==================== Private Methods ====================
@@ -389,6 +436,33 @@ export class CombatSystem {
         this.buildingGrid.insert(entity);
       }
       // Buildings don't move, so no need to update position in grid
+    });
+  }
+
+  private updateTowerGrid(towers: MapSchema<TowerState>): void {
+    for (const [id, entity] of this.towerEntities) {
+      if (!towers.has(id)) {
+        this.towerGrid.remove(entity);
+        this.towerEntities.delete(id);
+      }
+    }
+
+    towers.forEach((tower: TowerState) => {
+      let entity = this.towerEntities.get(tower.id);
+      if (!entity) {
+        entity = {
+          id: tower.id,
+          position: tower.position,
+          radius: tower.radius,
+          state: tower,
+        };
+        this.towerEntities.set(tower.id, entity);
+      } else {
+        entity.position = tower.position;
+        entity.radius = tower.radius;
+      }
+
+      this.towerGrid.update(entity);
     });
   }
 }

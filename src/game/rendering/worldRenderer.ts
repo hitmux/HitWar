@@ -15,7 +15,7 @@ import { getMonstersImg, MONSTER_IMG_PRE_WIDTH, MONSTER_IMG_PRE_HEIGHT } from '.
 import { Monster } from '../../monsters/base/monster';
 
 // Types
-import type { TowerLike, BuildingLike, MonsterLike, BullyLike, IEffect } from '../entities';
+import type { TowerLike, BuildingLike, MonsterLike, BulletLike, IEffect } from '../entities';
 import type { Mine } from '../../systems/energy/mine';
 
 /** Buffer expansion ratio: Canvas covers 1.5x viewport area to reduce rebuild frequency */
@@ -40,12 +40,12 @@ export interface WorldRendererContext {
     mines: Set<Mine>;
     monsters: Set<MonsterLike>;
     effects: Set<IEffect>;
-    allBullys: Set<BullyLike>;
+    allBullets: Set<BulletLike>;
     obstacles: Obstacle[];
 
     // Spatial grids (只读)
     monsterGrid: SpatialHashGrid<SpatialGridObject> | null;
-    bullyGrid: SpatialHashGrid<SpatialGridObject> | null;
+    bulletGrid: SpatialHashGrid<SpatialGridObject> | null;
 
     // User state
     user: {
@@ -155,7 +155,7 @@ export class WorldRenderer {
 
     // Per-frame render caches
     private _visibleBounds: [number, number, number, number] = [0, 0, 0, 0];
-    private _bulletRenderList: BullyLike[] = [];
+    private _bulletRenderList: BulletLike[] = [];
     private _visibleMonsters: MonsterLike[] = [];
     private _styleGroupCache: Map<string, any[]> = new Map();
     private _styleGroupKeysUsed: Set<string> = new Set();
@@ -265,8 +265,8 @@ export class WorldRenderer {
         const monsterCandidates = this._context.monsterGrid
             ? (this._context.monsterGrid.queryRange(viewQuery.cx, viewQuery.cy, viewQuery.radius) as MonsterLike[])
             : this._syncMonsterRenderListFromSet();
-        const bulletCandidates = this._context.bullyGrid
-            ? (this._context.bullyGrid.queryRange(viewQuery.cx, viewQuery.cy, viewQuery.radius) as BullyLike[])
+        const bulletCandidates = this._context.bulletGrid
+            ? (this._context.bulletGrid.queryRange(viewQuery.cx, viewQuery.cy, viewQuery.radius) as BulletLike[])
             : this._syncBulletRenderListFromSet();
         this._bulletRenderList = bulletCandidates;
 
@@ -285,13 +285,13 @@ export class WorldRenderer {
             }
         }
         for (let i = 0; i < bulletCandidates.length; i++) {
-            const bully = bulletCandidates[i];
-            if (this._isObjectVisible(bully, this._visibleBounds)) {
+            const bullet = bulletCandidates[i];
+            if (this._isObjectVisible(bullet, this._visibleBounds)) {
                 // Skip rendering if fully covered by fog
-                if (fogEnabled && !fog!.isCircleVisible(bully.pos.x, bully.pos.y, bully.r)) {
+                if (fogEnabled && !fog!.isCircleVisible(bullet.pos.x, bullet.pos.y, bullet.r)) {
                     continue;
                 }
-                this._addEntityToStyleGroup(bully);
+                this._addEntityToStyleGroup(bullet);
             }
         }
 
@@ -396,10 +396,10 @@ export class WorldRenderer {
         return Array.from(this._context.monsters);
     }
 
-    private _syncBulletRenderListFromSet(): BullyLike[] {
+    private _syncBulletRenderListFromSet(): BulletLike[] {
         this._bulletRenderList.length = 0;
-        for (const bully of this._context.allBullys) {
-            this._bulletRenderList.push(bully);
+        for (const bullet of this._context.allBullets) {
+            this._bulletRenderList.push(bullet);
         }
         return this._bulletRenderList;
     }

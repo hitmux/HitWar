@@ -7,6 +7,7 @@
 import type { MonsterSpawner } from '../../../buildings/variants/monsterSpawner';
 import { SPAWNABLE_MONSTERS, SpawnableMonster } from '../../../buildings/spawnerConfig';
 import { scalePeriod } from '../../../core/speedScale';
+import type { NetworkClient } from '../../../network/networkClient';
 
 /**
  * SpawnerPanel class - Manages the monster spawner UI
@@ -17,6 +18,9 @@ export class SpawnerPanel {
     private refreshInterval: ReturnType<typeof setInterval> | null = null;
     private selectedTargetId: string = '';
     private abortSignal: AbortSignal;
+    private networkClient: NetworkClient | null = null;
+    private networkSpawnerId: string | null = null;
+    private networkEnemies: Array<{ id: string; name: string }> = [];
 
     constructor(abortSignal: AbortSignal) {
         this.abortSignal = abortSignal;
@@ -57,7 +61,8 @@ export class SpawnerPanel {
         const targetSelect = this.panelEl.querySelector('.spawner-target-select') as HTMLSelectElement;
         targetSelect?.addEventListener('change', (e) => {
             this.selectedTargetId = (e.target as HTMLSelectElement).value;
-            this.updateMonsterList();
+            if (this.networkSpawnerId) this.updateNetworkMonsterList();
+            else this.updateMonsterList();
         }, { signal: this.abortSignal });
 
         // Hide when mouse leaves
@@ -96,6 +101,26 @@ export class SpawnerPanel {
         this.startRefresh();
     }
 
+    showNetwork(
+        spawnerId: string,
+        enemies: Array<{ id: string; name: string }>,
+        screenPos: { x: number; y: number },
+        networkClient: NetworkClient
+    ): void {
+        if (!this.panelEl) return;
+        this.currentSpawner = null;
+        this.networkSpawnerId = spawnerId;
+        this.networkEnemies = enemies;
+        this.networkClient = networkClient;
+        this.selectedTargetId = '';
+        this.panelEl.style.left = `${screenPos.x + 10}px`;
+        this.panelEl.style.top = `${screenPos.y + 10}px`;
+        this.panelEl.style.display = 'block';
+        this.updateNetworkTargetSelect();
+        this.updateNetworkMonsterList();
+        this.startRefresh();
+    }
+
     /**
      * Hide panel
      */
@@ -104,6 +129,8 @@ export class SpawnerPanel {
 
         this.panelEl.style.display = 'none';
         this.currentSpawner = null;
+        this.networkSpawnerId = null;
+        this.networkClient = null;
         this.stopRefresh();
     }
 
@@ -167,6 +194,45 @@ export class SpawnerPanel {
             selectEl.innerHTML = html;
             selectEl.value = this.selectedTargetId;
         }
+    }
+
+    private updateNetworkTargetSelect(): void {
+        if (!this.panelEl) return;
+        const selectEl = this.panelEl.querySelector('.spawner-target-select') as HTMLSelectElement;
+        const hintEl = this.panelEl.querySelector('.spawner-hint') as HTMLElement;
+        const targetSection = this.panelEl.querySelector('.spawner-target-section') as HTMLElement;
+        if (targetSection) targetSection.style.display = 'block';
+        if (this.networkEnemies.length === 0) {
+            if (selectEl) selectEl.innerHTML = '<option value="">无目标</option>';
+            if (hintEl) { hintEl.textContent = '没有可攻击的敌方玩家'; hintEl.style.display = 'block'; }
+            return;
+        }
+        if (hintEl) hintEl.style.display = 'none';
+        if (selectEl) {
+            selectEl.innerHTML = '<option value="">选择目标</option>' + this.networkEnemies
+                .map((enemy) => `<option value="${enemy.id}">${enemy.name}</option>`).join('');
+            selectEl.value = this.selectedTargetId;
+        }
+    }
+
+    private updateNetworkMonsterList(): void {
+        if (!this.panelEl) return;
+        const listEl = this.panelEl.querySelector('.spawner-monster-list') as HTMLElement;
+        if (!listEl) return;
+        const enabled = this.selectedTargetId !== '';
+        listEl.innerHTML = SPAWNABLE_MONSTERS.map((config) => `
+            <div class="spawner-monster-item ${enabled ? 'available' : 'disabled'}" data-monster-id="${config.monsterId}">
+                <div class="monster-name">${config.name}</div><div class="monster-cost">${config.cost}元</div>
+                <div class="monster-status">${enabled ? '' : '请选择目标'}</div>
+            </div>`).join('');
+        listEl.querySelectorAll('.spawner-monster-item.available').forEach((item) => {
+            item.addEventListener('click', (event) => {
+                const monsterId = (event.currentTarget as HTMLElement).dataset.monsterId;
+                if (monsterId && this.networkClient && this.networkSpawnerId && this.selectedTargetId) {
+                    this.networkClient.spawnMonster({ spawnerId: this.networkSpawnerId, monsterType: monsterId, targetPlayerId: this.selectedTargetId });
+                }
+            }, { signal: this.abortSignal });
+        });
     }
 
     /**
@@ -236,6 +302,10 @@ export class SpawnerPanel {
      * Spawn a monster
      */
     private spawnMonster(monsterId: string): void {
+        if (this.networkClient && this.networkSpawnerId && this.selectedTargetId) {
+            this.networkClient.spawnMonster({ spawnerId: this.networkSpawnerId, monsterType: monsterId, targetPlayerId: this.selectedTargetId });
+            return;
+        }
         if (!this.currentSpawner || !this.selectedTargetId) return;
 
         const config = SPAWNABLE_MONSTERS.find(c => c.monsterId === monsterId);

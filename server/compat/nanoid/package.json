@@ -1,0 +1,6 @@
+{
+  "name": "nanoid",
+  "version": "3.3.15",
+  "main": "index.cjs",
+  "type": "commonjs"
+}

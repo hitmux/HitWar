@@ -8,6 +8,7 @@
 import { BulletState } from '../../schema/BulletState.js';
 import type { MonsterState } from '../../schema/MonsterState.js';
 import type { BuildingState } from '../../schema/BuildingState.js';
+import type { TowerState } from '../../schema/TowerState.js';
 import type { MapSchema } from '@colyseus/schema';
 import { sweepCollides, sweepCollidesRelative, collides } from '../../shared/math/circle.js';
 import { normalize, sub, distSq } from '../../shared/math/vector.js';
@@ -23,7 +24,7 @@ export interface BulletHitResult {
   towerId: string;
   ownerId: string;
   targetId: string;
-  targetType: 'monster' | 'building';
+  targetType: 'monster' | 'building' | 'tower';
   damage: number;
   position: { x: number; y: number };
   // Effects to apply
@@ -33,7 +34,11 @@ export interface BulletHitResult {
   isExplosion: boolean;
   explosionRadius: number;
   explosionDamage: number;
-  explosionTargets: Array<{ id: string; damage: number }>;
+  explosionTargets: Array<{
+    id: string;
+    damage: number;
+    targetType?: 'monster' | 'building' | 'tower';
+  }>;
 }
 
 /**
@@ -42,7 +47,9 @@ export interface BulletHitResult {
 export interface BulletFiredEvent {
   bulletId: string;
   bulletType: string;
-  towerId: string;
+  sourceId: string;
+  sourceType: 'tower' | 'monster';
+  towerId?: string;
   ownerId: string;
   x: number;
   y: number;
@@ -68,6 +75,18 @@ interface BuildingSpatialEntity extends SpatialEntity {
   state: BuildingState;
 }
 
+interface TowerSpatialEntity extends SpatialEntity {
+  state: TowerState;
+}
+
+interface StructureCollisionCandidate {
+  id: string;
+  ownerId: string;
+  position: { x: number; y: number };
+  radius: number;
+  targetType: 'building' | 'tower';
+}
+
 /**
  * Bullet Manager
  */
@@ -84,12 +103,18 @@ export class BulletManager {
   /**
    * Create a bullet from attack data
    */
-  createBullet(data: BulletCreationData, towerId: string, ownerId: string): BulletState {
+  createBullet(
+    data: BulletCreationData,
+    sourceId: string,
+    ownerId: string,
+    sourceType: 'tower' | 'monster' = 'tower'
+  ): BulletState {
     const bullet = new BulletState();
     bullet.id = `bullet_${this.nextBulletId++}`;
     bullet.ownerId = ownerId;
-    bullet.towerId = towerId;
+    bullet.towerId = sourceId;
     bullet.bulletType = data.bulletType;
+    bullet.sourceType = sourceType;
 
     bullet.setPosition(data.x, data.y);
     bullet.setOrigin(data.x, data.y);
@@ -117,6 +142,8 @@ export class BulletManager {
     // Effects
     bullet.freezeMultiplier = data.freezeMultiplier;
     bullet.burnRate = data.burnRate;
+    bullet.slideRate = data.slideRate ?? bullet.slideRate;
+    bullet.targetsTowers = data.targetsTowers ?? false;
 
     this.bullets.set(bullet.id, bullet);
     return bullet;
@@ -129,7 +156,9 @@ export class BulletManager {
     return {
       bulletId: bullet.id,
       bulletType: bullet.bulletType,
-      towerId: bullet.towerId,
+      sourceId: bullet.towerId,
+      sourceType: bullet.sourceType,
+      towerId: bullet.sourceType === 'tower' ? bullet.towerId : undefined,
       ownerId: bullet.ownerId,
       x: bullet.position.x,
       y: bullet.position.y,
@@ -143,7 +172,11 @@ export class BulletManager {
   /**
    * Update all bullet positions (Phase 1: Movement)
    */
-  updatePositions(monsters: MapSchema<MonsterState>): void {
+  updatePositions(
+    monsters: MapSchema<MonsterState>,
+    buildings?: MapSchema<BuildingState>,
+    towers?: MapSchema<TowerState>
+  ): void {
     for (const bullet of this.bullets.values()) {
       // Save previous position
       bullet.prevX = bullet.position.x;
@@ -151,7 +184,11 @@ export class BulletManager {
 
       // Tracking movement
       if (bullet.isTracking && bullet.targetId) {
-        const target = monsters.get(bullet.targetId);
+        const monsterTarget = monsters.get(bullet.targetId);
+        const structureTarget = bullet.targetsTowers
+          ? buildings?.get(bullet.targetId) ?? towers?.get(bullet.targetId)
+          : undefined;
+        const target = monsterTarget ?? structureTarget;
         if (target && target.hp > 0) {
           // Track toward target
           const dir = normalize(
@@ -178,7 +215,8 @@ export class BulletManager {
    */
   processCollisions(
     monsterGrid: SpatialHashGrid<MonsterSpatialEntity>,
-    buildingGrid?: SpatialHashGrid<BuildingSpatialEntity>
+    buildingGrid?: SpatialHashGrid<BuildingSpatialEntity>,
+    towerGrid?: SpatialHashGrid<TowerSpatialEntity>
   ): BulletHitResult[] {
     const results: BulletHitResult[] = [];
 
@@ -186,7 +224,7 @@ export class BulletManager {
       if (this.toRemove.has(bullet.id)) continue;
 
       const hitResult = bullet.targetsTowers
-        ? this.checkBuildingCollision(bullet, buildingGrid)
+        ? this.checkStructureCollision(bullet, buildingGrid, towerGrid)
         : this.checkMonsterCollision(bullet, monsterGrid);
 
       if (hitResult) {
@@ -256,46 +294,97 @@ export class BulletManager {
   }
 
   /**
-   * Check collision with buildings
+   * Check collision with structures that can be targeted by monster bullets
    */
-  private checkBuildingCollision(
+  private checkStructureCollision(
     bullet: BulletState,
-    buildingGrid?: SpatialHashGrid<BuildingSpatialEntity>
+    buildingGrid?: SpatialHashGrid<BuildingSpatialEntity>,
+    towerGrid?: SpatialHashGrid<TowerSpatialEntity>
   ): BulletHitResult | null {
-    if (!buildingGrid) return null;
+    const candidates: StructureCollisionCandidate[] = [];
 
-    const nearbyBuildings = buildingGrid.queryRange(
-      bullet.position.x,
-      bullet.position.y,
-      bullet.radius + 100
-    );
+    if (buildingGrid) {
+      const nearbyBuildings = buildingGrid.queryRange(
+        bullet.position.x,
+        bullet.position.y,
+        bullet.radius + 100
+      );
 
-    for (const entity of nearbyBuildings) {
-      const building = entity.state;
+      for (const entity of nearbyBuildings) {
+        candidates.push({
+          id: entity.state.id,
+          ownerId: entity.state.ownerId,
+          position: entity.state.position,
+          radius: entity.state.radius,
+          targetType: 'building',
+        });
+      }
+    }
 
-      // Check ownership
-      if (!isEnemy({ ownerId: bullet.ownerId }, { ownerId: building.ownerId })) {
+    if (towerGrid) {
+      const nearbyTowers = towerGrid.queryRange(
+        bullet.position.x,
+        bullet.position.y,
+        bullet.radius + 100
+      );
+
+      for (const entity of nearbyTowers) {
+        candidates.push({
+          id: entity.state.id,
+          ownerId: entity.state.ownerId,
+          position: entity.state.position,
+          radius: entity.state.radius,
+          targetType: 'tower',
+        });
+      }
+    }
+
+    let bestTarget: StructureCollisionCandidate | null = null;
+    let bestDistanceSq = Infinity;
+
+    for (const candidate of candidates) {
+      if (!isEnemy({ ownerId: bullet.ownerId }, { ownerId: candidate.ownerId })) {
         continue;
       }
 
-      // Buildings don't move, use basic sweep collision
       const collided = sweepCollides(
         bullet.prevX,
         bullet.prevY,
         bullet.position.x,
         bullet.position.y,
         bullet.radius,
-        building.position.x,
-        building.position.y,
-        building.radius
+        candidate.position.x,
+        candidate.position.y,
+        candidate.radius
       );
 
-      if (collided) {
-        return this.createHitResult(bullet, building.id, 'building');
+      if (!collided) {
+        continue;
+      }
+
+      const distanceToStartSq = distSq(
+        { x: bullet.prevX, y: bullet.prevY },
+        { x: candidate.position.x, y: candidate.position.y }
+      );
+
+      if (distanceToStartSq < bestDistanceSq) {
+        bestDistanceSq = distanceToStartSq;
+        bestTarget = candidate;
       }
     }
 
-    return null;
+    if (!bestTarget) {
+      return null;
+    }
+
+    return this.createHitResult(
+      bullet,
+      bestTarget.id,
+      bestTarget.targetType,
+      undefined,
+      buildingGrid,
+      towerGrid
+    );
   }
 
   /**
@@ -304,8 +393,10 @@ export class BulletManager {
   private createHitResult(
     bullet: BulletState,
     targetId: string,
-    targetType: 'monster' | 'building',
-    monsterGrid?: SpatialHashGrid<MonsterSpatialEntity>
+    targetType: 'monster' | 'building' | 'tower',
+    monsterGrid?: SpatialHashGrid<MonsterSpatialEntity>,
+    buildingGrid?: SpatialHashGrid<BuildingSpatialEntity>,
+    towerGrid?: SpatialHashGrid<TowerSpatialEntity>
   ): BulletHitResult {
     const result: BulletHitResult = {
       bulletId: bullet.id,
@@ -324,39 +415,113 @@ export class BulletManager {
     };
 
     // Calculate explosion targets
-    if (bullet.isExplosive && bullet.explosionRadius > 0 && monsterGrid) {
-      const explosionTargets = monsterGrid.queryRange(
+    if (bullet.isExplosive && bullet.explosionRadius > 0) {
+      if (targetType === 'monster' && monsterGrid) {
+        const explosionTargets = monsterGrid.queryRange(
+          bullet.position.x,
+          bullet.position.y,
+          bullet.explosionRadius
+        );
+
+        for (const entity of explosionTargets) {
+          const monster = entity.state;
+
+          if (!isEnemy({ ownerId: bullet.ownerId }, { ownerId: monster.ownerId })) {
+            continue;
+          }
+
+          const dist = Math.sqrt(
+            distSq({ x: bullet.position.x, y: bullet.position.y }, { x: monster.position.x, y: monster.position.y })
+          );
+
+          if (dist <= bullet.explosionRadius + monster.radius) {
+            const damageRatio = Math.max(0, 1 - dist / bullet.explosionRadius);
+            const explosionDamage = bullet.explosionDamage * damageRatio;
+
+            result.explosionTargets.push({
+              id: monster.id,
+              damage: explosionDamage,
+              targetType: 'monster',
+            });
+          }
+        }
+      }
+
+      if (targetType === 'building' || targetType === 'tower') {
+        this.appendStructureExplosionTargets(result, bullet, buildingGrid, towerGrid);
+      }
+    }
+
+    return result;
+  }
+
+  private appendStructureExplosionTargets(
+    result: BulletHitResult,
+    bullet: BulletState,
+    buildingGrid?: SpatialHashGrid<BuildingSpatialEntity>,
+    towerGrid?: SpatialHashGrid<TowerSpatialEntity>
+  ): void {
+    if (buildingGrid) {
+      const explosionTargets = buildingGrid.queryRange(
         bullet.position.x,
         bullet.position.y,
         bullet.explosionRadius
       );
 
       for (const entity of explosionTargets) {
-        const monster = entity.state;
+        const building = entity.state;
 
-        if (!isEnemy({ ownerId: bullet.ownerId }, { ownerId: monster.ownerId })) {
+        if (!isEnemy({ ownerId: bullet.ownerId }, { ownerId: building.ownerId })) {
           continue;
         }
 
-        // Check if in explosion range
         const dist = Math.sqrt(
-          distSq({ x: bullet.position.x, y: bullet.position.y }, { x: monster.position.x, y: monster.position.y })
+          distSq({ x: bullet.position.x, y: bullet.position.y }, { x: building.position.x, y: building.position.y })
         );
 
-        if (dist <= bullet.explosionRadius + monster.radius) {
-          // Damage falls off with distance
+        if (dist <= bullet.explosionRadius + building.radius) {
           const damageRatio = Math.max(0, 1 - dist / bullet.explosionRadius);
           const explosionDamage = bullet.explosionDamage * damageRatio;
 
           result.explosionTargets.push({
-            id: monster.id,
+            id: building.id,
             damage: explosionDamage,
+            targetType: 'building',
           });
         }
       }
     }
 
-    return result;
+    if (towerGrid) {
+      const explosionTargets = towerGrid.queryRange(
+        bullet.position.x,
+        bullet.position.y,
+        bullet.explosionRadius
+      );
+
+      for (const entity of explosionTargets) {
+        const tower = entity.state;
+
+        if (!isEnemy({ ownerId: bullet.ownerId }, { ownerId: tower.ownerId })) {
+          continue;
+        }
+
+        const dist = Math.sqrt(
+          distSq({ x: bullet.position.x, y: bullet.position.y }, { x: tower.position.x, y: tower.position.y })
+        );
+
+        if (dist <= bullet.explosionRadius + tower.radius) {
+          const damageRatio = Math.max(0, 1 - dist / bullet.explosionRadius);
+          const explosionDamage = bullet.explosionDamage * damageRatio;
+
+          result.explosionTargets.push({
+            id: tower.id,
+            damage: explosionDamage,
+            targetType: 'tower',
+          });
+        }
+      }
+    }
   }
 
   /**
@@ -377,8 +542,8 @@ export class BulletManager {
   /**
    * Get all active bullets
    */
-  getActiveBullets(): Map<string, BulletState> {
-    return this.bullets;
+  getActiveBullets(): BulletState[] {
+    return Array.from(this.bullets.values());
   }
 
   /**
@@ -391,8 +556,9 @@ export class BulletManager {
   /**
    * Remove a bullet
    */
-  removeBullet(id: string): void {
+  removeBullet(id: string): boolean {
     this.toRemove.add(id);
+    return this.bullets.delete(id);
   }
 
   /**

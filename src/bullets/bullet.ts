@@ -1,5 +1,5 @@
 /**
- * Bully - Base bullet class
+ * Bullet - Base bullet class
  * by littlefean
  */
 import { Vector } from '../core/math/vector';
@@ -66,17 +66,17 @@ interface EntityLike {
 interface TowerLike {
     world: WorldLike;
     rangeR: number;
-    bullys: Set<Bully>;
+    bullets: Set<Bullet>;
 }
 
 interface WorldLike {
     width: number;
     height: number;
     monsters: Iterable<EntityLike>;
-    othersBullys: Bully[];
+    standaloneBullets: Bullet[];
     fog?: { enabled: boolean; isPositionVisible(x: number, y: number): boolean };
-    removeBully(bully: Bully): void;
-    addBully(bully: Bully): void;
+    removeBullet(bullet: Bullet): void;
+    addBullet(bullet: Bullet): void;
     getMonstersInRange(x: number, y: number, range: number): EntityLike[];
     getBuildingsInRange(x: number, y: number, range: number): EntityLike[];
     getAllBuildingArr(): EntityLike[];
@@ -84,25 +84,25 @@ interface WorldLike {
 }
 
 type BombFunc = () => void;
-type SplitBullyFunc = () => Bully | null;
+type SplitBulletFactory = () => Bullet | null;
 
-export class Bully extends CircleObject {
+export class Bullet extends CircleObject {
     // Static reusable Circle for rendering view radius
     static _viewCircle: Circle | null = null;
     // Static Circle for bomb collision detection (reused to avoid allocations)
     private static _bombCircle: Circle = new Circle(0, 0, 0);
     // Static Vector for move() to avoid GC pressure
-    private static _bullyTempVec: Vector = new Vector(0, 0);
+    private static _bulletTempVec: Vector = new Vector(0, 0);
 
     static getViewCircle(x: number, y: number, r: number): Circle {
-        if (!Bully._viewCircle) {
-            Bully._viewCircle = new Circle(x, y, r);
+        if (!Bullet._viewCircle) {
+            Bullet._viewCircle = new Circle(x, y, r);
         } else {
-            Bully._viewCircle.x = x;
-            Bully._viewCircle.y = y;
-            Bully._viewCircle.r = r;
+            Bullet._viewCircle.x = x;
+            Bullet._viewCircle.y = y;
+            Bullet._viewCircle.r = r;
         }
-        return Bully._viewCircle;
+        return Bullet._viewCircle;
     }
 
     originalPos: Vector;
@@ -131,9 +131,9 @@ export class Bully extends CircleObject {
     splitRandomV: number;
     splitV: number;
     splitRotate: number;
-    splitBully: SplitBullyFunc;
+    splitBullet: SplitBulletFactory;
     splitRangeRate: number;
-    isSliptedBully: boolean;
+    isSplitBullet: boolean;
     splitRate: number;
 
     repel: number;
@@ -199,9 +199,9 @@ export class Bully extends CircleObject {
         this.splitRandomV = 1;
         this.splitV = 0;  // normal rotation speed after split
         this.splitRotate = 0;  // expansion angle relative to original direction
-        this.splitBully = () => BulletRegistry.create('Normal') as Bully | null;  // use registry for split bullet
+        this.splitBullet = () => BulletRegistry.create('Normal') as Bullet | null;  // use registry for split bullet
         this.splitRangeRate = 100;  // split bullet max range in px
-        this.isSliptedBully = false;  // is this a split bullet
+        this.isSplitBullet = false;  // is this a split bullet
         this.splitRate = 1;  // probability of continued splitting
 
         this.repel = 0;  // knockback ability
@@ -239,7 +239,7 @@ export class Bully extends CircleObject {
         this.getTarget();
 
         this.collide(this.world);
-        if (this.isSliptedBully) {
+        if (this.isSplitBullet) {
             const splitRangeSq = this.splitRangeRate * this.splitRangeRate;
             if (this.pos.disSq(this.originalPos) > splitRangeSq) {
                 if (this.splitAble) {
@@ -259,11 +259,11 @@ export class Bully extends CircleObject {
     remove(): void {
         // Remove from global bullet cache
         if (this.world) {
-            this.world.removeBully(this);
+            this.world.removeBullet(this);
         }
         // Remove from parent tower's bullet set
-        if (this.father && this.father.bullys) {
-            this.father.bullys.delete(this);
+        if (this.father && this.father.bullets) {
+            this.father.bullets.delete(this);
         }
         super.remove();
     }
@@ -275,7 +275,7 @@ export class Bully extends CircleObject {
 
         if (this.targetAble && this.haveTarget()) {
             // Use static temp vector to avoid GC pressure
-            const temp = Bully._bullyTempVec;
+            const temp = Bullet._bulletTempVec;
             Vector.subTo(this.target!.pos as Vector, this.pos, temp);
             temp.normalizeInPlace().mulInPlace(this.speedToTargetN);
             this.pos.add(temp);
@@ -284,8 +284,8 @@ export class Bully extends CircleObject {
             // super.move() 现在也会设置 prevX/prevY，但我们已经先设置了
             // 所以需要跳过 super.move() 中的重复设置
             if (this.acceleration.x === this.acceleration.y && this.acceleration.x === 0) {
-                Vector.mulTo(this.speed, this.accelerationV, Bully._bullyTempVec);
-                this.speed.add(Bully._bullyTempVec);
+                Vector.mulTo(this.speed, this.accelerationV, Bullet._bulletTempVec);
+                this.speed.add(Bullet._bulletTempVec);
             } else {
                 this.speed.add(this.acceleration);
             }
@@ -468,9 +468,9 @@ export class Bully extends CircleObject {
         if (this.splitAble) {
             const fatherV = this.speed.copy();  // parent velocity direction
             for (let i = 0; i < this.splitNum; i++) {
-                const b = this.splitBully();
+                const b = this.splitBullet();
                 if (!b) continue;
-                b.isSliptedBully = true;
+                b.isSplitBullet = true;
                 b.world = this.world;
                 b.ownerId = this.ownerId;
                 b.pos = this.pos.copy();
@@ -483,9 +483,9 @@ export class Bully extends CircleObject {
                 b.splitRangeRate = this.splitRangeRate;
                 b.targetTower = this.targetTower;
                 // Add to world
-                this.world.othersBullys.push(b);
+                this.world.standaloneBullets.push(b);
                 // Sync to global bullet cache
-                this.world.addBully(b);
+                this.world.addBullet(b);
             }
         }
     }
@@ -495,7 +495,7 @@ export class Bully extends CircleObject {
      */
     bombFire(): void {
         // Reuse static Circle to avoid allocation
-        const bC = Bully._bombCircle;
+        const bC = Bullet._bombCircle;
         bC.x = this.pos.x;
         bC.y = this.pos.y;
         bC.r = this.bombRange;
@@ -539,7 +539,7 @@ export class Bully extends CircleObject {
      */
     bombFreeze(): void {
         // Reuse static Circle to avoid allocation
-        const bC = Bully._bombCircle;
+        const bC = Bullet._bombCircle;
         bC.x = this.pos.x;
         bC.y = this.pos.y;
         bC.r = this.bombRange;
@@ -604,10 +604,10 @@ export class Bully extends CircleObject {
         c.render(ctx);
         // Tracking bullet renders view range (use static reusable Circle)
         if (this.targetAble) {
-            Bully.getViewCircle(this.pos.x, this.pos.y, this.viewRadius).renderView(ctx);
+            Bullet.getViewCircle(this.pos.x, this.pos.y, this.viewRadius).renderView(ctx);
         }
     }
 }
 
 // Register class type
-BulletRegistry.registerClassType('Bully', () => Bully);
+BulletRegistry.registerClassType('Bullet', () => Bullet);

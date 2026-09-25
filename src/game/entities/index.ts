@@ -7,7 +7,7 @@ export type {
     TowerLike,
     BuildingLike,
     MonsterLike,
-    BullyLike,
+    BulletLike,
     TerritoryCompatibleEntity,
     EntityManagerContext,
     EntityRemovalCallbacks

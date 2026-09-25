@@ -14,6 +14,9 @@ export class BulletState extends Schema {
   @type('string') towerId: string = ''; // Tower that fired this bullet
   @type('string') bulletType: string = 'Normal'; // Bullet class name
 
+  // Server-only source metadata for event payloads
+  sourceType: 'tower' | 'monster' = 'tower';
+
   @type(VectorSchema) position: VectorSchema = new VectorSchema();
   @type(VectorSchema) velocity: VectorSchema = new VectorSchema();
 

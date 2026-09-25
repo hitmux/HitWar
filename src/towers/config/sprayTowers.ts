@@ -20,7 +20,7 @@ export const SPRAYCANNON_1_CONFIG: TowerConfig = {
         rangeR: 200,
         clock: 30,
         hp: 1000,
-        bullySpeed: 5,
+        bulletSpeed: 5,
         bulletType: 'SS_S',
         audioSrcString: '/sound/发射音效/喷泄.mp3'
     }
@@ -40,7 +40,7 @@ export const SPRAYCANNON_2_CONFIG: TowerConfig = {
         rangeR: 220,
         clock: 30,
         hp: 3000,
-        bullySpeed: 8,
+        bulletSpeed: 8,
         bulletType: 'SS_M',
         audioSrcString: '/sound/发射音效/喷泄.mp3'
     }
@@ -60,7 +60,7 @@ export const SPRAYCANNON_3_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 30,
         hp: 5000,
-        bullySpeed: 11,
+        bulletSpeed: 11,
         bulletType: 'SS_L',
         audioSrcString: '/sound/发射音效/喷泄.mp3'
     }
@@ -80,7 +80,7 @@ export const SPRAYCANNON_DOUBLE_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 30,
         hp: 10000,
-        bullySpeed: 15,
+        bulletSpeed: 15,
         bulletType: 'SS_Second',
         audioSrcString: '/sound/发射音效/喷泄.mp3'
     }
@@ -100,7 +100,7 @@ export const SPRAYCANNON_THREE_CONFIG: TowerConfig = {
         rangeR: 250,
         clock: 30,
         hp: 10000,
-        bullySpeed: 15,
+        bulletSpeed: 15,
         bulletType: 'SS_Third',
         audioSrcString: '/sound/发射音效/喷泄.mp3'
     }

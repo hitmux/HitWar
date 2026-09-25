@@ -80,7 +80,7 @@ export const SHOUTER_SPIKE_CONFIG: ShooterMonsterConfig = {
         speedNumb: 0.30,
         r: 20,
         bodyColor: [190, 145, 23, 1],
-        bulletType: 'SpikeBully',
+        bulletType: 'SpikeBullet',
         clock: 8,
         rangeR: 100,
         targetSelection: {

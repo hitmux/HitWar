@@ -4,14 +4,14 @@
  */
 import { Vector } from '../../core/math/vector';
 import { MyColor } from '../../entities/myColor';
-import { Bully } from '../bullet';
+import { Bullet } from '../bullet';
 import { BulletRegistry } from '../bulletRegistry';
 
 /**
  * Split bullet - small
  */
-export function SS_S(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 5);
+export function SS_S(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 5);
 
     b.damage = 30;
     // Split bullet properties
@@ -19,7 +19,7 @@ export function SS_S(): Bully {
     b.splitNum = 6;
     b.splitRandomV = 2;
     b.splitRotate = Math.PI / 6;
-    b.splitBully = () => BulletRegistry.create('Bully_S') as Bully;
+    b.splitBullet = () => BulletRegistry.create('Bullet_S') as Bullet;
     b.splitRangeRate = 200;
     b.bodyColor = MyColor.arrTo([0, 84, 71, 1]);
     return b;
@@ -28,15 +28,15 @@ export function SS_S(): Bully {
 /**
  * Split bullet - medium
  */
-export function SS_M(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 5);
+export function SS_M(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 5);
     b.damage = 20;
     b.r = 6;
     // Split bullet properties
     b.splitAble = true;
     b.splitNum = 20;
     b.splitRandomV = 10;
-    b.splitBully = () => BulletRegistry.create('Bully_M') as Bully;
+    b.splitBullet = () => BulletRegistry.create('Bullet_M') as Bullet;
     b.splitRangeRate = 250;
     b.bodyColor = MyColor.arrTo([0, 84, 71, 1]);
     return b;
@@ -45,8 +45,8 @@ export function SS_M(): Bully {
 /**
  * Split bullet - large (with explosion)
  */
-export function SS_L(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 5);
+export function SS_L(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 5);
     b.damage = 50;
     b.r = 8;
     // Explosive properties
@@ -58,7 +58,7 @@ export function SS_L(): Bully {
     b.splitAble = true;
     b.splitNum = 20;
     b.splitRandomV = 20;
-    b.splitBully = () => BulletRegistry.create('Bully_L') as Bully;
+    b.splitBullet = () => BulletRegistry.create('Bullet_L') as Bullet;
     b.splitRangeRate = 300;
 
     b.bodyColor = MyColor.arrTo([0, 84, 71, 1]);
@@ -68,8 +68,8 @@ export function SS_L(): Bully {
 /**
  * Super split bullet - second level
  */
-export function SS_Second(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 5);
+export function SS_Second(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 5);
     b.damage = 100;
     b.r = 15;
     // Explosive properties
@@ -81,7 +81,7 @@ export function SS_Second(): Bully {
     b.splitAble = true;
     b.splitNum = 5;
     b.splitRandomV = 10;
-    b.splitBully = () => BulletRegistry.create('SS_S') as Bully;
+    b.splitBullet = () => BulletRegistry.create('SS_S') as Bullet;
     b.splitRangeRate = 100;
 
     b.bodyColor = MyColor.arrTo([0, 136, 111, 1]);
@@ -91,8 +91,8 @@ export function SS_Second(): Bully {
 /**
  * Super split bullet - third level
  */
-export function SS_Third(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 5);
+export function SS_Third(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 5);
     b.damage = 120;
     b.r = 20;
     // Explosive properties
@@ -104,7 +104,7 @@ export function SS_Third(): Bully {
     b.splitAble = true;
     b.splitNum = 5;
     b.splitRandomV = 10;
-    b.splitBully = () => BulletRegistry.create('SS_Second') as Bully;
+    b.splitBullet = () => BulletRegistry.create('SS_Second') as Bullet;
     b.splitRangeRate = 100;
 
     b.bodyColor = MyColor.arrTo([0, 234, 194, 1]);
@@ -114,15 +114,15 @@ export function SS_Third(): Bully {
 /**
  * Spike bullet (Brawl Stars Spike super)
  */
-export function SpikeBully(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 10);
+export function SpikeBullet(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 10);
     b.splitAble = true;
     b.splitNum = 10;
     b.splitRandomV = 0;
     b.splitV = 3;
     b.splitRotate = Math.PI * 2;
     b.splitRangeRate = 250;
-    b.splitBully = () => BulletRegistry.create('CactusNeedle') as Bully;
+    b.splitBullet = () => BulletRegistry.create('CactusNeedle') as Bullet;
 
     b.r = 10;
     b.bodyColor = MyColor.arrTo([97, 150, 66, 1]);
@@ -134,8 +134,8 @@ export function SpikeBully(): Bully {
 /**
  * Cactus needle bullet
  */
-export function CactusNeedle(): Bully {
-    const b = new Bully(Vector.zero(), Vector.zero(), null, 5, 10);
+export function CactusNeedle(): Bullet {
+    const b = new Bullet(Vector.zero(), Vector.zero(), null, 5, 10);
 
     b.r = 1;
     b.bodyColor = MyColor.arrTo([97, 150, 66, 1]);
@@ -150,5 +150,5 @@ BulletRegistry.register('SS_M', SS_M);
 BulletRegistry.register('SS_L', SS_L);
 BulletRegistry.register('SS_Second', SS_Second);
 BulletRegistry.register('SS_Third', SS_Third);
-BulletRegistry.register('SpikeBully', SpikeBully);
+BulletRegistry.register('SpikeBullet', SpikeBullet);
 BulletRegistry.register('CactusNeedle', CactusNeedle);

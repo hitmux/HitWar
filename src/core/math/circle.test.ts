@@ -1,205 +1,145 @@
-/**
- * Simple unit tests for Circle sweep collision detection
- * Run with: npx ts-node src/core/math/circle.test.ts
- * Or import and run the exported test function
- */
-
+import { describe, expect, it, vi } from 'vitest';
 import { Circle } from './circle';
+import { MyColor } from '../../entities/myColor';
 
-interface TestCase {
-    name: string;
-    fn: () => boolean;
-}
+describe('Circle', () => {
+    it('initializes geometry and independent mutable colors', () => {
+        const a = new Circle(1, 2, 3);
+        const b = new Circle(4, 5, 6);
 
-const tests: TestCase[] = [];
+        a.setFillColor(new MyColor(10, 20, 30, 0.4));
+        a.setStrokeColor(new MyColor(40, 50, 60, 0.8));
 
-function test(name: string, fn: () => boolean): void {
-    tests.push({ name, fn });
-}
+        expect(a.x).toBe(1);
+        expect(a.y).toBe(2);
+        expect(a.r).toBe(3);
+        expect(a.pos.x).toBe(1);
+        expect(a.pos.y).toBe(2);
+        expect(b.fillColor.toStringRGBA()).toBe('rgba(0, 0, 0, 1)');
+        expect(b.strokeColor.toStringRGBA()).toBe('rgba(60, 63, 65, 1)');
+    });
 
-function assertEqual(actual: boolean, expected: boolean, message: string): boolean {
-    if (actual !== expected) {
-        console.error(`  FAILED: ${message}`);
-        console.error(`    Expected: ${expected}, Got: ${actual}`);
-        return false;
-    }
-    return true;
-}
+    it('detects object circle collisions including tangent contact', () => {
+        const circle = new Circle(0, 0, 10);
 
-// Test: sweepCollides - basic endpoint collision
-test('sweepCollides: detects collision at start point', () => {
-    // Moving circle starts inside the target
-    const result = Circle.sweepCollides(
-        50, 50,   // start (inside target at 50,50 with r=30)
-        100, 50,  // end
-        10,       // moving radius
-        50, 50,   // target center
-        30        // target radius
-    );
-    return assertEqual(result, true, 'Should detect collision at start point');
+        expect(circle.impact({ x: 15, y: 0, r: 5 })).toBe(true);
+        expect(circle.impact({ x: 16, y: 0, r: 5 })).toBe(false);
+    });
+
+    it.each([
+        { point: [10, 10], inside: true },
+        { point: [14.9, 10], inside: true },
+        { point: [15, 10], inside: false },
+        { point: [16, 10], inside: false },
+        { point: [10, 4.9], inside: false },
+    ])('checks strict point inclusion %#', ({ point, inside }) => {
+        const circle = new Circle(10, 10, 5);
+
+        expect(circle.pointIn(point[0], point[1])).toBe(inside);
+    });
+
+    it('checks point inclusion with a strict boundary', () => {
+        const circle = new Circle(10, 10, 5);
+
+        expect(circle.pointIn(13, 13)).toBe(true);
+        expect(circle.pointIn(15, 10)).toBe(false);
+    });
+
+    it('delegates static circle collision checks', () => {
+        expect(Circle.collides(0, 0, 10, 20, 0, 10)).toBe(true);
+        expect(Circle.collides(0, 0, 10, 21, 0, 10)).toBe(false);
+    });
+
+    it.each([
+        { args: [0, 0, 5, 0, 0, 5] as const, collides: true },
+        { args: [0, 0, 5, 9.99, 0, 5] as const, collides: true },
+        { args: [0, 0, 5, 10, 0, 5] as const, collides: true },
+        { args: [0, 0, 5, 10.01, 0, 5] as const, collides: false },
+        { args: [-5, -5, 2, -1, -2, 3] as const, collides: true },
+    ])('handles static collision boundaries %#', ({ args, collides }) => {
+        const [x1, y1, r1, x2, y2, r2] = args;
+        expect(Circle.collides(x1, y1, r1, x2, y2, r2)).toBe(collides);
+    });
+
+    it('detects sweep collisions at endpoints, during movement, and tangent paths', () => {
+        expect(Circle.sweepCollides(50, 50, 100, 50, 10, 50, 50, 30)).toBe(true);
+        expect(Circle.sweepCollides(0, 0, 50, 50, 10, 50, 50, 30)).toBe(true);
+        expect(Circle.sweepCollides(0, 0, 100, 0, 5, 50, 10, 10)).toBe(true);
+        expect(Circle.sweepCollides(0, 0, 100, 0, 5, 50, 15, 10)).toBe(true);
+    });
+
+    it('rejects sweep collisions when the path misses the target', () => {
+        expect(Circle.sweepCollides(0, 0, 100, 0, 5, 50, 50, 10)).toBe(false);
+    });
+
+    it.each([
+        { args: [0, 0, 0, 0, 5, 0, 0, 5] as const, collides: true },
+        { args: [0, 0, 0, 0, 5, 20, 0, 5] as const, collides: false },
+        { args: [0, 0, 100, 0, 5, 50, 16, 10] as const, collides: false },
+        { args: [0, 0, 100, 100, 5, 50, 50, 1] as const, collides: true },
+    ])('handles sweep edge cases %#', ({ args, collides }) => {
+        const [startX, startY, endX, endY, radius, targetX, targetY, targetRadius] = args;
+        expect(Circle.sweepCollides(startX, startY, endX, endY, radius, targetX, targetY, targetRadius)).toBe(collides);
+    });
+
+    it('handles relative sweep collisions between two moving circles', () => {
+        expect(Circle.sweepCollidesRelative(
+            0, 0, 40, 0, 10,
+            100, 0, 60, 0, 10
+        )).toBe(true);
+
+        expect(Circle.sweepCollidesRelative(
+            0, 0, 100, 0, 10,
+            0, 50, 100, 50, 10
+        )).toBe(false);
+    });
+
+    it('invalidates style keys when stroke or fill styling changes', () => {
+        const circle = new Circle(0, 0, 5);
+        const initial = circle.getStyleKey();
+
+        circle.setFillColor(new MyColor(1, 2, 3, 0.5));
+        const afterFill = circle.getStyleKey();
+        circle.setStrokeColor(new MyColor(4, 5, 6, 1));
+        const afterStroke = circle.getStyleKey();
+        circle.setStrokeWidth(7);
+        const afterWidth = circle.getStyleKey();
+
+        expect(afterFill).not.toBe(initial);
+        expect(afterStroke).not.toBe(afterFill);
+        expect(afterWidth).not.toBe(afterStroke);
+        expect(afterWidth).toContain('7');
+    });
+
+    it('renders full circles and reusable paths through Canvas API', () => {
+        const circle = new Circle(2, 3, 4);
+        const ctx = {
+            beginPath: vi.fn(),
+            arc: vi.fn(),
+            stroke: vi.fn(),
+            fill: vi.fn(),
+            closePath: vi.fn(),
+            moveTo: vi.fn(),
+            fillStyle: '',
+            strokeStyle: '',
+            lineWidth: 0,
+        };
+
+        circle.setFillColor(new MyColor(1, 2, 3, 0.5));
+        circle.setStrokeWidth(6);
+        circle.render(ctx as unknown as CanvasRenderingContext2D);
+        circle.renderView(ctx as unknown as CanvasRenderingContext2D);
+        circle.renderPath(ctx as unknown as CanvasRenderingContext2D);
+
+        expect(ctx.beginPath).toHaveBeenCalledTimes(2);
+        expect(ctx.arc).toHaveBeenCalledTimes(3);
+        expect(ctx.arc).toHaveBeenNthCalledWith(1, 2, 3, 4, 0, Math.PI * 2);
+        expect(ctx.stroke).toHaveBeenCalledTimes(2);
+        expect(ctx.fill).toHaveBeenCalledOnce();
+        expect(ctx.closePath).toHaveBeenCalledOnce();
+        expect(ctx.moveTo).toHaveBeenCalledWith(6, 3);
+        expect(ctx.fillStyle).toBe('rgba(1, 2, 3, 0.5)');
+        expect(ctx.lineWidth).toBe(0.1);
+        expect(ctx.strokeStyle).toBe('black');
+    });
 });
-
-test('sweepCollides: detects collision at end point', () => {
-    // Moving circle ends inside the target
-    const result = Circle.sweepCollides(
-        0, 0,     // start
-        50, 50,   // end (inside target)
-        10,       // moving radius
-        50, 50,   // target center
-        30        // target radius
-    );
-    return assertEqual(result, true, 'Should detect collision at end point');
-});
-
-test('sweepCollides: detects collision during movement', () => {
-    // Moving circle passes through target
-    const result = Circle.sweepCollides(
-        0, 0,     // start
-        100, 0,   // end
-        5,        // moving radius
-        50, 10,   // target center (10 units above path)
-        10        // target radius (combined radius = 15, so path intersects)
-    );
-    return assertEqual(result, true, 'Should detect collision during movement');
-});
-
-test('sweepCollides: no collision when path misses', () => {
-    // Moving circle completely misses target
-    const result = Circle.sweepCollides(
-        0, 0,     // start
-        100, 0,   // end
-        5,        // moving radius
-        50, 50,   // target center (50 units away from path)
-        10        // target radius (combined = 15, path at y=0 is too far)
-    );
-    return assertEqual(result, false, 'Should not detect collision when path misses');
-});
-
-test('sweepCollides: handles stationary case', () => {
-    // Moving circle doesn't move (start == end)
-    const result = Circle.sweepCollides(
-        50, 50,   // start
-        50, 50,   // end (same as start)
-        10,       // moving radius
-        50, 50,   // target center (same position)
-        10        // target radius
-    );
-    return assertEqual(result, true, 'Should detect collision when stationary at target');
-});
-
-test('sweepCollides: handles tangent case', () => {
-    // Path just touches the combined radius
-    // Path from (0,0) to (100,0), target at (50,15) with r=10
-    // Moving circle r=5, combined r=15
-    // Distance from path to target = 15, exactly touching
-    const result = Circle.sweepCollides(
-        0, 0,
-        100, 0,
-        5,
-        50, 15,
-        10
-    );
-    return assertEqual(result, true, 'Should detect collision at tangent');
-});
-
-// Test: sweepCollidesRelative - two moving circles
-test('sweepCollidesRelative: detects collision when both moving towards each other', () => {
-    // A moves from (0,0) to (40,0)
-    // B moves from (100,0) to (60,0)
-    // They should collide somewhere in the middle
-    const result = Circle.sweepCollidesRelative(
-        0, 0, 40, 0, 10,    // A: from (0,0) to (40,0), r=10
-        100, 0, 60, 0, 10   // B: from (100,0) to (60,0), r=10
-    );
-    return assertEqual(result, true, 'Should detect collision when moving towards each other');
-});
-
-test('sweepCollidesRelative: detects collision when one chases another', () => {
-    // A moves from (0,0) to (80,0) - fast
-    // B moves from (50,0) to (60,0) - slow
-    // A should catch up and collide
-    const result = Circle.sweepCollidesRelative(
-        0, 0, 80, 0, 10,    // A: fast mover
-        50, 0, 60, 0, 10    // B: slow mover
-    );
-    return assertEqual(result, true, 'Should detect collision when chasing');
-});
-
-test('sweepCollidesRelative: no collision when moving in parallel', () => {
-    // Both moving in same direction at same speed, far apart
-    const result = Circle.sweepCollidesRelative(
-        0, 0, 100, 0, 10,   // A: at y=0
-        0, 50, 100, 50, 10  // B: at y=50, same velocity
-    );
-    return assertEqual(result, false, 'Should not collide when parallel and far apart');
-});
-
-test('sweepCollidesRelative: detects collision when both stationary and overlapping', () => {
-    // Both circles don't move, but overlap
-    const result = Circle.sweepCollidesRelative(
-        50, 50, 50, 50, 15, // A: stationary at (50,50)
-        55, 55, 55, 55, 15  // B: stationary at (55,55), overlapping
-    );
-    return assertEqual(result, true, 'Should detect overlap when both stationary');
-});
-
-test('sweepCollidesRelative: handles high-speed penetration case', () => {
-    // Simulate bullet (fast) vs monster (slow)
-    // Bullet: from (0,100) to (200,100) - moves 200 units
-    // Monster: from (100,100) to (102,100) - moves 2 units
-    // They should collide near x=100
-    const result = Circle.sweepCollidesRelative(
-        0, 100, 200, 100, 5,    // Bullet: r=5, moves fast
-        100, 100, 102, 100, 15  // Monster: r=15, moves slow
-    );
-    return assertEqual(result, true, 'Should detect high-speed bullet hitting slow monster');
-});
-
-test('sweepCollidesRelative: bullet passes monster that moved away', () => {
-    // Bullet moves through where monster was, but monster moved away
-    // Bullet: (0,50) -> (100,50)
-    // Monster: (50,50) -> (50,150) - moves away in perpendicular direction
-    const result = Circle.sweepCollidesRelative(
-        0, 50, 100, 50, 5,     // Bullet moving right
-        50, 50, 50, 150, 10    // Monster moving down, out of the way
-    );
-    // Relative motion: bullet at t=0 is at (0-50, 50-50) = (-50, 0) relative to monster start
-    // At t=1, bullet is at (100-50, 50-150) = (50, -100) relative to monster end
-    // Relative displacement considers both: check if they intersect
-    // This depends on relative velocity, the sweep should detect if they crossed
-    // In this case, they start close and move away - should NOT collide
-    return assertEqual(result, false, 'Should not collide when monster moves away');
-});
-
-// Run all tests
-export function runTests(): boolean {
-    console.log('Running sweep collision detection tests...\n');
-    let passed = 0;
-    let failed = 0;
-
-    for (const t of tests) {
-        try {
-            const result = t.fn();
-            if (result) {
-                console.log(`✓ ${t.name}`);
-                passed++;
-            } else {
-                failed++;
-            }
-        } catch (e) {
-            console.error(`✗ ${t.name}`);
-            console.error(`  Error: ${e}`);
-            failed++;
-        }
-    }
-
-    console.log(`\n${passed}/${passed + failed} tests passed`);
-    return failed === 0;
-}
-
-// Auto-run if executed directly (in Node.js environment)
-declare const process: { argv?: string[]; exit?: (code: number) => void } | undefined;
-if (typeof process !== 'undefined' && process?.argv?.[1]?.includes('circle.test')) {
-    const success = runTests();
-    process.exit?.(success ? 0 : 1);
-}
