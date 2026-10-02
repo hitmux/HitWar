@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - ".github/workflows/android.yml"
       - "android/**"
       - "scripts/prepare-android-dist.mjs"
       - "src/**"
@@ -36,9 +37,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10"
-      - run: gradle -p android assembleRelease --no-daemon
+      - run: gradle -p android assembleRelease assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitwar-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: hitwar-android-release
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
