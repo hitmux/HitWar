@@ -3,6 +3,8 @@ name: Build offline static package
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
