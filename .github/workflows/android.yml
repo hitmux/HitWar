@@ -40,5 +40,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: hitwar-android-release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
