@@ -14,3 +14,5 @@ gradle -p android assembleRelease
 生成文件：`android/app/build/outputs/apk/release/app-release.apk`。
 
 多人模式继续使用游戏内填写的 WebSocket 地址；单机模式完全离线可运行。发布包会删除 PSD、XMind、source map、未使用音效和未使用字体，避免把设计源文件带入 APK。
+
+GitHub Actions 工作流会在 Android 或前端资源变更时自动构建并上传 `hitwar-android-release` 工件。
