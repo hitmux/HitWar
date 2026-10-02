@@ -24,3 +24,6 @@ ISS.md
 Plan.md
 AGENTS.md
 .codex/
+android/.gradle/
+android/app/build/
+android/app/src/main/assets/
