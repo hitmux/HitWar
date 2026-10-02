@@ -26,7 +26,7 @@ export function R_M(): Bullet {
     b.damage = 20;
     b.bodyColor = MyColor.arrTo([204, 120, 50, 1]);
     b.repel = 0.1;
-    b.collideSound = "/sound/子弹音效/击退炮.mp3";
+    b.collideSound = "/sound/子弹音效/普通子弹.mp3";
     return b;
 }
 
