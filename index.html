@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
     <title>HitWar</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
@@ -287,9 +288,12 @@
             <button class="backPage">返回</button>
             <button class="pause">暂停</button>
         </div>
+        <button id="mobileControlsToggle" class="mobileControlsToggle" type="button"
+                aria-controls="speedControlPanel" aria-expanded="false">控制</button>
         <!--独立的速度控制窗口-->
         <div id="speedControlPanel" class="speedControl">
             <div class="dragHandle">游戏控制</div>
+            <button id="mobilePauseBtn" class="mobilePauseBtn" type="button">暂停</button>
 
             <!-- View Controls -->
             <div class="panelSection">

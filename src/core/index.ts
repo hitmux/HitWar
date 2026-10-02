@@ -10,6 +10,7 @@ export { QuadTree, Obstacle } from './physics/index';
 
 // Input handling
 export { InputHandler } from './input/index';
+export type { InputHandlerOptions } from './input/index';
 
 // Camera
 export { Camera } from './camera';

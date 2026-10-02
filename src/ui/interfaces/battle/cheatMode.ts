@@ -33,6 +33,7 @@ export class CheatModeUI {
 
     private cheatModeEnabled: boolean = false;
     private pausedBeforeCheat: boolean = false;
+    private eventAbortController: AbortController | null = null;
 
     constructor(world: World, callbacks: CheatModeCallbacks) {
         this.world = world;
@@ -61,6 +62,8 @@ export class CheatModeUI {
      * Initialize cheat mode UI and bind events
      */
     init(): void {
+        this.eventAbortController?.abort();
+        this.eventAbortController = new AbortController();
         // Reset UI state
         this.resetUI();
 
@@ -72,6 +75,11 @@ export class CheatModeUI {
         this.bindPriceMultButtons();
         this.bindCheckboxes();
         this.bindFogButton();
+    }
+
+    destroy(): void {
+        this.eventAbortController?.abort();
+        this.eventAbortController = null;
     }
 
     /**
@@ -119,7 +127,7 @@ export class CheatModeUI {
                     this.callbacks.togglePause();
                 }
             }
-        });
+        }, { signal: this.eventAbortController?.signal });
     }
 
     private bindConfirmDialog(): void {
@@ -135,14 +143,14 @@ export class CheatModeUI {
             if (!this.pausedBeforeCheat && this.callbacks.getIsGamePause()) {
                 this.callbacks.togglePause();
             }
-        });
+        }, { signal: this.eventAbortController?.signal });
 
         this.cancelCheatBtn.addEventListener("click", () => {
             this.cheatConfirmDialog.style.display = "none";
             if (!this.pausedBeforeCheat && this.callbacks.getIsGamePause()) {
                 this.callbacks.togglePause();
             }
-        });
+        }, { signal: this.eventAbortController?.signal });
     }
 
     private bindMoneyButtons(): void {
@@ -150,7 +158,7 @@ export class CheatModeUI {
             btn.addEventListener("click", () => {
                 const amount = parseInt(btn.dataset.value!);
                 this.world.addMoney(amount);
-            });
+            }, { signal: this.eventAbortController?.signal });
         });
     }
 
@@ -159,7 +167,7 @@ export class CheatModeUI {
             this.customMoneyDialog.style.display = "flex";
             this.customMoneyInput.value = "";
             this.customMoneyInput.focus();
-        });
+        }, { signal: this.eventAbortController?.signal });
 
         this.confirmCustomMoney.addEventListener("click", () => {
             const amount = parseInt(this.customMoneyInput.value);
@@ -167,11 +175,11 @@ export class CheatModeUI {
                 this.world.addMoney(amount);
             }
             this.customMoneyDialog.style.display = "none";
-        });
+        }, { signal: this.eventAbortController?.signal });
 
         this.cancelCustomMoney.addEventListener("click", () => {
             this.customMoneyDialog.style.display = "none";
-        });
+        }, { signal: this.eventAbortController?.signal });
     }
 
     private bindPriceMultButtons(): void {
@@ -191,7 +199,7 @@ export class CheatModeUI {
                 btn.classList.add("active");
                 const mult = parseFloat(btn.dataset.mult!);
                 this.world.cheatMode.priceMultiplier = mult;
-            });
+            }, { signal: this.eventAbortController?.signal });
         });
     }
 
@@ -199,12 +207,12 @@ export class CheatModeUI {
         this.infiniteHpCheckbox.checked = false;
         this.infiniteHpCheckbox.addEventListener("change", () => {
             this.world.cheatMode.infiniteHp = this.infiniteHpCheckbox.checked;
-        });
+        }, { signal: this.eventAbortController?.signal });
 
         this.disableEnergyCheckbox.checked = false;
         this.disableEnergyCheckbox.addEventListener("change", () => {
             this.world.cheatMode.disableEnergy = this.disableEnergyCheckbox.checked;
-        });
+        }, { signal: this.eventAbortController?.signal });
     }
 
     private bindFogButton(): void {
@@ -213,6 +221,6 @@ export class CheatModeUI {
             this.world.fog.enabled = !this.world.fog.enabled;
             this.toggleFogBtn.textContent = this.world.fog.enabled ? "隐藏迷雾" : "显示迷雾";
             this.world.fog.renderer.invalidateCache();
-        });
+        }, { signal: this.eventAbortController?.signal });
     }
 }

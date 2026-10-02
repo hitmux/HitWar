@@ -53,6 +53,7 @@ export class MultiplayerUIController {
      */
     init(): void {
         this._hideSpeedControls();
+        this._hideMobileControls();
         this._hidePauseButton();
         this._hideSaveControls();
         this._addSurrenderButton();
@@ -132,6 +133,7 @@ export class MultiplayerUIController {
 
         // Restore hidden controls
         this._showSpeedControls();
+        this._showMobileControls();
         this._showPauseButton();
     }
 
@@ -151,6 +153,20 @@ export class MultiplayerUIController {
         speedBtns.forEach(btn => {
             (btn as HTMLElement).style.display = 'none';
         });
+    }
+
+    private _hideMobileControls(): void {
+        const toggle = document.getElementById('mobileControlsToggle');
+        if (toggle) {
+            toggle.style.display = 'none';
+        }
+    }
+
+    private _showMobileControls(): void {
+        const toggle = document.getElementById('mobileControlsToggle');
+        if (toggle) {
+            toggle.style.display = '';
+        }
     }
 
     /**

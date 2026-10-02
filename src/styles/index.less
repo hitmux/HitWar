@@ -1325,6 +1325,150 @@ button {
   }
 }
 
+// ==================== 横屏手机战斗布局 ====================
+// Touch controls are enabled by the single-player controller; the layout is
+// kept behind a narrow landscape media query so desktop behavior is unchanged.
+.mobileControlsToggle {
+  display: none;
+}
+
+.mobilePauseBtn {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-width: 900px) {
+  body,
+  body .gameApp {
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  body .gameApp .war-interface {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    touch-action: none;
+  }
+
+  body .gameApp .war-interface #mainCanvas {
+    display: block;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-width: none;
+    touch-action: none;
+  }
+
+  body .gameApp .war-interface .rightTopArea {
+    z-index: 1100;
+    right: max(8px, env(safe-area-inset-right));
+    top: max(8px, env(safe-area-inset-top));
+    width: auto;
+    display: flex;
+    gap: 6px;
+  }
+
+  body .gameApp .war-interface .rightTopArea .backPage,
+  body .gameApp .war-interface .rightTopArea .pause,
+  body .gameApp .war-interface .rightTopArea .exportSaveBtn {
+    width: auto;
+    min-width: 44px;
+    min-height: 44px;
+    margin: 0;
+    padding: 8px 12px;
+  }
+
+  body .gameApp .war-interface .mobileControlsToggle {
+    display: block;
+    position: fixed;
+    z-index: 1200;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    min-width: 56px;
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    background: rgba(30, 30, 30, 0.85);
+    color: #fff;
+    font-size: 15px;
+    touch-action: manipulation;
+  }
+
+  body .gameApp .war-interface #speedControlPanel {
+    z-index: 1150;
+    left: 8px !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: calc(60px + max(8px, env(safe-area-inset-bottom))) !important;
+    width: auto !important;
+    min-width: 0;
+    max-width: none;
+    max-height: min(70dvh, 420px);
+    padding: 8px;
+    resize: none;
+    transform: translateY(calc(100% + 70px));
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 160ms ease, opacity 160ms ease;
+  }
+
+  body .gameApp .war-interface #speedControlPanel.mobileControlsOpen {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  body .gameApp .war-interface #speedControlPanel .dragHandle,
+  body .gameApp .war-interface #speedControlPanel button,
+  body .gameApp .war-interface #speedControlPanel label {
+    min-height: 44px;
+  }
+
+  body .gameApp .war-interface #speedControlPanel .mobilePauseBtn {
+    display: block;
+    width: 100%;
+    margin: 4px 0;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    background: rgba(42, 42, 42, 0.8);
+    color: #fff;
+  }
+
+  body .gameApp .war-interface #speedControlPanel .dragHandle {
+    padding: 12px 8px;
+    touch-action: none;
+  }
+
+  body .choiceBtn {
+    z-index: 1050;
+    width: min(190px, 30vw);
+    height: 100dvh;
+    right: max(0px, env(safe-area-inset-right));
+    padding: max(8px, env(safe-area-inset-top)) 4px max(8px, env(safe-area-inset-bottom));
+    touch-action: pan-y;
+  }
+
+  body .choiceBtn button {
+    width: min(160px, calc(100% - 8px));
+    min-height: 44px;
+    padding: 8px 4px;
+    margin: 6px auto;
+    touch-action: manipulation;
+  }
+
+  body .gameApp #smallLevelUpPanel {
+    z-index: 1180;
+    right: calc(min(190px, 30vw) + 8px);
+    bottom: calc(60px + max(8px, env(safe-area-inset-bottom)));
+    width: min(400px, calc(100vw - min(190px, 30vw) - 24px));
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+  }
+}
+
 @keyframes speedBoostAppear {
   from {
     opacity: 0;

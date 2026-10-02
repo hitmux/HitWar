@@ -122,6 +122,8 @@ function initGameLoop(
             onGameEnd: () => {
                 keyboardHandler.detach();
                 panelManager.destroy();
+                uiController.destroy();
+                cheatModeUI.destroy();
                 disposeWorkerRendering();
             },
             onFailure: () => {

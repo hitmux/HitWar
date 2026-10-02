@@ -963,8 +963,7 @@ export class PanelManager {
             this.callbacks.requestPauseRender();
         }, { signal: this.eventSignal });
 
-        // Mouse move handler
-        this.canvasEle.addEventListener('mousemove', (e) => {
+        const updatePlacementPreview = (clientX: number, clientY: number): void => {
             if (this.addedThingFunc === null) {
                 this.cachedBuilding = null;
                 this.lastAddedFunc = null;
@@ -977,13 +976,26 @@ export class PanelManager {
             this.world.user.putLoc.building = this.cachedBuilding;
 
             const rect = this.canvasEle.getBoundingClientRect();
-            const screenPos = new Vector(e.clientX - rect.left, e.clientY - rect.top);
+            const screenPos = new Vector(clientX - rect.left, clientY - rect.top);
             const worldPos = this.world.camera.screenToWorld(screenPos);
 
             this.world.user.putLoc.x = worldPos.x;
             this.world.user.putLoc.y = worldPos.y;
             this.callbacks.requestPauseRender();
+        };
+
+        // Mouse move handler
+        this.canvasEle.addEventListener('mousemove', (e) => {
+            updatePlacementPreview(e.clientX, e.clientY);
         }, { signal: this.eventSignal });
+
+        // Keep the placement ghost under a finger while the map is being moved.
+        // A two-finger gesture is reserved for camera pan/zoom and must not move the ghost.
+        this.canvasEle.addEventListener('touchmove', (e) => {
+            if (e.touches.length !== 1) return;
+            const touch = e.touches[0];
+            updatePlacementPreview(touch.clientX, touch.clientY);
+        }, { signal: this.eventSignal, passive: true });
     }
 
     private canMoveTargetTo(target: GameEntity, clickPos: Vector): boolean {
