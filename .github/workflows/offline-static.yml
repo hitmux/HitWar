@@ -33,15 +33,10 @@ jobs:
       - name: Run unit tests
         run: npm test
 
-      - name: Package static files
-        run: |
-          cd dist-offline
-          zip -9 -r ../hitwar-offline-single-player.zip .
-
       - name: Upload offline static package
         uses: actions/upload-artifact@v4
         with:
           name: hitwar-offline-single-player
-          path: hitwar-offline-single-player.zip
+          path: dist-offline
           if-no-files-found: error
           retention-days: 30
