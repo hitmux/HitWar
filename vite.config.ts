@@ -1,14 +1,22 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type UserConfig } from 'vite';
 import { readFileSync } from 'fs';
 
 // Read version from package.json
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 
-export default defineConfig({
-  // Define global constants
-  define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
-  },
+export default defineConfig(({ mode }): UserConfig => {
+  const offlineSinglePlayer = mode === 'offline';
+
+  return {
+    // Define global constants
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+      __OFFLINE_SINGLE_PLAYER__: JSON.stringify(offlineSinglePlayer),
+    },
+
+    // A relative base makes the generated package portable under any static
+    // server path. The post-build step also rewrites legacy root asset URLs.
+    base: offlineSinglePlayer ? './' : '/',
 
   // Development server settings
   server: {
@@ -25,12 +33,12 @@ export default defineConfig({
       keep_fnames: true,
     },
     // Output directory
-    outDir: 'dist',
+    outDir: offlineSinglePlayer ? 'dist-offline' : 'dist',
     chunkSizeWarningLimit: 600,
     // Asset handling
     assetsDir: 'assets',
     // Source maps for debugging
-    sourcemap: true,
+    sourcemap: offlineSinglePlayer ? false : true,
   },
 
   // CSS settings (LESS support is built-in)
@@ -50,4 +58,5 @@ export default defineConfig({
       '@shared': '/shared',
     },
   },
+  };
 });

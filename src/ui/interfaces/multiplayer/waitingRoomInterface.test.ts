@@ -55,7 +55,7 @@ vi.mock('../../components/backButton', () => ({
   setupBackButton: vi.fn(),
 }));
 
-vi.mock('../battle', () => ({
+vi.mock('../battle/multiplayerBattleMode', () => ({
   startMultiplayerBattleMode: vi.fn(),
 }));
 
