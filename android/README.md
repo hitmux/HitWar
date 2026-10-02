@@ -11,7 +11,7 @@ node scripts/prepare-android-dist.mjs
 gradle -p android assembleRelease
 ```
 
-生成文件：`android/app/build/outputs/apk/release/app-release.apk`。
+生成文件：`android/app/build/outputs/apk/release/app-release-unsigned.apk`。
 
 多人模式继续使用游戏内填写的 WebSocket 地址；单机模式完全离线可运行。发布包会删除 PSD、XMind、source map、未使用音效和未使用字体，避免把设计源文件带入 APK。
 
