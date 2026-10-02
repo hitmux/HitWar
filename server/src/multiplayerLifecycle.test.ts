@@ -1,5 +1,5 @@
 import { matchMaker, type Server as ColyseusServer } from '@colyseus/core';
-import { Client as ColyseusClient, type Room } from 'colyseus.js';
+import { Client as ColyseusClient, type Room, type SeatReservation } from 'colyseus.js';
 import { createServer, type Server as HttpServer } from 'http';
 import type { AddressInfo } from 'net';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -84,7 +84,7 @@ describe('multiplayer lifecycle integration', () => {
     const bobLobby = await bobClient.joinOrCreate('lobby', { playerName: 'Bob' });
     rooms.push(aliceLobby, bobLobby);
 
-    const createdRoom = onceMessage<{ roomId: string; reservation: unknown }>(
+    const createdRoom = onceMessage<{ roomId: string; reservation: SeatReservation }>(
       aliceLobby,
       LobbyMessage.ROOM_CREATED
     );
@@ -100,7 +100,7 @@ describe('multiplayer lifecycle integration', () => {
     aliceGame.onMessage(ServerMessage.GAME_ENDED, () => {});
     rooms.push(aliceGame);
 
-    const joinPayloadPromise = onceMessage<{ roomId: string; reservation: unknown }>(
+    const joinPayloadPromise = onceMessage<{ roomId: string; reservation: SeatReservation }>(
       bobLobby,
       LobbyMessage.MATCH_FOUND
     );

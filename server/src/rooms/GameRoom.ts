@@ -3,6 +3,7 @@
  * Handles game logic, state synchronization, and player actions
  */
 import { Room, Client, Delayed } from '@colyseus/core';
+import { StateView } from '@colyseus/schema';
 import {
   GameState,
   PlayerState,
@@ -396,6 +397,9 @@ export class GameRoom extends Room {
 
     // Create base building for this player
     this.createPlayerBase(player);
+
+    // Colyseus 0.16 uses StateView for per-client collection filtering.
+    this.syncClientViews();
   }
 
   /**
@@ -1790,11 +1794,10 @@ export class GameRoom extends Room {
   }
 
   /**
-   * Recalculate vision for all players and touch entities whose visibility changed.
-   * Uses OPERATION.TOUCH to trigger @filterChildren without sending data bytes.
+   * Recalculate vision for all players and update each client's StateView.
    */
   private updateVision(): void {
-    const changedIds = this.visionSystem.recalculate(
+    this.visionSystem.recalculate(
       this.state.currentTick,
       this.state.towers,
       this.state.monsters,
@@ -1802,21 +1805,49 @@ export class GameRoom extends Room {
       this.state.mines,
     );
 
-    if (changedIds.size === 0) return;
+    // Colyseus 0.16 replaced @filterChildren with StateView membership. Keep
+    // the view membership in sync after every vision recalculation so adds,
+    // removes, and visibility changes generate the appropriate per-client
+    // schema patches.
+    this.syncClientViews();
+  }
 
-    // Touch entities whose visibility changed to force @filterChildren re-evaluation
-    // Using self-assign on a field to trigger the dirty flag
-    for (const id of changedIds) {
-      const tower = this.state.towers.get(id);
-      if (tower) { tower.hp = tower.hp; continue; }
+  /**
+   * Synchronize each client's StateView with the current fog-of-war result.
+   * Own entities are always visible; other entities use the cached vision map.
+   */
+  private syncClientViews(): void {
+    const entities = [
+      ...this.state.towers.values(),
+      ...this.state.monsters.values(),
+      ...this.state.buildings.values(),
+      ...this.state.mines.values(),
+    ];
 
-      const building = this.state.buildings.get(id);
-      if (building) { building.hp = building.hp; continue; }
+    for (const client of this.clients) {
+      const view = client.view ?? (client.view = new StateView(true));
+      const visible = new Set<typeof entities[number]>();
 
-      const mine = this.state.mines.get(id);
-      if (mine) { mine.hp = mine.hp; continue; }
+      for (const entity of entities) {
+        if (
+          entity.ownerId === client.sessionId ||
+          this.visionSystem.isFilterCached(client.sessionId, entity.id)
+        ) {
+          visible.add(entity);
+          if (!view.has(entity)) {
+            view.add(entity);
+          }
+        }
+      }
 
-      // Monsters move every tick, their filter triggers naturally
+      // Remove objects that left the state or became hidden. StateView#items
+      // contains only the explicitly added entity objects (children added
+      // recursively by StateView are not included).
+      for (const item of [...(view.items ?? [])]) {
+        if (!visible.has(item as typeof entities[number])) {
+          view.remove(item);
+        }
+      }
     }
   }
 

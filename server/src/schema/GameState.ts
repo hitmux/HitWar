@@ -2,18 +2,13 @@
  * Game State Schema
  * Main state container for multiplayer game
  */
-import { Schema, type, MapSchema, filterChildren } from '@colyseus/schema';
+import { Schema, type, MapSchema, view } from '@colyseus/schema';
 import { PlayerState } from './PlayerState.js';
 import { TowerState } from './TowerState.js';
 import { MonsterState } from './MonsterState.js';
 import { BuildingState } from './BuildingState.js';
 import { MineState } from './MineState.js';
 import type { VisionSystem } from '../systems/vision/visionSystem.js';
-
-/** Minimal client type matching Colyseus @filterChildren callback signature */
-interface FilterClient {
-  sessionId: string;
-}
 
 /**
  * Game phase enum
@@ -39,20 +34,6 @@ export const GameEndReason = {
 } as const;
 
 export type GameEndReasonType = (typeof GameEndReason)[keyof typeof GameEndReason];
-
-/**
- * Vision filter callback for @filterChildren.
- * Own entities are always visible; others checked via pre-computed cache.
- */
-function visionFilter(
-  this: GameState,
-  client: FilterClient,
-  _key: string,
-  value: { id: string; ownerId: string },
-): boolean {
-  if (value.ownerId === client.sessionId) return true;
-  return this._visionSystem?.isFilterCached(client.sessionId, value.id) ?? false;
-}
 
 /**
  * Map configuration
@@ -98,16 +79,16 @@ export class GameState extends Schema {
   // Entity collections (using MapSchema for efficient delta sync)
   @type({ map: PlayerState }) players: MapSchema<PlayerState> = new MapSchema<PlayerState>();
 
-  @filterChildren(visionFilter)
+  @view()
   @type({ map: TowerState }) towers: MapSchema<TowerState> = new MapSchema<TowerState>();
 
-  @filterChildren(visionFilter)
+  @view()
   @type({ map: MonsterState }) monsters: MapSchema<MonsterState> = new MapSchema<MonsterState>();
 
-  @filterChildren(visionFilter)
+  @view()
   @type({ map: BuildingState }) buildings: MapSchema<BuildingState> = new MapSchema<BuildingState>();
 
-  @filterChildren(visionFilter)
+  @view()
   @type({ map: MineState }) mines: MapSchema<MineState> = new MapSchema<MineState>();
 
   // Non-serialized: runtime vision system reference (injected by GameRoom)
