@@ -75,6 +75,21 @@
 3. **开始指挥**
    访问 `http://localhost:3000`
 
+### 离线单机版
+
+仓库提供不含多人网络传输代码的离线单机静态资源构建：
+
+```bash
+npm ci
+npm run build:offline
+cd dist-offline
+python3 -m http.server 3000
+```
+
+打开 `http://127.0.0.1:3000/` 即可游玩。推送到 `main` 或手动运行
+`Build offline static package` workflow 后，GitHub Actions 会生成
+`hitwar-offline-single-player.zip` artifact。
+
 ---
 
 ## 🎮 指挥手册 (Manual)

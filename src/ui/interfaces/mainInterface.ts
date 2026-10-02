@@ -2,12 +2,11 @@
  * Main menu interface
  */
 
-import { GAME_VERSION } from '../state/appState';
+import { GAME_VERSION, OFFLINE_SINGLE_PLAYER } from '../state/appState';
 import { gotoPage } from '../navigation/router';
 import { choiceInterface } from './choiceInterface';
 import { wikiInterface } from './wikiInterface';
 import { helpInterface } from './helpInterface';
-import { connectInterface } from './multiplayer';
 
 /**
  * Main menu interface logic
@@ -26,10 +25,17 @@ export function mainInterface(): void {
         choiceInterface();
     });
 
-    multiplayerBtn.addEventListener("click", () => {
-        gotoPage("multiplayer-connect-interface");
-        connectInterface();
-    });
+    if (OFFLINE_SINGLE_PLAYER) {
+        // Keep the offline distribution self-contained and make accidental
+        // network entry impossible from the main menu.
+        multiplayerBtn?.remove();
+    } else if (multiplayerBtn) {
+        multiplayerBtn.addEventListener("click", async () => {
+            const { connectInterface } = await import('./multiplayer');
+            gotoPage("multiplayer-connect-interface");
+            connectInterface();
+        });
+    }
 
     wikiBtn.addEventListener("click", () => {
         gotoPage("wiki-interface");

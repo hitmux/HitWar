@@ -10,7 +10,7 @@ import {
   NetworkEvent,
   ConnectionState,
 } from '@/network/networkClient';
-import { startMultiplayerBattleMode } from '../battle';
+import { startMultiplayerBattleMode } from '../battle/multiplayerBattleMode';
 import { PLAYER_COLORS, type PlayerDisplayInfo } from './types';
 import { lobbyInterface } from './lobbyInterface';
 

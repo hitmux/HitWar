@@ -34,6 +34,9 @@ import { initGlobalExports } from './compat/globalExports';
 
 // Initialize the application
 async function initApp(): Promise<void> {
+    if (__OFFLINE_SINGLE_PLAYER__) {
+        document.documentElement.classList.add('offline-single-player');
+    }
     const loadingScreen = document.getElementById('loadingScreen');
     const progressBar = document.getElementById('progressBar');
     const loadingText = document.getElementById('loadingText');

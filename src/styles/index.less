@@ -4,6 +4,18 @@
   box-sizing: border-box;
 }
 
+/* Offline distribution: only the local single-player flow is exposed. */
+.offline-single-player {
+  .multiplayer-connect-interface,
+  .multiplayer-lobby-interface,
+  .multiplayer-waiting-interface,
+  .multiplayerMode,
+  .openSourceInfo,
+  .previewNotice {
+    display: none !important;
+  }
+}
+
 /* Loading Screen Styles */
 #loadingScreen {
   position: fixed;

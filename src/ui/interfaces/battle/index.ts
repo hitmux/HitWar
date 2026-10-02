@@ -20,9 +20,6 @@ import type { CanvasWithInputHandler, BattleModeConfig } from './types';
 // Re-export types for external use
 export type { BattleModeConfig, GameEntity, CanvasWithInputHandler } from './types';
 
-// Re-export multiplayer battle mode
-export { startMultiplayerBattleMode } from './multiplayerBattleMode';
-
 function getCanvasViewportSize(canvasEle: HTMLCanvasElement): { width: number; height: number } {
     const rect = canvasEle.getBoundingClientRect();
     const width = Math.round(rect.width || canvasEle.clientWidth || canvasEle.width / PR);
