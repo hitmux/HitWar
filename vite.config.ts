@@ -20,7 +20,12 @@ export default defineConfig(({ mode }): UserConfig => {
 
   // Development server settings
   server: {
-    port: 3000,
+    port: 3030,
+    open: false,
+  },
+
+  preview: {
+    port: 3030,
     open: false,
   },
 

@@ -128,9 +128,12 @@ export class Camera {
      * Update viewport size
      */
     updateViewSize(viewWidth: number, viewHeight: number): void {
+        const center = this.screenToWorld(new Vector(this.viewWidth / 2, this.viewHeight / 2));
         this.viewWidth = viewWidth;
         this.viewHeight = viewHeight;
-        this.clampPosition();
+        this.minZoom = Math.max(viewWidth / this.worldWidth, viewHeight / this.worldHeight);
+        this.zoom = Math.max(this.minZoom, this.zoom);
+        this.centerOn(center);
     }
 
     /**

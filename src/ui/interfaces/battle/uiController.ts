@@ -11,6 +11,7 @@ import { Sounds } from '../../../systems/sound/sounds';
 import { SaveUI } from '../../../systems/save/saveUI';
 import { GameController } from './gameController';
 import type { CanvasWithInputHandler } from './types';
+import { observeBattleViewport } from './battleViewport';
 
 export interface UIControllerCallbacks {
     onBackClick: () => void;
@@ -35,6 +36,7 @@ export class UIController {
     private eventSignal: AbortSignal | null = null;
     private uiAbortController: AbortController | null = null;
     private mobileControlsOpen = false;
+    private stopObservingViewport: (() => void) | null = null;
 
     // Panel drag manager
     private panelDragManager: PanelDragManager;
@@ -100,6 +102,14 @@ export class UIController {
         // Bind zoom buttons
         this.bindZoomButtons();
 
+        this.stopObservingViewport = observeBattleViewport(this.canvasEle, (width, height) => {
+            this.world.viewWidth = width;
+            this.world.viewHeight = height;
+            this.world.resizeCanvas(this.canvasEle);
+            this.world.markStaticLayerDirty();
+            this.callbacks.requestPauseRender();
+        });
+
         return this.inputHandler;
     }
 
@@ -122,6 +132,8 @@ export class UIController {
 
     /** Release input and UI listeners when leaving a single-player battle. */
     destroy(): void {
+        this.stopObservingViewport?.();
+        this.stopObservingViewport = null;
         this.uiAbortController?.abort();
         this.uiAbortController = null;
         this.inputHandler?.destroy();
@@ -251,6 +263,14 @@ export class UIController {
                 this.world.camera.centerOn(this.world.getBaseBuilding().pos);
                 this.callbacks.requestPauseRender();
             }, { signal: this.eventSignal ?? undefined });
+        }
+        for (const [mobileId, desktopButton] of [
+            ['mobileZoomInBtn', zoomInBtn],
+            ['mobileZoomOutBtn', zoomOutBtn],
+            ['mobileHomeBtn', homeBtn],
+        ] as const) {
+            document.getElementById(mobileId)?.addEventListener('click', () => desktopButton?.click(),
+                { signal: this.eventSignal ?? undefined });
         }
     }
 

@@ -1337,23 +1337,163 @@ button {
   }
 }
 
-// ==================== 横屏手机战斗布局 ====================
-// Touch controls are enabled by the single-player controller; the layout is
-// kept behind a narrow landscape media query so desktop behavior is unchanged.
-.mobileControlsToggle {
+// ==================== 手机与窄屏触控布局 ====================
+.mobileBattleTools,
+.mobileControlsToggle,
+.mobilePauseBtn,
+.mobileOperationHint {
   display: none;
 }
 
-.mobilePauseBtn {
-  display: none;
-}
-
-@media (orientation: landscape) and (max-width: 900px) {
-  body,
+@media (max-width: 600px), (max-width: 1100px) and (max-height: 600px) {
   body .gameApp {
-    width: 100vw;
     height: 100dvh;
-    overflow: hidden;
+  }
+
+  button,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  body .gameApp .interface:not(.war-interface) {
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: max(64px, calc(env(safe-area-inset-top) + 56px)) 16px 24px;
+    height: 100dvh;
+
+    h1, h2 {
+      position: static;
+      margin: 0;
+      font-size: 32px;
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin: 8px 0 16px;
+      font-size: 24px;
+    }
+
+    .leftTopArea {
+      position: absolute;
+      left: max(8px, env(safe-area-inset-left));
+      top: max(8px, env(safe-area-inset-top));
+      width: auto;
+      height: auto;
+      padding: 0;
+
+      button {
+        width: auto;
+        min-width: 76px;
+        min-height: 44px;
+        margin: 0;
+        padding: 8px 14px;
+      }
+    }
+
+    .btnList {
+      position: static;
+      width: min(100%, 480px);
+      height: auto;
+      margin: 20px auto;
+      padding: 0;
+      transform: none;
+      outline: none;
+      display: block;
+      overflow: visible;
+
+      button {
+        width: 100%;
+        min-height: 48px;
+        margin: 10px auto;
+        padding: 12px 16px;
+        font-size: 22px;
+      }
+
+      .btnArea {
+        margin: 0 0 12px;
+        padding: 8px;
+        outline: none;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.3);
+
+        button {
+          width: 100%;
+          margin: 0 auto 6px;
+          font-size: 18px;
+        }
+
+        p {
+          margin: 4px;
+          font-size: 14px;
+          line-height: 1.4;
+        }
+      }
+    }
+
+    .content {
+      width: 100%;
+      padding-top: 8px;
+    }
+  }
+
+  body .gameApp .main-interface {
+    h1 {
+      font-size: 46px;
+    }
+
+    .version-info {
+      position: static;
+      transform: none;
+      text-align: center;
+      font-size: 16px;
+    }
+
+    .openSourceInfo,
+    .previewNotice {
+      position: static;
+      width: min(100%, 480px);
+      margin: 12px auto 0;
+      transform: none;
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 8px;
+      overflow-wrap: anywhere;
+    }
+
+    .leftTopArea .soundSet {
+      width: auto;
+      padding: 0;
+      min-height: 0;
+      background: none;
+    }
+
+    audio {
+      width: min(200px, calc(100vw - 112px));
+      height: 44px;
+      display: block;
+    }
+
+    .rightTopArea {
+      right: max(8px, env(safe-area-inset-right));
+      top: max(8px, env(safe-area-inset-top));
+
+      .noteBtn {
+        min-height: 44px;
+        padding: 8px 16px;
+      }
+    }
+  }
+
+  body .gameApp .multiplayer-connect-interface .multiplayer-content,
+  body .gameApp .multiplayer-lobby-interface .lobby-content,
+  body .gameApp .multiplayer-waiting-interface .waiting-content,
+  body .gameApp .multiplayer-waiting-interface .waiting-room-info,
+  body .gameApp .multiplayer-lobby-interface .lobby-header {
+    position: static;
+    transform: none;
+    width: min(100%, 480px);
+    margin: 16px auto;
+    padding: 16px;
   }
 
   body .gameApp .war-interface {
@@ -1361,123 +1501,290 @@ button {
     inset: 0;
     width: 100vw;
     height: 100dvh;
-    touch-action: none;
-  }
+    overflow: hidden;
 
-  body .gameApp .war-interface #mainCanvas {
-    display: block;
-    width: 100vw !important;
-    height: 100dvh !important;
-    max-width: none;
-    touch-action: none;
-  }
+    #mainCanvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none;
+      touch-action: none;
+    }
 
-  body .gameApp .war-interface .rightTopArea {
-    z-index: 1100;
-    right: max(8px, env(safe-area-inset-right));
-    top: max(8px, env(safe-area-inset-top));
-    width: auto;
-    display: flex;
-    gap: 6px;
-  }
+    .rightTopArea {
+      z-index: 1100;
+      right: max(8px, env(safe-area-inset-right));
+      top: max(8px, env(safe-area-inset-top));
+      width: auto;
+      display: flex;
+      gap: 6px;
 
-  body .gameApp .war-interface .rightTopArea .backPage,
-  body .gameApp .war-interface .rightTopArea .pause,
-  body .gameApp .war-interface .rightTopArea .exportSaveBtn {
-    width: auto;
-    min-width: 44px;
-    min-height: 44px;
-    margin: 0;
-    padding: 8px 12px;
-  }
+      .backPage, .pause, .exportSaveBtn {
+        width: auto;
+        min-width: 44px;
+        min-height: 44px;
+        margin: 0;
+        padding: 8px 12px;
+        font-size: 14px;
+      }
+    }
 
-  body .gameApp .war-interface .mobileControlsToggle {
-    display: block;
-    position: fixed;
-    z-index: 1200;
-    right: max(8px, env(safe-area-inset-right));
-    bottom: max(8px, env(safe-area-inset-bottom));
-    min-width: 56px;
-    min-height: 44px;
-    padding: 8px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 8px;
-    background: rgba(30, 30, 30, 0.85);
-    color: #fff;
-    font-size: 15px;
-    touch-action: manipulation;
-  }
+    .mobileBattleTools {
+      position: fixed;
+      left: max(8px, env(safe-area-inset-left));
+      right: max(8px, env(safe-area-inset-right));
+      bottom: calc(120px + env(safe-area-inset-bottom));
+      z-index: 1200;
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      pointer-events: none;
 
-  body .gameApp .war-interface #speedControlPanel {
-    z-index: 1150;
-    left: 8px !important;
-    right: 8px !important;
-    top: auto !important;
-    bottom: calc(60px + max(8px, env(safe-area-inset-bottom))) !important;
-    width: auto !important;
-    min-width: 0;
-    max-width: none;
-    max-height: min(70dvh, 420px);
-    padding: 8px;
-    resize: none;
-    transform: translateY(calc(100% + 70px));
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 160ms ease, opacity 160ms ease;
-  }
+      button {
+        display: block;
+        flex: 1;
+        min-width: 44px;
+        min-height: 44px;
+        max-width: 100px;
+        padding: 8px;
+        border: 1px solid #72808e;
+        border-radius: 8px;
+        background: rgba(24, 32, 42, 0.94);
+        color: #fff;
+        font-size: 14px;
+        pointer-events: auto;
+      }
 
-  body .gameApp .war-interface #speedControlPanel.mobileControlsOpen {
-    transform: translateY(0);
-    opacity: 1;
-    pointer-events: auto;
-  }
+      button[aria-expanded="true"] {
+        background: #2467a8;
+      }
+    }
 
-  body .gameApp .war-interface #speedControlPanel .dragHandle,
-  body .gameApp .war-interface #speedControlPanel button,
-  body .gameApp .war-interface #speedControlPanel label {
-    min-height: 44px;
-  }
+    #speedControlPanel {
+      z-index: 1250;
+      left: max(8px, env(safe-area-inset-left)) !important;
+      right: max(8px, env(safe-area-inset-right)) !important;
+      top: auto !important;
+      bottom: calc(172px + env(safe-area-inset-bottom)) !important;
+      width: auto !important;
+      min-width: 0;
+      max-width: 480px;
+      max-height: calc(100dvh - 236px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      margin: 0 auto;
+      resize: none;
+      background: rgba(22, 29, 38, 0.96);
+      visibility: hidden;
+      pointer-events: none;
 
-  body .gameApp .war-interface #speedControlPanel .mobilePauseBtn {
-    display: block;
-    width: 100%;
-    margin: 4px 0;
-    padding: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 4px;
-    background: rgba(42, 42, 42, 0.8);
-    color: #fff;
-  }
+      &.mobileControlsOpen {
+        visibility: visible;
+        pointer-events: auto;
+      }
 
-  body .gameApp .war-interface #speedControlPanel .dragHandle {
-    padding: 12px 8px;
-    touch-action: none;
+      .dragHandle, .mobilePauseBtn {
+        display: none;
+      }
+
+      button, label {
+        min-height: 44px;
+        min-width: 44px;
+      }
+
+      .speedButtons {
+        flex-wrap: wrap;
+      }
+
+      .speedBtn {
+        flex: 1;
+        width: auto;
+        font-size: 14px;
+      }
+
+      .viewButtons {
+        flex-direction: row;
+        justify-content: center;
+      }
+    }
+
+    #smallLevelUpPanel {
+      z-index: 1300;
+      position: fixed;
+      left: 8px !important;
+      right: 8px !important;
+      top: auto !important;
+      bottom: calc(172px + env(safe-area-inset-bottom)) !important;
+      width: auto;
+      height: auto;
+      max-height: calc(100dvh - 236px);
+      overflow: auto;
+      background: rgba(235, 239, 244, 0.97);
+      padding: 8px;
+
+      .levelUpItems, .otherItems {
+        display: flex;
+        flex-wrap: wrap;
+      }
+
+      .levelUpItem, .item {
+        float: none;
+        min-width: 64px;
+        min-height: 48px;
+      }
+    }
   }
 
   body .choiceBtn {
-    z-index: 1050;
-    width: min(190px, 30vw);
-    height: 100dvh;
-    right: max(0px, env(safe-area-inset-right));
-    padding: max(8px, env(safe-area-inset-top)) 4px max(8px, env(safe-area-inset-bottom));
+    z-index: 1150;
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    height: 112px;
+    padding: 4px max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+    box-sizing: content-box;
+    overflow-y: auto;
+    background: rgba(22, 29, 38, 0.94);
     touch-action: pan-y;
+
+    .initPanel {
+      // The controller sets display:block/none. Only override the visible state.
+      &[style*="block"] {
+        display: flex !important;
+      }
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    button {
+      flex: 1 1 28%;
+      width: auto;
+      min-width: 84px;
+      min-height: 48px;
+      margin: 0;
+      padding: 6px;
+      border: 1px solid #72808e;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1.25;
+
+      &[aria-pressed="true"] {
+        background: #2467a8;
+        outline: 2px solid #9bd1ff;
+        outline-offset: -2px;
+      }
+    }
+
+    #cancelSelect {
+      display: none;
+    }
+
+    .choicePanel {
+      color: white;
+      padding: 8px;
+    }
   }
 
-  body .choiceBtn button {
-    width: min(160px, calc(100% - 8px));
-    min-height: 44px;
-    padding: 8px 4px;
-    margin: 6px auto;
-    touch-action: manipulation;
+  .mobileOperationHint {
+    display: block;
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: calc(168px + env(safe-area-inset-bottom));
+    color: white;
+    background: rgba(22, 29, 38, 0.85);
+    border-radius: 6px;
+    font: 12px/1.5 sans-serif;
+    text-align: center;
+    padding: 3px 6px;
+    pointer-events: none;
+    z-index: 1120;
   }
 
-  body .gameApp #smallLevelUpPanel {
-    z-index: 1180;
-    right: calc(min(190px, 30vw) + 8px);
-    bottom: calc(60px + max(8px, env(safe-area-inset-bottom)));
-    width: min(400px, calc(100vw - min(190px, 30vw) - 24px));
-    max-width: calc(100vw - 24px);
-    overflow-x: auto;
+  #manualCannonPanel, #spawnerPanel {
+    position: fixed;
+    left: 8px !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: calc(172px + env(safe-area-inset-bottom)) !important;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    max-height: calc(100dvh - 236px);
+    overflow: auto;
+    background: rgba(235, 239, 244, 0.97);
+
+    button, select, .spawner-monster-item, .spawn-item, .cannon-close, .spawner-close {
+      min-height: 44px;
+      min-width: 44px;
+      font-size: 14px;
+    }
+  }
+
+  .customDialog .dialogContent, .confirmDialog .dialogContent {
+    min-width: 0;
+    width: calc(100% - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+    padding: 16px;
+  }
+
+  // Disable desktop hover scaling: a finger should not shift a button target.
+  button:hover, button:active, .levelUpItem:hover, .item:hover {
+    transform: none !important;
+  }
+}
+
+@media (max-width: 1100px) and (max-height: 600px) and (orientation: landscape) {
+  body .gameApp .war-interface {
+    .rightTopArea {
+      right: calc(144px + env(safe-area-inset-right));
+    }
+
+    .mobileBattleTools {
+      right: calc(144px + env(safe-area-inset-right));
+      bottom: max(8px, env(safe-area-inset-bottom));
+    }
+
+    #speedControlPanel, #smallLevelUpPanel {
+      right: calc(144px + env(safe-area-inset-right)) !important;
+      bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+      max-height: calc(100dvh - 144px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    }
+  }
+
+  body .choiceBtn {
+    left: auto;
+    top: max(8px, env(safe-area-inset-top));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    right: max(4px, env(safe-area-inset-right));
+    width: 128px;
+    height: auto;
+    padding: 4px;
+    box-sizing: border-box;
+    border-radius: 8px;
+
+    .initPanel[style*="block"] {
+      display: block !important;
+    }
+
+    button {
+      display: block;
+      width: 100%;
+      margin: 0 0 6px;
+    }
+  }
+
+  .mobileOperationHint {
+    right: calc(144px + env(safe-area-inset-right));
+    bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+
+  #manualCannonPanel, #spawnerPanel {
+    right: calc(144px + env(safe-area-inset-right)) !important;
+    bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+    max-height: calc(100dvh - 144px);
   }
 }
 

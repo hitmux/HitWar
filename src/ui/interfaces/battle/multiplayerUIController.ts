@@ -10,6 +10,8 @@ import type { MultiplayerWorldFacade } from './multiplayerWorldFacade';
 import type { MultiplayerGameController } from './multiplayerGameController';
 import type { NetworkClient } from '../../../network/networkClient';
 import type { CanvasWithInputHandler } from './types';
+import { observeBattleViewport } from './battleViewport';
+import { PR } from '../../../core/staticInitData';
 
 export interface MultiplayerUICallbacks {
     onBackClick: () => void;
@@ -31,6 +33,7 @@ export class MultiplayerUIController {
     private _eventSignal: AbortSignal | null = null;
     private _zoomLevelSpan: HTMLElement | null = null;
     private _surrenderBtn: HTMLButtonElement | null = null;
+    private _stopObservingViewport: (() => void) | null = null;
 
     constructor(
         worldFacade: MultiplayerWorldFacade,
@@ -70,10 +73,7 @@ export class MultiplayerUIController {
         }
 
         // Create input handler
-        this._inputHandler = new InputHandler(
-            this._worldFacade.camera,
-            this._canvasEle
-        );
+        this._inputHandler = new InputHandler(this._worldFacade.camera, this._canvasEle, { touchEnabled: true });
         this._canvasEle._inputHandler = this._inputHandler;
         this._inputHandler.onRenderRequest = () => this._callbacks.requestPauseRender();
 
@@ -89,6 +89,13 @@ export class MultiplayerUIController {
 
         // Bind back button
         this._bindBackButton();
+
+        this._stopObservingViewport = observeBattleViewport(this._canvasEle, (width, height) => {
+            this._canvasEle.width = Math.round(width * PR);
+            this._canvasEle.height = Math.round(height * PR);
+            this._worldFacade.updateViewSize(width, height);
+            this._callbacks.requestPauseRender();
+        });
 
         return this._inputHandler;
     }
@@ -125,6 +132,8 @@ export class MultiplayerUIController {
      * Cleanup UI elements
      */
     destroy(): void {
+        this._stopObservingViewport?.();
+        this._stopObservingViewport = null;
         // Remove surrender button
         if (this._surrenderBtn && this._surrenderBtn.parentNode) {
             this._surrenderBtn.parentNode.removeChild(this._surrenderBtn);
@@ -255,6 +264,14 @@ export class MultiplayerUIController {
                     this._callbacks.requestPauseRender();
                 }
             }, { signal });
+        }
+
+        for (const [mobileId, desktopButton] of [
+            ['mobileZoomInBtn', zoomInBtn],
+            ['mobileZoomOutBtn', zoomOutBtn],
+            ['mobileHomeBtn', homeBtn],
+        ] as const) {
+            document.getElementById(mobileId)?.addEventListener('click', () => desktopButton?.click(), { signal });
         }
     }
 

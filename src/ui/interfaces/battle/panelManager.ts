@@ -143,6 +143,25 @@ export class PanelManager {
         this.bindLevelUpPanelEvents();
         this.startIntervals();
         this.setupRightClickHandler();
+        document.getElementById('mobileCancelBtn')?.addEventListener('click', () => {
+            this.cancelPlacementSelection();
+            this.callbacks.requestPauseRender();
+        }, { signal: this.eventSignal });
+    }
+
+    /** Cancel placement or move mode from the touch toolbar. */
+    cancelPlacementSelection(): void {
+        this.addedThingFunc = null;
+        this.placementSelection = null;
+        this.moveMode = false;
+        this.moveTarget = null;
+        this.selectedThing = null;
+        this.world.user.moveTarget = null;
+        this.world.user.putLoc.building = null;
+        this.cachedBuilding = null;
+        this.lastAddedFunc = null;
+        this.setMoveCursor(false);
+        this.hideLevelUpPanel();
     }
 
     /**
@@ -565,15 +584,7 @@ export class PanelManager {
             cancelBtn.innerText = "取消放置模式";
             cancelBtn.id = "cancelSelect";
             cancelBtn.addEventListener("click", () => {
-                this.addedThingFunc = null;
-                this.placementSelection = null;
-                this.moveMode = false;
-                this.moveTarget = null;
-                this.world.user.moveTarget = null;
-                this.world.user.putLoc.building = null;
-                this.cachedBuilding = null;
-                this.lastAddedFunc = null;
-                this.setMoveCursor(false);
+                this.cancelPlacementSelection();
                 this.callbacks.requestPauseRender();
             });
             panelEle.appendChild(cancelBtn);

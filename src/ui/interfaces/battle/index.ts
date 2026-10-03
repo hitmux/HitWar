@@ -9,7 +9,7 @@ import { SaveUI } from '../../../systems/save/saveUI';
 import { Sounds } from '../../../systems/sound/sounds';
 import { MonsterGroup } from '../../../monsters/monsterGroup';
 import { initWorkerRendering, disposeWorkerRendering } from '../../../workers';
-import { PR } from '../../../core/staticInitData';
+import { getCanvasViewportSize } from './battleViewport';
 import { GameController } from './gameController';
 import { UIController } from './uiController';
 import { PanelManager } from './panelManager';
@@ -20,16 +20,8 @@ import type { CanvasWithInputHandler, BattleModeConfig } from './types';
 // Re-export types for external use
 export type { BattleModeConfig, GameEntity, CanvasWithInputHandler } from './types';
 
-function getCanvasViewportSize(canvasEle: HTMLCanvasElement): { width: number; height: number } {
-    const rect = canvasEle.getBoundingClientRect();
-    const width = Math.round(rect.width || canvasEle.clientWidth || canvasEle.width / PR);
-    const height = Math.round(rect.height || canvasEle.clientHeight || canvasEle.height / PR);
-
-    return {
-        width: Math.max(1, width),
-        height: Math.max(1, height)
-    };
-}
+// Re-export multiplayer battle mode
+export { startMultiplayerBattleMode } from './multiplayerBattleMode';
 
 /**
  * Start battle mode

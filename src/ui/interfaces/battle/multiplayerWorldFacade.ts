@@ -31,6 +31,10 @@ export class MultiplayerWorldFacade implements PanelManagerWorldLike {
         return this._adapter.camera;
     }
 
+    updateViewSize(width: number, height: number): void {
+        this._adapter.updateViewSize(width, height);
+    }
+
     // === World Dimensions ===
 
     get width(): number {

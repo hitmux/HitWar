@@ -70,10 +70,10 @@
 2. **启动战场**
    ```bash
    cd dist/
-   python3 -m http.server 3000 #你也可以直接npm run dev，但是我们推荐使用Python，因为Python的http服务器可以在浏览器支持更优美的加载动画
+   python3 -m http.server 3030 #你也可以直接npm run dev，但是我们推荐使用Python，因为Python的http服务器可以在浏览器支持更优美的加载动画
    ```
 3. **开始指挥**
-   访问 `http://localhost:3000`
+   访问 `http://localhost:3030`
 
 ### 离线单机版
 
