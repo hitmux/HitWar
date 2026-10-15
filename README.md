@@ -1,8 +1,8 @@
 # ⚔️ HITWAR: 炮塔战争
 
-注意：目前2.4.3版本为预览版。**可能存在Bug**！！如遇，请反馈给 ck@hitmux.org or caokai674@gmail.com 或者提交issue
+注意：目前2.4.3版本为预览版。**可能存在Bug**！！如遇，请反馈给 ck@hitmux.com or caokai674@gmail.com 或者提交issue
 
-## **官方预览**: [Hitmux Game](https://game.hitmux.org)
+## **官方预览**: [Hitmux Game](https://game.hitmux.com)
 
 ```text
   _    _  _____ _______  __          __     _____  
@@ -56,7 +56,7 @@
 
 ## 🚀 快速部署 (Deployment)
 
-想立刻加入战斗？立刻访问：[Hitmux Game](https://game.hitmux.org)
+想立刻加入战斗？立刻访问：[Hitmux Game](https://game.hitmux.com)
 
 如果想自己部署？也简单！只需三步：
 
@@ -112,7 +112,7 @@ python3 -m http.server 3000
 
 ## 📡 联络站
 
-- **官方预览**: [Hitmux Game](https://game.hitmux.org)
+- **官方预览**: [Hitmux Game](https://game.hitmux.com)
 - **版本**: 2.4.3
 
 > **“在炮塔的轰鸣声中，书写你的传奇。”**
